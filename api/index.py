@@ -3,10 +3,9 @@
 import os
 import re
 import json as json_module
-import httpx
+import requests as req_lib
 from datetime import datetime
 from flask import Flask, request, jsonify, send_from_directory
-from openai import OpenAI
 from supabase import create_client
 
 app = Flask(__name__, static_folder="../public", static_url_path="")
@@ -14,6 +13,7 @@ app = Flask(__name__, static_folder="../public", static_url_path="")
 # --- Config ---
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "https://execvrooffolrkjqqeor.supabase.co")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV4ZWN2cm9vZmZvbHJranFxZW9yIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU3OTQ0MzgsImV4cCI6MjA5MTM3MDQzOH0.ePRSiu6a60mzkEL2bOC0TOUy3JOQdXt_rItfZExWVVs")
+OPENAI_API_URL = "https://api.openai.com/v1"
 EMBEDDING_MODEL = "text-embedding-3-small"
 CHUNK_SIZE = 800  # chars per chunk
 CHUNK_OVERLAP = 150  # overlap between chunks
@@ -21,13 +21,44 @@ CHUNK_OVERLAP = 150  # overlap between chunks
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 
-def get_openai_client():
+def openai_headers():
     api_key = os.environ.get("OPENAI_API_KEY")
     if not api_key:
         return None
-    # Create fresh httpx client per request to avoid connection pooling issues on serverless
-    http_client = httpx.Client(timeout=httpx.Timeout(55.0))
-    return OpenAI(api_key=api_key, http_client=http_client)
+    return {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+    }
+
+
+def openai_chat(messages, model="gpt-4o", max_tokens=4096):
+    """Call OpenAI Chat API using requests (avoids SDK connection issues on serverless)."""
+    headers = openai_headers()
+    if not headers:
+        raise ValueError("OPENAI_API_KEY not configured")
+    resp = req_lib.post(
+        f"{OPENAI_API_URL}/chat/completions",
+        headers=headers,
+        json={"model": model, "max_tokens": max_tokens, "messages": messages},
+        timeout=55,
+    )
+    resp.raise_for_status()
+    return resp.json()["choices"][0]["message"]["content"]
+
+
+def openai_embeddings(texts):
+    """Call OpenAI Embeddings API using requests."""
+    headers = openai_headers()
+    if not headers:
+        raise ValueError("OPENAI_API_KEY not configured")
+    resp = req_lib.post(
+        f"{OPENAI_API_URL}/embeddings",
+        headers=headers,
+        json={"model": EMBEDDING_MODEL, "input": texts},
+        timeout=55,
+    )
+    resp.raise_for_status()
+    return [item["embedding"] for item in resp.json()["data"]]
 
 
 # --- Chunking & Embedding ---
@@ -68,32 +99,21 @@ def chunk_contract(content, contract_name=""):
     return chunks
 
 
-def create_embeddings(texts, client):
-    """Create embeddings for a list of texts using OpenAI."""
-    response = client.embeddings.create(
-        model=EMBEDDING_MODEL,
-        input=texts,
-    )
-    return [item.embedding for item in response.data]
-
-
-def embed_contract(contract_id, content, contract_name, client):
+def embed_contract(contract_id, content, contract_name):
     """Chunk a contract, create embeddings, and store in Supabase."""
-    # Delete existing chunks for this contract (re-embedding)
     supabase.table("contract_chunks").delete().eq("contract_id", contract_id).execute()
 
     chunks = chunk_contract(content, contract_name)
     if not chunks:
         return 0
 
-    # Create embeddings in batches of 20
     batch_size = 20
     total_stored = 0
 
     for i in range(0, len(chunks), batch_size):
         batch = chunks[i:i + batch_size]
         texts = [c["text"] for c in batch]
-        embeddings = create_embeddings(texts, client)
+        embeddings = openai_embeddings(texts)
 
         rows = []
         for j, (chunk, embedding) in enumerate(zip(batch, embeddings)):
@@ -111,12 +131,10 @@ def embed_contract(contract_id, content, contract_name, client):
     return total_stored
 
 
-def semantic_search(query, client, contract_ids=None, match_count=12):
+def semantic_search(query, contract_ids=None, match_count=12):
     """Find the most relevant contract chunks for a query."""
-    # Embed the query
-    query_embedding = create_embeddings([query], client)[0]
+    query_embedding = openai_embeddings([query])[0]
 
-    # Call the match_chunks function in Supabase
     params = {
         "query_embedding": query_embedding,
         "match_count": match_count,
@@ -175,10 +193,9 @@ def add_contract():
 
     # Auto-embed the contract for RAG
     chunks_count = 0
-    client = get_openai_client()
-    if client:
+    if openai_headers():
         try:
-            chunks_count = embed_contract(contract_id, data["content"], data["name"], client)
+            chunks_count = embed_contract(contract_id, data["content"], data["name"])
         except Exception:
             pass  # Non-blocking — contract is saved even if embedding fails
 
@@ -210,8 +227,7 @@ def delete_contract(contract_id):
 @app.route("/api/contracts/<int:contract_id>/embed", methods=["POST"])
 def embed_single_contract(contract_id):
     """Manually trigger embedding for a contract."""
-    client = get_openai_client()
-    if not client:
+    if not openai_headers():
         return jsonify({"error": "OPENAI_API_KEY not configured"}), 500
 
     result = supabase.table("contracts").select("id, name, content").eq("id", contract_id).execute()
@@ -220,7 +236,7 @@ def embed_single_contract(contract_id):
 
     contract = result.data[0]
     try:
-        count = embed_contract(contract["id"], contract["content"], contract["name"], client)
+        count = embed_contract(contract["id"], contract["content"], contract["name"])
         return jsonify({"message": f"Embedded {count} chunks", "chunks": count})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -245,8 +261,7 @@ def search_contracts():
 @app.route("/api/parse", methods=["POST"])
 def parse_contract():
     """Use AI to extract metadata from contract text for auto-fill."""
-    client = get_openai_client()
-    if not client:
+    if not openai_headers():
         return jsonify({"error": "OPENAI_API_KEY not configured on server"}), 500
 
     data = request.json
@@ -257,9 +272,7 @@ def parse_contract():
     preview = content[:3000]
 
     try:
-        response = client.chat.completions.create(
-            model="gpt-4o-mini",
-            max_tokens=300,
+        reply = openai_chat(
             messages=[
                 {"role": "system", "content": """Extract contract metadata from the text and return ONLY a JSON object with these fields:
 - "name": a short descriptive contract title (e.g., "Cloud Service Agreement")
@@ -273,8 +286,10 @@ def parse_contract():
 Return ONLY valid JSON, no markdown, no explanation."""},
                 {"role": "user", "content": preview}
             ],
-        )
-        reply = response.choices[0].message.content.strip()
+            model="gpt-4o-mini",
+            max_tokens=300,
+        ).strip()
+
         if reply.startswith("```"):
             reply = reply.split("\n", 1)[1] if "\n" in reply else reply[3:]
             if reply.endswith("```"):
@@ -290,8 +305,7 @@ Return ONLY valid JSON, no markdown, no explanation."""},
 @app.route("/api/chat", methods=["POST"])
 def chat():
     """RAG-powered chat — semantic search + LLM."""
-    client = get_openai_client()
-    if not client:
+    if not openai_headers():
         return jsonify({"error": "OPENAI_API_KEY not configured on server"}), 500
 
     data = request.json
@@ -305,7 +319,7 @@ def chat():
     # Step 1: Semantic search — find relevant chunks
     try:
         relevant_chunks = semantic_search(
-            user_message, client,
+            user_message,
             contract_ids=contract_ids,
             match_count=15,
         )
@@ -395,14 +409,8 @@ INSTRUCTIONS:
     messages.append({"role": "user", "content": user_message})
 
     try:
-        response = client.chat.completions.create(
-            model="gpt-4o",
-            max_tokens=4096,
-            messages=messages,
-        )
-        reply = response.choices[0].message.content
+        reply = openai_chat(messages=messages, model="gpt-4o", max_tokens=4096)
 
-        # Include sources in response
         sources = []
         for c in contracts_meta:
             sources.append({"id": c["id"], "name": c["name"], "party": c["party_name"]})
