@@ -95,6 +95,55 @@ def search_contracts():
     return jsonify(result.data)
 
 
+@app.route("/api/parse", methods=["POST"])
+def parse_contract():
+    """Use AI to extract metadata from contract text for auto-fill."""
+    api_key = os.environ.get("OPENAI_API_KEY")
+    if not api_key:
+        return jsonify({"error": "OPENAI_API_KEY not configured on server"}), 500
+
+    data = request.json
+    content = data.get("content", "")
+    if not content:
+        return jsonify({"error": "No content provided"}), 400
+
+    # Use only first 3000 chars to save tokens — metadata is usually at the top
+    preview = content[:3000]
+
+    try:
+        client = OpenAI(api_key=api_key)
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            max_tokens=500,
+            messages=[
+                {"role": "system", "content": """Extract contract metadata from the text and return ONLY a JSON object with these fields:
+- "name": a short descriptive contract title (e.g., "Cloud Service Agreement")
+- "party_name": the other party's company name (not the company that owns the contract)
+- "contract_type": either "client" or "vendor" (client = someone paying us or we serve them, vendor = someone we pay or who supplies to us)
+- "start_date": in YYYY-MM-DD format, or null
+- "end_date": in YYYY-MM-DD format, or null
+- "value": total contract value as a string with currency (e.g., "USD 378,000"), or null
+- "notes": a one-line summary of what this contract covers
+
+Return ONLY valid JSON, no markdown, no explanation."""},
+                {"role": "user", "content": preview}
+            ],
+        )
+        reply = response.choices[0].message.content.strip()
+        # Clean markdown code fences if present
+        if reply.startswith("```"):
+            reply = reply.split("\n", 1)[1] if "\n" in reply else reply[3:]
+            if reply.endswith("```"):
+                reply = reply[:-3]
+            reply = reply.strip()
+
+        import json as json_module
+        parsed = json_module.loads(reply)
+        return jsonify(parsed)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 @app.route("/api/chat", methods=["POST"])
 def chat():
     api_key = os.environ.get("OPENAI_API_KEY")

@@ -392,14 +392,17 @@
                         <input type="text" id="f-notes" placeholder="Any additional notes...">
                     </div>
                     <div class="form-group">
-                        <label>Contract Content *</label>
-                        <div class="file-upload" onclick="document.getElementById('f-file').click()">
-                            <input type="file" id="f-file" accept=".txt,.md,.text" onchange="handleFile(event)">
+                        <label>Contract Content * <span style="font-size:0.8rem; color: var(--cyan);">(upload or paste — fields auto-fill via AI)</span></label>
+                        <div class="file-upload" id="file-drop-zone" onclick="document.getElementById('f-file').click()">
+                            <input type="file" id="f-file" accept=".txt,.md,.text,.pdf,.doc" onchange="handleFile(event)">
                             <p id="file-label">Click to upload a contract file (.txt, .md) or paste content below</p>
                         </div>
                     </div>
+                    <div id="autofill-status" style="display:none; margin-bottom:1rem; padding:0.8rem 1rem; border-radius:6px; background:rgba(6,182,212,0.1); border:1px solid var(--cyan); color:var(--cyan); font-size:0.85rem;">
+                        Extracting contract details with AI...
+                    </div>
                     <div class="form-group">
-                        <textarea id="f-content" placeholder="Or paste the full contract text here..." required></textarea>
+                        <textarea id="f-content" placeholder="Or paste the full contract text here..." required onpaste="handlePaste(event)"></textarea>
                     </div>
                     <button type="submit" class="btn" id="add-btn">Add Contract</button>
                 </form>
@@ -550,8 +553,64 @@
             const reader = new FileReader();
             reader.onload = () => {
                 document.getElementById('f-content').value = reader.result;
+                autoFillFromContent(reader.result);
             };
             reader.readAsText(file);
+        }
+
+        function handlePaste(e) {
+            // Wait for paste to complete, then auto-fill
+            setTimeout(() => {
+                const content = document.getElementById('f-content').value.trim();
+                if (content.length > 100) {
+                    autoFillFromContent(content);
+                }
+            }, 100);
+        }
+
+        async function autoFillFromContent(content) {
+            const status = document.getElementById('autofill-status');
+            status.style.display = 'block';
+            status.style.background = 'rgba(6,182,212,0.1)';
+            status.style.borderColor = 'var(--cyan)';
+            status.style.color = 'var(--cyan)';
+            status.textContent = 'Extracting contract details with AI...';
+
+            try {
+                const res = await fetch('/api/parse', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ content }),
+                });
+                const data = await res.json();
+
+                if (data.error) {
+                    status.textContent = 'Could not auto-extract. Please fill manually.';
+                    status.style.background = 'rgba(239,68,68,0.1)';
+                    status.style.borderColor = 'var(--red)';
+                    status.style.color = 'var(--red)';
+                    return;
+                }
+
+                // Auto-fill the form fields
+                if (data.name) document.getElementById('f-name').value = data.name;
+                if (data.party_name) document.getElementById('f-party').value = data.party_name;
+                if (data.contract_type) document.getElementById('f-type').value = data.contract_type;
+                if (data.start_date) document.getElementById('f-start').value = data.start_date;
+                if (data.end_date) document.getElementById('f-end').value = data.end_date;
+                if (data.value) document.getElementById('f-value').value = data.value;
+                if (data.notes) document.getElementById('f-notes').value = data.notes;
+
+                status.textContent = 'Fields auto-filled! Review and edit if needed, then click Add Contract.';
+                status.style.background = 'rgba(34,197,94,0.1)';
+                status.style.borderColor = 'var(--green)';
+                status.style.color = 'var(--green)';
+            } catch (err) {
+                status.textContent = 'Auto-fill failed. Please fill fields manually.';
+                status.style.background = 'rgba(239,68,68,0.1)';
+                status.style.borderColor = 'var(--red)';
+                status.style.color = 'var(--red)';
+            }
         }
 
         async function addContract(e) {
