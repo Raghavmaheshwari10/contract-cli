@@ -222,7 +222,7 @@
             display: flex;
             justify-content: space-between;
             align-items: start;
-            margin-bottom: 1rem;
+            margin-bottom: 0.5rem;
         }
         .modal-close {
             background: none;
@@ -231,6 +231,31 @@
             font-size: 1.5rem;
             cursor: pointer;
         }
+        .modal-tabs {
+            display: flex;
+            gap: 0;
+            margin-bottom: 1rem;
+            border-bottom: 2px solid var(--border);
+        }
+        .modal-tab {
+            padding: 0.6rem 1.5rem;
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 0.9rem;
+            border-bottom: 2px solid transparent;
+            margin-bottom: -2px;
+            transition: all 0.2s;
+        }
+        .modal-tab:hover { color: var(--text); }
+        .modal-tab.active {
+            color: var(--cyan);
+            border-bottom-color: var(--cyan);
+            font-weight: 600;
+        }
+        .modal-tab-content { display: none; }
+        .modal-tab-content.active { display: block; }
         .contract-content {
             background: var(--bg);
             border: 1px solid var(--border);
@@ -240,7 +265,7 @@
             font-size: 0.85rem;
             white-space: pre-wrap;
             line-height: 1.6;
-            max-height: 50vh;
+            max-height: 55vh;
             overflow-y: auto;
         }
         .meta-grid {
@@ -251,6 +276,24 @@
         }
         .meta-item { padding: 0.5rem; background: var(--bg); border-radius: 4px; }
         .meta-item small { color: var(--text-muted); display: block; font-size: 0.75rem; }
+        /* Modal chat */
+        .modal-chat-messages {
+            height: 45vh;
+            overflow-y: auto;
+            padding: 0.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.8rem;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            margin-bottom: 0.5rem;
+        }
+        .modal-chat-input {
+            display: flex;
+            gap: 0.5rem;
+        }
+        .modal-chat-input input { flex: 1; }
 
         .empty-state {
             text-align: center;
@@ -394,8 +437,8 @@
                     <div class="form-group">
                         <label>Contract Content * <span style="font-size:0.8rem; color: var(--cyan);">(upload or paste — fields auto-fill via AI)</span></label>
                         <div class="file-upload" id="file-drop-zone" onclick="document.getElementById('f-file').click()">
-                            <input type="file" id="f-file" accept=".txt,.md,.text,.pdf,.doc" onchange="handleFile(event)">
-                            <p id="file-label">Click to upload a contract file (.txt, .md) or paste content below</p>
+                            <input type="file" id="f-file" accept=".txt,.md,.text,.pdf" onchange="handleFile(event)">
+                            <p id="file-label">Click to upload a contract file (.pdf, .txt, .md) — PDF supported!</p>
                         </div>
                     </div>
                     <div id="autofill-status" style="display:none; margin-bottom:1rem; padding:0.8rem 1rem; border-radius:6px; background:rgba(6,182,212,0.1); border:1px solid var(--cyan); color:var(--cyan); font-size:0.85rem;">
@@ -433,15 +476,32 @@
         </div>
     </div>
 
-    <!-- Contract View Modal -->
+    <!-- Contract Modal with View + Chat Tabs -->
     <div class="modal-overlay" id="modal" onclick="if(event.target===this)closeModal()">
-        <div class="modal">
+        <div class="modal" style="max-width: 900px; max-height: 90vh; display: flex; flex-direction: column;">
             <div class="modal-header">
                 <h2 id="modal-title">Contract</h2>
                 <button class="modal-close" onclick="closeModal()">&times;</button>
             </div>
             <div class="meta-grid" id="modal-meta"></div>
-            <div class="contract-content" id="modal-content"></div>
+            <div class="modal-tabs">
+                <button class="modal-tab active" onclick="switchModalTab('view')">View Contract</button>
+                <button class="modal-tab" onclick="switchModalTab('chat')">Ask Questions</button>
+            </div>
+            <!-- View Tab -->
+            <div id="modal-tab-view" class="modal-tab-content active" style="flex:1; overflow:hidden;">
+                <div class="contract-content" id="modal-content" style="max-height: 100%;"></div>
+            </div>
+            <!-- Chat Tab -->
+            <div id="modal-tab-chat" class="modal-tab-content" style="flex:1; overflow:hidden; display:none; flex-direction:column;">
+                <div class="modal-chat-messages" id="modal-chat-messages">
+                    <div class="message message-system" style="font-size:0.85rem;">Ask any question about this contract. I'll find the exact clause and answer precisely.</div>
+                </div>
+                <div class="modal-chat-input">
+                    <input type="text" id="modal-chat-input" placeholder="e.g., What are the payment terms?" onkeyup="if(event.key==='Enter')sendModalChat()">
+                    <button class="btn" onclick="sendModalChat()" id="modal-chat-send">Send</button>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -480,17 +540,15 @@
                 return;
             }
             tbody.innerHTML = contracts.map(c => `
-                <tr>
+                <tr style="cursor:pointer;" onclick="viewContract(${c.id})">
                     <td>${c.id}</td>
-                    <td><strong>${esc(c.name)}</strong></td>
+                    <td><strong style="color:var(--cyan);">${esc(c.name)}</strong></td>
                     <td>${esc(c.party_name)}</td>
                     <td><span class="badge badge-${c.contract_type}">${c.contract_type.toUpperCase()}</span></td>
                     <td>${c.start_date || '-'}</td>
                     <td>${c.end_date || '-'}</td>
                     <td>${c.value || '-'}</td>
-                    <td>
-                        <button class="btn btn-small" onclick="viewContract(${c.id})">View</button>
-                        <button class="btn btn-small" onclick="chatAbout(${c.id}, '${esc(c.name)}')" style="background:var(--green);">Chat</button>
+                    <td onclick="event.stopPropagation();">
                         <button class="btn btn-small btn-danger" onclick="deleteContract(${c.id}, '${esc(c.name)}')">Delete</button>
                     </td>
                 </tr>
@@ -515,9 +573,15 @@
             }
         }
 
+        let modalContractId = null;
+        let modalChatHistory = [];
+
         async function viewContract(id) {
             const res = await fetch(`/api/contracts/${id}`);
             const c = await res.json();
+            modalContractId = c.id;
+            modalChatHistory = [];
+
             document.getElementById('modal-title').textContent = c.name;
             document.getElementById('modal-meta').innerHTML = `
                 <div class="meta-item"><small>Party</small>${esc(c.party_name)}</div>
@@ -528,11 +592,90 @@
                 <div class="meta-item"><small>Notes</small>${c.notes || 'N/A'}</div>
             `;
             document.getElementById('modal-content').textContent = c.content;
+            // Reset chat
+            document.getElementById('modal-chat-messages').innerHTML =
+                `<div class="message message-system" style="font-size:0.85rem;">Ask any question about <strong>${esc(c.name)}</strong>. I'll find the exact clause and answer precisely.</div>`;
+            // Reset to view tab
+            switchModalTab('view');
             document.getElementById('modal').classList.add('active');
+        }
+
+        function switchModalTab(tab) {
+            document.querySelectorAll('.modal-tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.modal-tab-content').forEach(t => { t.classList.remove('active'); t.style.display = 'none'; });
+            if (tab === 'view') {
+                document.querySelector('.modal-tab:first-child').classList.add('active');
+                const el = document.getElementById('modal-tab-view');
+                el.classList.add('active');
+                el.style.display = 'block';
+            } else {
+                document.querySelector('.modal-tab:last-child').classList.add('active');
+                const el = document.getElementById('modal-tab-chat');
+                el.classList.add('active');
+                el.style.display = 'flex';
+                document.getElementById('modal-chat-input').focus();
+            }
+        }
+
+        async function sendModalChat() {
+            const input = document.getElementById('modal-chat-input');
+            const msg = input.value.trim();
+            if (!msg) return;
+
+            input.value = '';
+            addModalChatMsg(msg, 'user');
+
+            const sendBtn = document.getElementById('modal-chat-send');
+            sendBtn.disabled = true;
+            addModalChatMsg('Analyzing contract...', 'assistant typing-indicator');
+
+            try {
+                const res = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        message: msg,
+                        history: modalChatHistory,
+                        contract_ids: [modalContractId],
+                    }),
+                });
+                const data = await res.json();
+
+                // Remove typing indicator
+                const container = document.getElementById('modal-chat-messages');
+                const typing = container.querySelector('.typing-indicator');
+                if (typing) typing.remove();
+
+                if (data.error) {
+                    addModalChatMsg('Error: ' + data.error, 'system');
+                } else {
+                    modalChatHistory.push({ role: 'user', content: msg });
+                    modalChatHistory.push({ role: 'assistant', content: data.reply });
+                    addModalChatMsg(data.reply, 'assistant');
+                }
+            } catch (err) {
+                const container = document.getElementById('modal-chat-messages');
+                const typing = container.querySelector('.typing-indicator');
+                if (typing) typing.remove();
+                addModalChatMsg('Error: Could not reach server.', 'system');
+            }
+            sendBtn.disabled = false;
+        }
+
+        function addModalChatMsg(text, type) {
+            const container = document.getElementById('modal-chat-messages');
+            const div = document.createElement('div');
+            div.className = `message message-${type}`;
+            div.style.fontSize = '0.85rem';
+            div.textContent = text;
+            container.appendChild(div);
+            container.scrollTop = container.scrollHeight;
         }
 
         function closeModal() {
             document.getElementById('modal').classList.remove('active');
+            modalContractId = null;
+            modalChatHistory = [];
         }
 
         async function deleteContract(id, name) {
@@ -555,16 +698,50 @@
         }
 
         // --- Add Contract ---
-        function handleFile(e) {
+        async function handleFile(e) {
             const file = e.target.files[0];
             if (!file) return;
             document.getElementById('file-label').textContent = `Selected: ${file.name}`;
-            const reader = new FileReader();
-            reader.onload = () => {
-                document.getElementById('f-content').value = reader.result;
-                autoFillFromContent(reader.result);
-            };
-            reader.readAsText(file);
+
+            if (file.name.toLowerCase().endsWith('.pdf')) {
+                // Upload PDF to server for text extraction
+                const status = document.getElementById('autofill-status');
+                status.style.display = 'block';
+                status.style.background = 'rgba(6,182,212,0.1)';
+                status.style.borderColor = 'var(--cyan)';
+                status.style.color = 'var(--cyan)';
+                status.textContent = 'Extracting text from PDF...';
+
+                const formData = new FormData();
+                formData.append('file', file);
+                try {
+                    const res = await fetch('/api/upload-pdf', { method: 'POST', body: formData });
+                    const data = await res.json();
+                    if (data.error) {
+                        status.textContent = 'PDF extraction failed: ' + data.error;
+                        status.style.background = 'rgba(239,68,68,0.1)';
+                        status.style.borderColor = 'var(--red)';
+                        status.style.color = 'var(--red)';
+                        return;
+                    }
+                    document.getElementById('f-content').value = data.content;
+                    status.textContent = `PDF extracted (${data.pages} pages). Auto-filling fields...`;
+                    autoFillFromContent(data.content);
+                } catch (err) {
+                    status.textContent = 'PDF upload failed: ' + err.message;
+                    status.style.background = 'rgba(239,68,68,0.1)';
+                    status.style.borderColor = 'var(--red)';
+                    status.style.color = 'var(--red)';
+                }
+            } else {
+                // Text file — read directly
+                const reader = new FileReader();
+                reader.onload = () => {
+                    document.getElementById('f-content').value = reader.result;
+                    autoFillFromContent(reader.result);
+                };
+                reader.readAsText(file);
+            }
         }
 
         function handlePaste(e) {

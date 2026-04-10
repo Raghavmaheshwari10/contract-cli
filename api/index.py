@@ -2,11 +2,13 @@
 
 import os
 import re
+import io
 import json as json_module
 import requests as req_lib
 from datetime import datetime
 from flask import Flask, request, jsonify, send_from_directory
 from supabase import create_client
+import fitz  # PyMuPDF for PDF text extraction
 
 app = Flask(__name__, static_folder="../public", static_url_path="")
 
@@ -242,6 +244,32 @@ def embed_single_contract(contract_id):
         return jsonify({"error": str(e)}), 500
 
 
+@app.route("/api/upload-pdf", methods=["POST"])
+def upload_pdf():
+    """Extract text from uploaded PDF file."""
+    if "file" not in request.files:
+        return jsonify({"error": "No file uploaded"}), 400
+
+    file = request.files["file"]
+    if not file.filename.lower().endswith(".pdf"):
+        return jsonify({"error": "Only PDF files are supported"}), 400
+
+    try:
+        pdf_bytes = file.read()
+        doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+        text = ""
+        for page in doc:
+            text += page.get_text() + "\n"
+        doc.close()
+
+        if not text.strip():
+            return jsonify({"error": "Could not extract text from PDF. It may be scanned/image-based."}), 400
+
+        return jsonify({"content": text.strip(), "pages": len(doc)})
+    except Exception as e:
+        return jsonify({"error": f"Failed to process PDF: {str(e)}"}), 500
+
+
 @app.route("/api/search", methods=["GET"])
 def search_contracts():
     query = request.args.get("q", "")
@@ -389,17 +417,21 @@ def chat():
 
     system_prompt = f"""You are an expert contract analysis assistant for the finance team of a technology services company.
 
-ABOUT OUR BUSINESS:
-We are a technology services broker company operating in these verticals:
-1. Cloud Resell, Migration & Managed Services — reselling cloud (AWS, Azure, GCP), migrating workloads, and providing ongoing managed services
-2. Resource Augmentation (RA) — placing skilled IT professionals (developers, DevOps, QA, etc.) at client sites on time & material or fixed-cost basis
-3. AI Development & Software Development — building custom AI solutions, ML models, and software products for clients
+ABOUT OUR COMPANY (EMB / Mantarav Private Limited):
+We are EMB (Expand My Business / Mantarav Private Limited), a technology services broker company.
+Our corporate office: Incuspaze, Phase 4, Maruti Udyog, Sector 18, Gurgaon, Haryana, 122015.
+
+SERVICE VERTICALS:
+1. Cloud Resell, Migration & Managed Services — AWS/Azure/GCP partner-led billing, cloud migration, managed infrastructure services. We transfer customer AWS billing to our partner account, provide discounts, and handle optimization.
+2. Resource Augmentation (RA) — placing skilled IT professionals (developers, DevOps, QA, data engineers, etc.) at client sites on time & material or fixed-cost basis.
+3. AI Development & Software Development — building custom AI solutions, ML models, chatbots, and full-stack software products for clients.
 
 BUSINESS MODEL:
 - We act as a BROKER between clients and vendors
-- CLIENT contracts = companies who pay us for services (our revenue)
-- VENDOR contracts = companies/subcontractors we pay to deliver those services (our cost)
-- Our margin = Client contract value - Vendor contract value for the same project
+- CLIENT contracts = companies who pay us for services (our revenue). Examples: AWS bill transfer agreements, managed services contracts, RA staffing contracts, software development contracts
+- VENDOR contracts = companies/subcontractors we pay to deliver those services (our cost). Examples: AWS (cloud infrastructure), freelancers, dev agencies, staffing vendors
+- Our margin = Client contract value - Vendor contract value for the same project/service
+- For cloud resell: our margin = discount we get from AWS minus discount we pass to customer
 - We ensure smooth delivery between both sides
 
 CONTRACTS IN SYSTEM:
@@ -470,12 +502,48 @@ QUESTION CATEGORIES YOU MUST BE EXPERT IN:
 - Rate comparison across RA contracts
 - Find all contracts with a specific clause (e.g., non-compete, IP ownership)
 
+**Cloud Resell / AWS Bill Transfer Questions:**
+- What discount are we offering to this customer on their AWS bill?
+- What is the customer's monthly AWS consumption?
+- Does the discount apply to AWS Marketplace and AWS Support charges?
+- What are the billing transfer terms? How quickly must the customer transfer billing?
+- Can the customer buy Savings Plans or Reserved Instances directly from AWS during the contract?
+- What happens to AWS billing if the contract is terminated?
+- Who is responsible for AWS infrastructure management?
+- Who bears the risk if AWS has downtime or SLA breach?
+- Are AWS Marketplace charges billed in USD? What exchange rate applies?
+- What are EMB's responsibilities vs customer's responsibilities in cloud management?
+- Is there a minimum consumption commitment?
+- Does the discount apply on unblended or blended AWS rates?
+
 **Broker-Specific / Margin Questions:**
 - What's our margin on this project (client rate vs vendor rate)?
+- What discount are we giving vs what discount we get from AWS?
 - Are our vendor SLAs aligned with what we promised the client?
 - If a vendor contract ends, which client deliveries are at risk?
 - Do our vendor payment terms give us enough buffer before client payment is due?
 - Are there any gaps in insurance coverage between client requirements and vendor policies?
+- What is our total revenue exposure if this client terminates?
+- What is the payment cycle gap (when we pay vendor vs when client pays us)?
+
+**Specific Contract Deep-Dive Questions:**
+- Summarize this contract in 5 bullet points
+- What are the key risks in this contract for us?
+- What are all the termination scenarios and their consequences?
+- List all financial obligations (fees, penalties, interest, taxes)
+- What are the notice periods for different actions in this contract?
+- What survives after termination of this contract?
+- Who are the key contacts and signatories?
+- What is the dispute resolution mechanism?
+- Is there an arbitration clause? Where is the seat/venue?
+- What governing law applies?
+- What are the data privacy obligations?
+- What are the indemnification obligations? Are they mutual or one-sided?
+- What is the liability cap? How is it calculated?
+- Does this contract have force majeure coverage?
+- What IP rights does each party retain?
+- Can either party assign this contract to a third party?
+- Is there an auto-renewal clause? How do we opt out?
 
 INSTRUCTIONS:
 1. Answer ONLY based on the contract data provided above. Never make up or assume information.
