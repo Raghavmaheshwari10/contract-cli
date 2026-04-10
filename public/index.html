@@ -414,7 +414,7 @@
             <div class="card chat-container">
                 <div class="chat-messages" id="chat-messages">
                     <div class="message message-system">
-                        Welcome! Ask any question about your contracts. I'll search through all contracts and give you precise answers with specific clause references.
+                        Welcome! Ask any question about your contracts. Powered by RAG — I semantically search through all contract chunks and give you precise answers with source references.
                     </div>
                 </div>
                 <div class="chat-input-area">
@@ -638,9 +638,11 @@
                 });
                 const data = await res.json();
                 if (res.ok) {
-                    alert(`Contract added! ID: ${data.id}`);
+                    const embMsg = data.chunks_embedded ? ` (${data.chunks_embedded} chunks embedded for AI search)` : '';
+                    alert(`Contract added! ID: ${data.id}${embMsg}`);
                     document.getElementById('add-form').reset();
                     document.getElementById('file-label').textContent = 'Click to upload a contract file (.txt, .md) or paste content below';
+                    document.getElementById('autofill-status').style.display = 'none';
                     showSection('dashboard');
                     document.querySelector('.nav button').click();
                 } else {
@@ -688,6 +690,11 @@
                     chatHistory.push({ role: 'user', content: msg });
                     chatHistory.push({ role: 'assistant', content: data.reply });
                     addChatMessage(data.reply, 'assistant');
+                    // Show RAG sources
+                    if (data.sources && data.sources.length > 0) {
+                        const srcList = data.sources.map(s => s.name).join(', ');
+                        addChatMessage(`Sources: ${srcList} | ${data.chunks_used} chunks analyzed`, 'system');
+                    }
                 }
             } catch (err) {
                 const messages = document.getElementById('chat-messages');
