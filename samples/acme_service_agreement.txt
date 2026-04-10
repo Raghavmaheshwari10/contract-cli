@@ -1,0 +1,80 @@
+SERVICE AGREEMENT
+
+This Service Agreement ("Agreement") is entered into as of January 15, 2026,
+by and between:
+
+CLIENT: TechVision Solutions Pvt. Ltd. ("Company")
+        Address: 42 MG Road, Bengaluru, Karnataka 560001
+
+AND
+
+SERVICE PROVIDER: Acme Cloud Services Inc. ("Provider")
+        Address: 500 Market Street, San Francisco, CA 94105
+
+1. SCOPE OF SERVICES
+   The Provider shall deliver the following cloud infrastructure services:
+   a) Cloud hosting and server management (AWS-based)
+   b) 24/7 system monitoring and incident response
+   c) Monthly performance reports and optimization recommendations
+   d) Data backup and disaster recovery services
+   e) SSL certificate management and security patching
+
+2. TERM
+   This Agreement shall commence on February 1, 2026, and shall continue
+   for a period of twenty-four (24) months, ending on January 31, 2028,
+   unless terminated earlier in accordance with Section 8.
+
+3. COMPENSATION
+   a) Monthly Service Fee: USD 15,000 (Fifteen Thousand US Dollars)
+   b) Payment Terms: Net 30 days from invoice date
+   c) Annual escalation: 5% increase effective on each anniversary
+   d) Total Contract Value: Approximately USD 378,000 over the full term
+   e) Late Payment Penalty: 1.5% per month on overdue amounts
+
+4. SERVICE LEVEL AGREEMENT (SLA)
+   a) Uptime Guarantee: 99.95% monthly uptime
+   b) Response Time: Critical issues — 15 minutes; High — 1 hour; Medium — 4 hours
+   c) SLA Credits:
+      - Below 99.95% but above 99.9%: 10% credit on monthly fee
+      - Below 99.9% but above 99.5%: 25% credit on monthly fee
+      - Below 99.5%: 50% credit on monthly fee
+   d) Maximum monthly SLA credit shall not exceed 50% of that month's fee
+
+5. CONFIDENTIALITY
+   Both parties agree to maintain strict confidentiality of all proprietary
+   information, trade secrets, and business data shared during the term of
+   this Agreement. This obligation survives termination for a period of
+   three (3) years.
+
+6. INTELLECTUAL PROPERTY
+   All intellectual property developed specifically for the Company under
+   this Agreement shall be owned by the Company. Pre-existing IP of the
+   Provider remains with the Provider.
+
+7. LIABILITY
+   a) Provider's total liability shall not exceed the total fees paid in
+      the twelve (12) months preceding the claim
+   b) Neither party shall be liable for indirect, consequential, or
+      punitive damages
+   c) Provider maintains professional liability insurance of USD 5,000,000
+
+8. TERMINATION
+   a) Either party may terminate with 90 days written notice
+   b) Immediate termination for material breach if not cured within 30 days
+   c) Upon termination, Provider shall assist with data migration for up to
+      60 days at no additional cost
+
+9. DISPUTE RESOLUTION
+   Any disputes shall be resolved through binding arbitration in
+   Bengaluru, India, under the rules of the Indian Arbitration and
+   Conciliation Act, 1996.
+
+10. GOVERNING LAW
+    This Agreement shall be governed by the laws of India.
+
+SIGNATURES:
+
+For TechVision Solutions Pvt. Ltd.         For Acme Cloud Services Inc.
+Name: Rajesh Kumar                          Name: Sarah Chen
+Title: CFO                                  Title: VP of Sales
+Date: January 15, 2026                      Date: January 15, 2026

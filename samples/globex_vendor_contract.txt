@@ -1,0 +1,84 @@
+VENDOR SUPPLY AGREEMENT
+
+Agreement Date: March 1, 2026
+
+BETWEEN:
+
+BUYER: TechVision Solutions Pvt. Ltd. ("Company")
+       42 MG Road, Bengaluru, Karnataka 560001
+
+AND
+
+VENDOR: Globex Office Supplies Ltd. ("Vendor")
+        12 Industrial Area, Phase II, Noida, UP 201301
+
+RECITALS:
+The Company wishes to engage the Vendor for the supply of office furniture,
+IT equipment, and consumables for its Bengaluru and Hyderabad offices.
+
+1. PRODUCTS AND SERVICES
+   The Vendor shall supply:
+   a) Office furniture (desks, chairs, storage units)
+   b) IT peripherals (monitors, keyboards, mice, headsets)
+   c) Office consumables (paper, toner, stationery)
+   d) Installation and assembly services for all furniture
+
+2. CONTRACT DURATION
+   Start Date: April 1, 2026
+   End Date: March 31, 2027 (12 months)
+   Renewal: Auto-renews for successive 12-month periods unless either
+   party gives 60 days written notice before expiry.
+
+3. PRICING AND PAYMENT
+   a) Pricing: As per the attached Schedule A (Rate Card)
+   b) Estimated Annual Value: INR 45,00,000 (Forty-Five Lakhs)
+   c) Payment Terms: Net 45 days from delivery and acceptance
+   d) Early Payment Discount: 2% discount for payment within 15 days
+   e) All prices are exclusive of GST (18% applicable)
+
+4. DELIVERY TERMS
+   a) Standard delivery: Within 7 business days of purchase order
+   b) Bulk orders (above INR 5,00,000): Within 15 business days
+   c) Emergency orders: Best effort within 48 hours (15% surcharge applies)
+   d) Delivery Location: Company premises in Bengaluru and Hyderabad
+   e) Free delivery for orders above INR 25,000
+
+5. WARRANTY
+   a) Furniture: 5-year warranty against manufacturing defects
+   b) IT Equipment: 3-year warranty or manufacturer warranty (whichever is longer)
+   c) Consumables: Replacement for defective items within 7 days
+
+6. QUALITY STANDARDS
+   a) All products must meet BIS (Bureau of Indian Standards) certification
+   b) IT equipment must be energy-star rated
+   c) Vendor shall provide test/compliance certificates upon request
+
+7. PENALTIES
+   a) Late Delivery: 1% of order value per day, maximum 10%
+   b) Defective Products: Full replacement at vendor's cost + 5% penalty
+   c) Repeated quality failures (3 or more in a quarter): Company may
+      terminate with 15 days notice
+
+8. INSURANCE
+   Vendor shall maintain product liability insurance of INR 1,00,00,000
+   (One Crore) for the duration of this agreement.
+
+9. TERMINATION
+   a) For convenience: 60 days written notice
+   b) For cause: 15 days notice after failure to cure within 30 days
+   c) Immediate termination for fraud, bankruptcy, or insolvency
+
+10. CONFIDENTIALITY
+    Vendor shall not disclose Company's purchasing patterns, pricing
+    negotiations, or internal requirements to any third party.
+
+11. GOVERNING LAW
+    This agreement is governed by the laws of India. Disputes shall be
+    resolved in the courts of Bengaluru, Karnataka.
+
+AGREED AND SIGNED:
+
+For TechVision Solutions Pvt. Ltd.       For Globex Office Supplies Ltd.
+Name: Priya Sharma                        Name: Amit Patel
+Title: Head of Procurement                Title: Director of Sales
+Date: March 1, 2026                       Date: March 1, 2026

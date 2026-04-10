@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+*.pyo
+.env
+contracts.db
+contracts_store/
+.vercel/
+node_modules/
+*.egg-info/
+dist/
+build/
