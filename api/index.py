@@ -22,7 +22,7 @@ supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 
 def openai_headers():
-    api_key = os.environ.get("OPENAI_API_KEY")
+    api_key = os.environ.get("OPENAI_API_KEY", "").strip()
     if not api_key:
         return None
     return {
