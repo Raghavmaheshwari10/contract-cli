@@ -1,6 +1,7 @@
 """Flask API for Contract Manager — Vercel serverless deployment with Supabase."""
 
 import os
+import httpx
 from datetime import datetime
 from flask import Flask, request, jsonify, send_from_directory
 from openai import OpenAI
@@ -111,10 +112,10 @@ def parse_contract():
     preview = content[:3000]
 
     try:
-        client = OpenAI(api_key=api_key)
+        client = OpenAI(api_key=api_key, timeout=httpx.Timeout(55.0))
         response = client.chat.completions.create(
             model="gpt-4o-mini",
-            max_tokens=500,
+            max_tokens=300,
             messages=[
                 {"role": "system", "content": """Extract contract metadata from the text and return ONLY a JSON object with these fields:
 - "name": a short descriptive contract title (e.g., "Cloud Service Agreement")
@@ -206,7 +207,7 @@ Here are the contracts you have access to:
     messages.append({"role": "user", "content": user_message})
 
     try:
-        client = OpenAI(api_key=api_key)
+        client = OpenAI(api_key=api_key, timeout=httpx.Timeout(55.0))
         response = client.chat.completions.create(
             model="gpt-4o",
             max_tokens=4096,
