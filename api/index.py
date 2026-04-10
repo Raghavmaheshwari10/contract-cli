@@ -1,48 +1,18 @@
-"""Flask API for Contract Manager — Vercel serverless deployment."""
+"""Flask API for Contract Manager — Vercel serverless deployment with Supabase."""
 
 import os
-import sys
-import json
-import sqlite3
 from datetime import datetime
 from flask import Flask, request, jsonify, send_from_directory
 from openai import OpenAI
+from supabase import create_client
 
 app = Flask(__name__, static_folder="../public", static_url_path="")
 
-# --- Database Setup (uses /tmp on Vercel for ephemeral storage) ---
-# For production, use a cloud database like Supabase, PlanetScale, or Neon
+# --- Supabase Setup ---
+SUPABASE_URL = os.environ.get("SUPABASE_URL", "https://execvrooffolrkjqqeor.supabase.co")
+SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV4ZWN2cm9vZmZvbHJranFxZW9yIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU3OTQ0MzgsImV4cCI6MjA5MTM3MDQzOH0.ePRSiu6a60mzkEL2bOC0TOUy3JOQdXt_rItfZExWVVs")
 
-DB_PATH = os.environ.get("DB_PATH", "/tmp/contracts.db")
-
-
-def get_db():
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    return conn
-
-
-def init_db():
-    conn = get_db()
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS contracts (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            party_name TEXT NOT NULL,
-            contract_type TEXT NOT NULL CHECK(contract_type IN ('client', 'vendor')),
-            start_date TEXT,
-            end_date TEXT,
-            value TEXT,
-            content TEXT NOT NULL,
-            added_on TEXT NOT NULL,
-            notes TEXT DEFAULT ''
-        )
-    """)
-    conn.commit()
-    conn.close()
-
-
-init_db()
+supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 
 # --- Routes ---
@@ -54,19 +24,12 @@ def serve_frontend():
 
 @app.route("/api/contracts", methods=["GET"])
 def list_contracts():
-    conn = get_db()
     contract_type = request.args.get("type")
+    query = supabase.table("contracts").select("id, name, party_name, contract_type, start_date, end_date, value, added_on, notes").order("added_on", desc=True)
     if contract_type:
-        rows = conn.execute(
-            "SELECT id, name, party_name, contract_type, start_date, end_date, value, added_on, notes FROM contracts WHERE contract_type = ? ORDER BY added_on DESC",
-            (contract_type,),
-        ).fetchall()
-    else:
-        rows = conn.execute(
-            "SELECT id, name, party_name, contract_type, start_date, end_date, value, added_on, notes FROM contracts ORDER BY added_on DESC"
-        ).fetchall()
-    conn.close()
-    return jsonify([dict(r) for r in rows])
+        query = query.eq("contract_type", contract_type)
+    result = query.execute()
+    return jsonify(result.data)
 
 
 @app.route("/api/contracts", methods=["POST"])
@@ -80,48 +43,38 @@ def add_contract():
     if data["contract_type"] not in ("client", "vendor"):
         return jsonify({"error": "contract_type must be 'client' or 'vendor'"}), 400
 
-    conn = get_db()
-    cursor = conn.execute(
-        """INSERT INTO contracts (name, party_name, contract_type, start_date, end_date, value, content, added_on, notes)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-        (
-            data["name"],
-            data["party_name"],
-            data["contract_type"],
-            data.get("start_date"),
-            data.get("end_date"),
-            data.get("value"),
-            data["content"],
-            datetime.now().isoformat(),
-            data.get("notes", ""),
-        ),
-    )
-    contract_id = cursor.lastrowid
-    conn.commit()
-    conn.close()
+    row = {
+        "name": data["name"],
+        "party_name": data["party_name"],
+        "contract_type": data["contract_type"],
+        "start_date": data.get("start_date") or None,
+        "end_date": data.get("end_date") or None,
+        "value": data.get("value") or None,
+        "content": data["content"],
+        "added_on": datetime.now().isoformat(),
+        "notes": data.get("notes", ""),
+    }
+
+    result = supabase.table("contracts").insert(row).execute()
+    contract_id = result.data[0]["id"]
     return jsonify({"id": contract_id, "message": "Contract added successfully"}), 201
 
 
 @app.route("/api/contracts/<int:contract_id>", methods=["GET"])
 def get_contract(contract_id):
-    conn = get_db()
-    row = conn.execute("SELECT * FROM contracts WHERE id = ?", (contract_id,)).fetchone()
-    conn.close()
-    if not row:
+    result = supabase.table("contracts").select("*").eq("id", contract_id).execute()
+    if not result.data:
         return jsonify({"error": "Contract not found"}), 404
-    return jsonify(dict(row))
+    return jsonify(result.data[0])
 
 
 @app.route("/api/contracts/<int:contract_id>", methods=["DELETE"])
 def delete_contract(contract_id):
-    conn = get_db()
-    row = conn.execute("SELECT id FROM contracts WHERE id = ?", (contract_id,)).fetchone()
-    if not row:
-        conn.close()
+    # Check if exists
+    check = supabase.table("contracts").select("id").eq("id", contract_id).execute()
+    if not check.data:
         return jsonify({"error": "Contract not found"}), 404
-    conn.execute("DELETE FROM contracts WHERE id = ?", (contract_id,))
-    conn.commit()
-    conn.close()
+    supabase.table("contracts").delete().eq("id", contract_id).execute()
     return jsonify({"message": "Contract deleted"})
 
 
@@ -131,19 +84,15 @@ def search_contracts():
     if not query:
         return jsonify([])
 
-    conn = get_db()
-    # Simple LIKE search (FTS not available in /tmp ephemeral DB easily)
+    # Search across name, party_name, and content using ilike
     search_term = f"%{query}%"
-    rows = conn.execute(
-        """SELECT id, name, party_name, contract_type, start_date, end_date, value,
-                  substr(content, max(1, instr(lower(content), lower(?)) - 80), 200) as snippet
-           FROM contracts
-           WHERE lower(name) LIKE lower(?) OR lower(party_name) LIKE lower(?) OR lower(content) LIKE lower(?)
-           LIMIT 20""",
-        (query, search_term, search_term, search_term),
-    ).fetchall()
-    conn.close()
-    return jsonify([dict(r) for r in rows])
+    result = supabase.table("contracts").select(
+        "id, name, party_name, contract_type, start_date, end_date, value"
+    ).or_(
+        f"name.ilike.{search_term},party_name.ilike.{search_term},content.ilike.{search_term}"
+    ).limit(20).execute()
+
+    return jsonify(result.data)
 
 
 @app.route("/api/chat", methods=["POST"])
@@ -160,20 +109,12 @@ def chat():
     if not user_message:
         return jsonify({"error": "No message provided"}), 400
 
-    # Load contracts
-    conn = get_db()
+    # Load contracts from Supabase
+    query = supabase.table("contracts").select("id, name, party_name, contract_type, start_date, end_date, value, content, notes")
     if contract_ids:
-        placeholders = ",".join("?" * len(contract_ids))
-        rows = conn.execute(
-            f"SELECT id, name, party_name, contract_type, start_date, end_date, value, content, notes FROM contracts WHERE id IN ({placeholders})",
-            contract_ids,
-        ).fetchall()
-    else:
-        rows = conn.execute(
-            "SELECT id, name, party_name, contract_type, start_date, end_date, value, content, notes FROM contracts"
-        ).fetchall()
-    conn.close()
-    contracts = [dict(r) for r in rows]
+        query = query.in_("id", contract_ids)
+    result = query.execute()
+    contracts = result.data
 
     # Build context
     if not contracts:
