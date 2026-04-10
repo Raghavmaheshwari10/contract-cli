@@ -25,7 +25,9 @@ def get_openai_client():
     api_key = os.environ.get("OPENAI_API_KEY")
     if not api_key:
         return None
-    return OpenAI(api_key=api_key, timeout=httpx.Timeout(55.0))
+    # Create fresh httpx client per request to avoid connection pooling issues on serverless
+    http_client = httpx.Client(timeout=httpx.Timeout(55.0))
+    return OpenAI(api_key=api_key, http_client=http_client)
 
 
 # --- Chunking & Embedding ---
