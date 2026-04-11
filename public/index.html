@@ -446,7 +446,7 @@ kbd{display:none}
 
 /* ═══ CALENDAR ═══ */
 .cal-container{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
-.cal-header{display:flex;align-items:center;justify-content:space-between;padding:1rem 1.5rem;border-bottom:1px solid var(--border);background:var(--surface2)}
+.cal-header{display:flex;align-items:center;justify-content:space-between;padding:1rem 1.5rem;border-bottom:1px solid var(--border);background:var(--surface2);position:relative}
 .cal-header h3{font-size:1.1rem;font-weight:700;color:var(--text);min-width:180px;text-align:center}
 .cal-nav{display:flex;align-items:center;gap:.4rem}
 .cal-nav button{width:34px;height:34px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--surface);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text3);transition:var(--transition);font-size:.9rem}
@@ -1132,8 +1132,13 @@ Use placeholders like [PARTY_NAME], [DATE], [COMPANY_NAME], [ADDRESS] for fields
 <button onclick="calNav(-1)" title="Previous month">&lsaquo;</button>
 </div>
 <div style="display:flex;align-items:center;gap:.5rem">
-<select class="filter-select" id="cal-month-select" onchange="calMonth=parseInt(this.value);loadCalendar()" style="font-size:.85rem;font-weight:600;padding:.3rem .5rem;border:none;background:transparent;color:var(--text);cursor:pointer"></select>
-<select class="filter-select" id="cal-year-select" onchange="calYear=parseInt(this.value);loadCalendar()" style="font-size:.85rem;font-weight:600;padding:.3rem .5rem;border:none;background:transparent;color:var(--text);cursor:pointer"></select>
+<h3 id="cal-title" style="font-size:1.1rem;font-weight:700;color:var(--text);margin:0;cursor:pointer;display:flex;align-items:center;gap:.3rem" onclick="document.getElementById('cal-picker').style.display=document.getElementById('cal-picker').style.display==='flex'?'none':'flex'">
+April 2026 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+</h3>
+<div id="cal-picker" style="display:none;position:absolute;top:100%;left:50%;transform:translateX(-50%);background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow-lg);padding:.8rem;z-index:10;gap:.5rem;flex-wrap:wrap;width:280px;margin-top:.3rem">
+<select class="form-input" id="cal-month-select" onchange="calMonth=parseInt(this.value);loadCalendar()" style="flex:1;font-size:.82rem;padding:.4rem .5rem"></select>
+<select class="form-input" id="cal-year-select" onchange="calYear=parseInt(this.value);loadCalendar()" style="width:90px;font-size:.82rem;padding:.4rem .5rem"></select>
+</div>
 </div>
 <div class="cal-nav">
 <button onclick="calNav(1)" title="Next month">&rsaquo;</button>
@@ -2439,10 +2444,16 @@ function calToday(){calYear=new Date().getFullYear();calMonth=new Date().getMont
 
 function updateCalSelectors(){
 const months=['January','February','March','April','May','June','July','August','September','October','November','December'];
+// Update title
+const titleEl=document.getElementById('cal-title');
+if(titleEl){titleEl.innerHTML=`${months[calMonth]} ${calYear} <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>`}
+// Update picker dropdowns
 const ms=document.getElementById('cal-month-select');
 if(ms){ms.innerHTML=months.map((m,i)=>`<option value="${i}"${i===calMonth?' selected':''}>${m}</option>`).join('')}
 const ys=document.getElementById('cal-year-select');
-if(ys){const cy=new Date().getFullYear();ys.innerHTML='';for(let y=cy-3;y<=cy+5;y++){ys.innerHTML+=`<option value="${y}"${y===calYear?' selected':''}>${y}</option>`}}}
+if(ys){const cy=new Date().getFullYear();ys.innerHTML='';for(let y=cy-3;y<=cy+5;y++){ys.innerHTML+=`<option value="${y}"${y===calYear?' selected':''}>${y}</option>`}}
+// Close picker after selection
+document.getElementById('cal-picker').style.display='none'}
 
 async function loadCalendar(){
 const m=String(calMonth+1).padStart(2,'0');
