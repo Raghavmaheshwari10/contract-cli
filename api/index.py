@@ -1021,15 +1021,14 @@ def chat():
         ctx = "\n---\n".join(parts)
         summ = "\n".join(f"- {c['name']} ({c['party_name']}, {c['contract_type']})" for c in meta)
 
-        # For single-contract queries: supplement with full text to catch missed sections
+        # For scoped queries (1-3 contracts): supplement with full text so no section is missed
         if cids and len(cids) <= 3:
             try:
                 full = sb.table("contracts").select("content").in_("id", cids).execute().data
                 for fc in (full or []):
                     content = fc.get("content", "")
                     if content:
-                        # Send full text (up to 30K chars) to ensure no section is missed
-                        ctx += f"\n\n--- FULL CONTRACT TEXT ---\n{content[:30000]}"
+                        ctx += f"\n\n--- FULL CONTRACT TEXT (use this to answer if RAG chunks above don't contain the answer) ---\n{content}"
             except: pass
     else:
         q = sb.table("contracts").select("id,name,party_name,contract_type,content")
