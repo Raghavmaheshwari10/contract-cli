@@ -1016,20 +1016,25 @@ def chat():
     meta = sb.table("contracts").select("id,name,party_name,contract_type,start_date,end_date,value").in_("id", ref_ids).execute().data if ref_ids else []
     ml = {c["id"]: c for c in meta}
 
-    if chunks:
+    # For scoped queries (1-3 contracts): use full contract text as primary context
+    # This ensures NO section is missed (annexures, payment terms, signatures, etc.)
+    if cids and len(cids) <= 3:
+        full_data = sb.table("contracts").select("id,name,party_name,contract_type,content").in_("id", cids).execute().data or []
+        if full_data:
+            ctx = "\n\n".join(f"=== CONTRACT: {c['name']} ({c['party_name']}) ===\n{c['content']}" for c in full_data)
+            summ = "\n".join(f"- {c['name']} ({c['party_name']}, {c['contract_type']})" for c in full_data)
+            meta = full_data
+        elif chunks:
+            parts = [f"[{ml.get(c['contract_id'],{}).get('name','?')} | {c.get('section_title','?')}]\n{c['chunk_text']}" for c in chunks]
+            ctx = "\n---\n".join(parts)
+            summ = "\n".join(f"- {c['name']} ({c['party_name']}, {c['contract_type']})" for c in meta)
+        else:
+            ctx = "No contracts found."
+            summ = "None."
+    elif chunks:
         parts = [f"[{ml.get(c['contract_id'],{}).get('name','?')} | {c.get('section_title','?')} | Rel:{c.get('similarity','?')}]\n{c['chunk_text']}" for c in chunks]
         ctx = "\n---\n".join(parts)
         summ = "\n".join(f"- {c['name']} ({c['party_name']}, {c['contract_type']})" for c in meta)
-
-        # For scoped queries (1-3 contracts): supplement with full text so no section is missed
-        if cids and len(cids) <= 3:
-            try:
-                full = sb.table("contracts").select("content").in_("id", cids).execute().data
-                for fc in (full or []):
-                    content = fc.get("content", "")
-                    if content:
-                        ctx += f"\n\n--- FULL CONTRACT TEXT (use this to answer if RAG chunks above don't contain the answer) ---\n{content}"
-            except: pass
     else:
         q = sb.table("contracts").select("id,name,party_name,contract_type,content")
         if cids: q = q.in_("id", cids)
