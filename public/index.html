@@ -166,6 +166,9 @@ input,select,textarea,button{font-family:inherit}
 .search-input svg{width:15px;height:15px;color:var(--text4);flex-shrink:0}
 .search-input input{border:none;background:none;outline:none;font-size:.82rem;color:var(--text);width:180px}
 .search-input input::placeholder{color:var(--text4)}
+.topbar-search{cursor:pointer;transition:all .2s}
+.topbar-search:hover{border-color:var(--primary);background:var(--primary-bg);box-shadow:0 0 0 3px rgba(37,99,235,.06)}
+.topbar-search:hover span{color:var(--primary)}
 .filter-select{padding:.4rem .8rem;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);font-size:.82rem;color:var(--text2);cursor:pointer;transition:var(--transition)}
 .filter-select:focus{outline:none;border-color:var(--primary)}
 table{width:100%;border-collapse:collapse}
@@ -752,10 +755,10 @@ Dark Mode
 <h1 id="page-title">Dashboard</h1>
 </div>
 <div class="topbar-right">
-<div class="topbar-search" onclick="openSearch()">
+<div class="topbar-search" onclick="openSearch()" title="Search contracts (Ctrl+K)">
 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-<span>Search contracts...</span>
-<kbd>Ctrl+K</kbd>
+<span>Search contracts, parties, clauses...</span>
+<kbd style="font-size:.65rem;padding:1px 6px;background:var(--surface);border:1px solid var(--border);border-radius:3px;color:var(--text4);font-family:inherit">&#8984;K</kbd>
 </div>
 <button class="icon-btn" title="Notifications" onclick="toggleNotifPanel(event)" style="position:relative">
 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
@@ -1534,11 +1537,11 @@ Upcoming Events</h4>
 <div class="modal" style="max-width:600px;margin-top:8vh">
 <div class="modal-body" style="padding:0">
 <div style="display:flex;align-items:center;gap:.8rem;padding:1rem 1.5rem;border-bottom:1px solid var(--border)">
-<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--text4)" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-<input id="global-search" placeholder="Search contracts by name, party, content..." style="flex:1;border:none;outline:none;font-size:1rem;background:none;color:var(--text)" oninput="globalSearch()" maxlength="200">
-<kbd style="background:var(--surface2);border:1px solid var(--border);padding:2px 8px;border-radius:4px;font-size:.75rem;color:var(--text4)">Esc</kbd>
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+<input id="global-search" placeholder="Search by contract name, party, or content..." style="flex:1;border:none;outline:none;font-size:1rem;background:none;color:var(--text)" oninput="globalSearch()" onkeydown="if(event.key==='Escape')closeSearch()" maxlength="200">
+<kbd style="background:var(--surface2);border:1px solid var(--border);padding:2px 8px;border-radius:4px;font-size:.72rem;color:var(--text4);cursor:pointer" onclick="closeSearch()">Esc</kbd>
 </div>
-<div id="search-results" style="max-height:400px;overflow-y:auto;padding:.5rem"></div>
+<div id="search-results" style="max-height:420px;overflow-y:auto"></div>
 </div>
 </div>
 </div>
@@ -2253,8 +2256,19 @@ function closeSearch(){document.getElementById('search-modal').classList.remove(
 let sTimer;
 async function globalSearch(){clearTimeout(sTimer);const q=document.getElementById('global-search').value.trim();if(!q){document.getElementById('search-results').innerHTML='';return}
 sTimer=setTimeout(async()=>{try{const r=await api(`/api/search?q=${encodeURIComponent(q)}`);const d=await r.json();
-document.getElementById('search-results').innerHTML=d.length?d.map(c=>`<div style="padding:.7rem 1.5rem;cursor:pointer;transition:background .15s;border-bottom:1px solid var(--border3)" onclick="closeSearch();openContract(${c.id})" onmouseover="this.style.background='var(--primary-bg)'" onmouseout="this.style.background='none'">
-<div style="font-weight:500;font-size:.88rem">${esc(c.name)}</div><div style="font-size:.78rem;color:var(--text4)">${esc(c.party_name)} &middot; <span class="badge badge-${c.status||'draft'}"><span class="badge-dot"></span>${tc(c.status||'draft')}</span></div></div>`).join(''):'<div style="padding:2rem;text-align:center;color:var(--text4);font-size:.88rem">No results found</div>'}catch(e){}},300)}
+document.getElementById('search-results').innerHTML=d.length?d.map(c=>`<div style="display:flex;align-items:center;gap:.8rem;padding:.8rem 1.2rem;cursor:pointer;transition:all .15s;border-bottom:1px solid var(--border3)" onclick="closeSearch();openContract(${c.id})" onmouseover="this.style.background='var(--primary-bg)'" onmouseout="this.style.background='none'">
+<div style="width:36px;height:36px;border-radius:var(--radius-sm);background:${c.contract_type==='vendor'?'var(--purple-bg)':'var(--primary-bg)'};display:flex;align-items:center;justify-content:center;flex-shrink:0">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="${c.contract_type==='vendor'?'var(--purple)':'var(--primary)'}" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>
+<div style="flex:1;min-width:0">
+<div style="font-weight:600;font-size:.85rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(c.name)}</div>
+<div style="font-size:.74rem;color:var(--text4);display:flex;align-items:center;gap:.4rem;flex-wrap:wrap;margin-top:.15rem">
+<span>${esc(c.party_name)}</span>
+<span class="badge badge-${c.contract_type||'client'}"><span class="badge-dot"></span>${tc(c.contract_type||'client')}</span>
+<span class="badge badge-${c.status||'draft'}"><span class="badge-dot"></span>${tc(c.status||'draft')}</span>
+${c.value?'<span style="font-weight:600;color:var(--primary)">'+esc(c.value)+'</span>':''}
+</div></div>
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text4)" stroke-width="2" style="flex-shrink:0;opacity:.4"><polyline points="9 18 15 12 9 6"/></svg>
+</div>`).join(''):'<div style="padding:2.5rem;text-align:center;color:var(--text4)"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin:0 auto .5rem;display:block;opacity:.3"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><div style="font-size:.88rem;font-weight:500">No contracts found</div><div style="font-size:.78rem;margin-top:.2rem">Try a different search term</div></div>'}catch(e){}},300)}
 
 // ═══ HELPERS ═══
 function ago(d){if(!d)return'';const ms=Date.now()-new Date(d).getTime();const m=Math.floor(ms/60000),h=Math.floor(m/60),dy=Math.floor(h/24);
