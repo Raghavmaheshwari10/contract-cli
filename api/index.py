@@ -287,8 +287,10 @@ def delete_template(tid):
 def list_contracts():
     ctype = request.args.get("type")
     status = request.args.get("status")
-    page = max(1, int(request.args.get("page", 1)))
-    per = min(50, max(1, int(request.args.get("per_page", 20))))
+    try: page = max(1, int(request.args.get("page", 1)))
+    except (ValueError, TypeError): page = 1
+    try: per = min(50, max(1, int(request.args.get("per_page", 20))))
+    except (ValueError, TypeError): per = 20
     q = sb.table("contracts").select(
         "id,name,party_name,contract_type,status,start_date,end_date,value,added_on,notes,department,created_by",
         count="exact"
@@ -315,7 +317,7 @@ def create_contract():
         "contract_type": d["contract_type"], "content": d["content"][:500000],
         "content_html": d.get("content_html", ""),
         "start_date": d.get("start_date") or None, "end_date": d.get("end_date") or None,
-        "value": d.get("value", "")[:100] or None, "notes": d.get("notes", "")[:1000],
+        "value": str(d.get("value", "") or "")[:100] or None, "notes": str(d.get("notes", "") or "")[:1000],
         "status": d.get("status", "draft"), "department": d.get("department", ""),
         "jurisdiction": d.get("jurisdiction", ""), "governing_law": d.get("governing_law", ""),
         "template_id": d.get("template_id"), "created_by": d.get("created_by", "User"),
@@ -467,13 +469,13 @@ def list_comments(cid):
 def add_comment(cid):
     d = request.json or {}
     if not d.get("content"): return jsonify({"error": "Content required"}), 400
-    row = {"contract_id": cid, "user_name": d.get("user_name", "User"),
-           "content": d["content"][:2000], "clause_ref": d.get("clause_ref", ""),
+    row = {"contract_id": cid, "user_name": str(d.get("user_name") or "User")[:200],
+           "content": str(d["content"])[:2000], "clause_ref": str(d.get("clause_ref") or "")[:200],
            "created_at": datetime.now().isoformat()}
     r = sb.table("contract_comments").insert(row).execute()
-    log_activity(cid, "comment_added", row["user_name"], d["content"][:100])
-    create_notification(f"New Comment on Contract #{cid}", d["content"][:100], "comment", cid)
-    return jsonify(r.data[0]), 201
+    log_activity(cid, "comment_added", row["user_name"], str(d["content"])[:100])
+    create_notification(f"New Comment on Contract #{cid}", str(d["content"])[:100], "comment", cid)
+    return jsonify(r.data[0] if r.data else {"message": "Created"}), 201
 
 # ─── Obligations ───────────────────────────────────────────────────────────
 @app.route("/api/contracts/<int:cid>/obligations", methods=["GET"])
@@ -489,12 +491,12 @@ def list_obligations(cid):
 def add_obligation(cid):
     d = request.json or {}
     if not d.get("title"): return jsonify({"error": "Title required"}), 400
-    row = {"contract_id": cid, "title": d["title"][:500], "description": d.get("description", "")[:2000],
-           "deadline": d.get("deadline"), "status": "pending",
-           "assigned_to": d.get("assigned_to", ""), "created_at": datetime.now().isoformat()}
+    row = {"contract_id": cid, "title": str(d["title"])[:500], "description": str(d.get("description") or "")[:2000],
+           "deadline": d.get("deadline") or None, "status": "pending",
+           "assigned_to": str(d.get("assigned_to") or "")[:200], "created_at": datetime.now().isoformat()}
     r = sb.table("contract_obligations").insert(row).execute()
-    log_activity(cid, "obligation_added", "User", d["title"][:100])
-    return jsonify(r.data[0]), 201
+    log_activity(cid, "obligation_added", "User", str(d["title"])[:100])
+    return jsonify(r.data[0] if r.data else {"message": "Created"}), 201
 
 @app.route("/api/obligations/<int:oid>", methods=["PUT"])
 @auth
@@ -822,7 +824,8 @@ def leegality_status():
 @auth
 @need_db
 def get_activity(cid):
-    limit = min(int(request.args.get("limit", 200)), 500)
+    try: limit = min(int(request.args.get("limit", 200)), 500)
+    except (ValueError, TypeError): limit = 200
     r = sb.table("contract_activity").select("*").eq("contract_id", cid).order("created_at", desc=True).limit(limit).execute()
     return jsonify(r.data)
 
@@ -968,12 +971,14 @@ def upload_pdfs_bulk():
 @auth
 @need_db
 def search():
-    q = request.args.get("q", "").strip()
+    q = _sanitize_html(request.args.get("q", "").strip(), max_len=200)
     if not q: return jsonify([])
-    t = f"%{q}%"
+    # Escape special PostgREST chars
+    safe = q.replace("%", "").replace("*", "").replace(",", "").replace(".", " ")
+    t = f"%{safe}%"
     r = sb.table("contracts").select(
         "id,name,party_name,contract_type,status,start_date,end_date,value"
-    ).or_(f"name.ilike.{t},party_name.ilike.{t},content.ilike.{t}").limit(20).execute()
+    ).or_(f"name.ilike.{t},party_name.ilike.{t}").limit(20).execute()
     return jsonify(r.data)
 
 # ─── Parse (AI auto-fill) ─────────────────────────────────────────────────
@@ -1300,7 +1305,9 @@ def delete_clause(cid):
 @need_db
 def use_clause(cid):
     """Increment usage count when a clause is inserted into a contract"""
-    sb.table("clause_library").update({"usage_count": sb.table("clause_library").select("usage_count").eq("id", cid).execute().data[0]["usage_count"] + 1}).eq("id", cid).execute()
+    c = sb.table("clause_library").select("usage_count").eq("id", cid).execute()
+    if not c.data: return jsonify({"error": "Clause not found"}), 404
+    sb.table("clause_library").update({"usage_count": (c.data[0].get("usage_count") or 0) + 1}).eq("id", cid).execute()
     return jsonify({"message": "Usage tracked"})
 
 # ─── User Management ─────────────────────────────────────────────────────
@@ -2301,7 +2308,8 @@ def reset_password():
 @auth
 @need_db
 def renewal_tracker():
-    days = int(request.args.get("days", 90))
+    try: days = int(request.args.get("days", 90))
+    except (ValueError, TypeError): days = 90
     today = datetime.now()
     future = (today + timedelta(days=days)).strftime("%Y-%m-%d")
     today_str = today.strftime("%Y-%m-%d")

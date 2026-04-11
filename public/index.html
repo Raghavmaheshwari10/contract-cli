@@ -1855,7 +1855,7 @@ return `<div style="display:flex;align-items:center;gap:.8rem;padding:.7rem;bord
 
 function openSignModal(){document.getElementById('sig-modal').classList.add('active');initSigPad()}
 function closeSigModal(){document.getElementById('sig-modal').classList.remove('active')}
-function initSigPad(){const c=document.getElementById('sig-canvas');sigCtx=c.getContext('2d');sigCtx.clearRect(0,0,c.width,c.height);sigCtx.strokeStyle='#0f172a';sigCtx.lineWidth=2;sigCtx.lineCap='round';
+function initSigPad(){const c=document.getElementById('sig-canvas');if(!c)return;sigCtx=c.getContext('2d');sigCtx.clearRect(0,0,c.width,c.height);sigCtx.strokeStyle='#0f172a';sigCtx.lineWidth=2;sigCtx.lineCap='round';
 c.onmousedown=e=>{sigDrawing=true;sigCtx.beginPath();sigCtx.moveTo(e.offsetX,e.offsetY)};
 c.onmousemove=e=>{if(sigDrawing){sigCtx.lineTo(e.offsetX,e.offsetY);sigCtx.stroke()}};
 c.onmouseup=()=>sigDrawing=false;c.onmouseleave=()=>sigDrawing=false;
@@ -1870,7 +1870,7 @@ closeSigModal();loadSignatures();loadTimeline();loadContracts();loadDashboard();
 // ═══ LEEGALITY ═══
 async function checkLeegality(){try{const r=await api('/api/leegality/status');const d=await r.json();leegalityOk=d.configured;document.getElementById('btn-esign').style.display=d.configured?'inline-flex':'none';if(d.configured)document.getElementById('esign-panel').style.display='none'}catch(e){}}
 function toggleEsign(){const p=document.getElementById('esign-panel');p.style.display=p.style.display==='none'?'block':'none'}
-function addEsignRow(){const c=document.getElementById('esign-signers');const r=document.createElement('div');r.className='esign-row';
+function addEsignRow(){const c=document.getElementById('esign-signers');if(!c)return;const r=document.createElement('div');r.className='esign-row';
 r.innerHTML='<input class="esign-name" placeholder="Signer name *" style="flex:1"><input class="esign-email" placeholder="Email *" style="flex:1"><input class="esign-phone" placeholder="Phone" style="width:120px"><select class="esign-type" style="width:120px"><option value="electronic_signature">Electronic</option><option value="aadhaar_esign">Aadhaar eSign</option><option value="dsc">DSC</option></select><button class="btn btn-ghost btn-sm" onclick="this.parentElement.remove()" style="color:var(--red)">&times;</button>';
 c.appendChild(r)}
 async function sendLeegalityEsign(){const rows=document.querySelectorAll('.esign-row');const signers=[];
@@ -2034,8 +2034,8 @@ goPage('create');toast('Template loaded — fill in the details','info')}catch(e
 async function applyTemplate(){const id=document.getElementById('template-select').value;if(id)useTemplate(id)}
 
 // ═══ PDF UPLOAD ═══
-async function uploadPDF(){const f=document.getElementById('f-pdf').files[0];if(!f)return;
-const ps=document.getElementById('pdf-status');
+async function uploadPDF(){const fEl=document.getElementById('f-pdf');if(!fEl)return;const f=fEl.files[0];if(!f)return;
+const ps=document.getElementById('pdf-status');if(!ps)return;
 ps.innerHTML='<div class="spinner" style="width:14px;height:14px;border-width:2px;display:inline-block;vertical-align:middle;margin-right:6px"></div> Uploading & processing...';
 const fd=new FormData();fd.append('file',f);
 try{const r=await fetch('/api/upload-pdf',{method:'POST',headers:{Authorization:`Bearer ${localStorage.getItem('cm_token')}`},body:fd});
@@ -2363,6 +2363,7 @@ return t.replace(/```(\w*)\n([\s\S]*?)```/g,'<pre><code>$2</code></pre>')
 }
 
 function toast(msg,type='info'){const w=document.getElementById('toast-wrap');
+if(!w)return;
 const icons={success:'&#x2705;',error:'&#x274C;',info:'&#x2139;&#xFE0F;'};
 const t=document.createElement('div');t.className='toast '+type;
 t.innerHTML=`<span class="t-icon">${icons[type]||icons.info}</span><span class="t-msg">${msg}</span>`;
@@ -2373,7 +2374,7 @@ let notifOpen=false;
 async function loadNotifications(){
 try{const r=await api('/api/notifications');const d=await r.json();
 const badge=document.getElementById('notif-badge');
-if(d.unread>0){badge.style.display='flex';badge.textContent=d.unread>9?'9+':d.unread}else{badge.style.display='none'}
+if(badge){if(d.unread>0){badge.style.display='flex';badge.textContent=d.unread>9?'9+':d.unread}else{badge.style.display='none'}}
 const list=document.getElementById('notif-list');
 const icons={info:'&#x2139;&#xFE0F;',approval:'&#x1F4CB;',comment:'&#x1F4AC;',expiry:'&#x23F0;',success:'&#x2705;',workflow:'&#x26A1;',warning:'&#x26A0;&#xFE0F;',error:'&#x274C;'};
 if(list)list.innerHTML=(d.notifications||[]).length?(d.notifications||[]).slice(0,30).map(n=>`<div class="notif-item${n.is_read?'':' unread'}" onclick="${n.contract_id?`openContract(${n.contract_id});toggleNotifPanel()`:''}" >
@@ -2505,7 +2506,7 @@ el.innerHTML=tags.map(t=>`<span class="tag-pill" style="background:${t.tag_color
 }catch(e){}}
 
 function toggleTagDropdown(e){e.stopPropagation();const dd=document.getElementById('tag-dropdown');
-if(dd.style.display==='block'){dd.style.display='none';return}
+if(!dd)return;if(dd.style.display==='block'){dd.style.display='none';return}
 dd.innerHTML=tagPresets.map(p=>`<div class="tag-option" onclick="addTagFromPreset(${mCid},'${esc(p.name)}','${p.color}')"><span class="tag-swatch" style="background:${p.color}"></span>${esc(p.name)}${p.description?` <span style="font-size:.68rem;color:var(--text4)">— ${esc(p.description)}</span>`:''}</div>`).join('')+
 `<div style="padding:.4rem .6rem;border-top:1px solid var(--border3);margin-top:.3rem"><input class="form-input" placeholder="Custom tag..." style="padding:.3rem .5rem;font-size:.78rem;width:100%" onkeydown="if(event.key==='Enter'){addTagFromPreset(${mCid},this.value,'#2563eb');this.value=''}"></div>`;
 dd.style.display='block';
@@ -2540,7 +2541,7 @@ if(ms){ms.innerHTML=months.map((m,i)=>`<option value="${i}"${i===calMonth?' sele
 const ys=document.getElementById('cal-year-select');
 if(ys){const cy=new Date().getFullYear();ys.innerHTML='';for(let y=cy-3;y<=cy+5;y++){ys.innerHTML+=`<option value="${y}"${y===calYear?' selected':''}>${y}</option>`}}
 // Close picker after selection
-document.getElementById('cal-picker').style.display='none'}
+const cp=document.getElementById('cal-picker');if(cp)cp.style.display='none'}
 
 async function loadCalendar(){
 const m=String(calMonth+1).padStart(2,'0');
@@ -2556,7 +2557,7 @@ return e.type===typeMap[typeFilter]});
 renderCalendar();renderCalEvents()}catch(e){console.error(e)}}
 
 function renderCalendar(){
-const grid=document.getElementById('cal-grid');
+const grid=document.getElementById('cal-grid');if(!grid)return;
 const first=new Date(calYear,calMonth,1);const last=new Date(calYear,calMonth+1,0);
 const startDay=first.getDay();const daysInMonth=last.getDate();
 const today=new Date();const todayStr=today.toISOString().slice(0,10);
@@ -2588,9 +2589,9 @@ const today=new Date().toISOString().slice(0,10);
 const sorted=[...calEvents].sort((a,b)=>a.date.localeCompare(b.date));
 const upcoming=sorted.filter(e=>e.date>=today).slice(0,20);
 const past=sorted.filter(e=>e.date<today).slice(-5).reverse();
-const el=document.getElementById('cal-events-list');
+const el=document.getElementById('cal-events-list');if(!el)return;
 const monthName=new Date(calYear,calMonth).toLocaleDateString('en-US',{month:'long',year:'numeric'});
-document.getElementById('cal-events-title').innerHTML=`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> ${monthName} <span style="font-weight:400;color:var(--text4);font-size:.78rem">(${calEvents.length} events)</span>`;
+const titleEl=document.getElementById('cal-events-title');if(titleEl)titleEl.innerHTML=`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> ${monthName} <span style="font-weight:400;color:var(--text4);font-size:.78rem">(${calEvents.length} events)</span>`;
 
 let html='';
 if(upcoming.length){
@@ -2688,7 +2689,7 @@ if(d.error){toast(d.error,'error');return}
 Object.values(rptCharts).forEach(c=>{try{c.destroy()}catch(e){}});
 const font={family:'Inter,system-ui,sans-serif'};
 if(rtype==='summary'){
-document.getElementById('report-summary-cards').innerHTML=`
+const _sc2=document.getElementById('report-summary-cards');if(_sc2)_sc2.innerHTML=`
 <div class="report-summary-card"><div class="val" style="color:var(--primary)">${d.total_contracts||0}</div><div class="lbl">Total Contracts</div></div>
 <div class="report-summary-card"><div class="val" style="color:var(--green)">${d.executed||0}</div><div class="lbl">Executed</div></div>
 <div class="report-summary-card"><div class="val" style="color:var(--orange)">${d.pending||0}</div><div class="lbl">Pending</div></div>
@@ -2709,12 +2710,12 @@ if(tc&&trendData.length){rptCharts.trend=new Chart(tc,{type:'line',data:{labels:
 const vc=document.getElementById('rpt-chart-value');
 if(vc){rptCharts.value=new Chart(vc,{type:'doughnut',data:{labels:['Client','Vendor'],datasets:[{data:[d.client_count||0,d.vendor_count||0],backgroundColor:['#2563eb','#d97706'],borderWidth:0,hoverOffset:8}]},options:{responsive:true,maintainAspectRatio:false,cutout:'60%',plugins:{legend:{position:'right',labels:{font:{size:11,family:font.family},padding:14,usePointStyle:true}}}}})}
 // Table
-document.getElementById('rpt-table-title').textContent='All Contracts';
-document.getElementById('rpt-table-sub').textContent=`${d.total_contracts||0} contracts total`;
-document.getElementById('rpt-thead').innerHTML='<tr><th>Name</th><th>Party</th><th>Type</th><th>Status</th><th>Value</th><th>Department</th><th>Start</th><th>End</th></tr>';
-document.getElementById('rpt-tbody').innerHTML=(d.contracts||[]).slice(0,50).map(c=>`<tr class="clickable" onclick="openContract(${c.id})"><td><strong>${esc(c.name)}</strong></td><td>${esc(c.party_name)}</td><td><span class="badge badge-${c.contract_type}"><span class="badge-dot"></span>${tc(c.contract_type)}</span></td><td><span class="badge badge-${c.status||'draft'}"><span class="badge-dot"></span>${tc(c.status||'draft')}</span></td><td>${c.value||'—'}</td><td>${c.department||'—'}</td><td>${c.start_date||'—'}</td><td>${c.end_date||'—'}</td></tr>`).join('')||'<tr><td colspan="8" class="empty-state"><p>No data</p></td></tr>';
+const _tt=document.getElementById('rpt-table-title');if(_tt)_tt.textContent='All Contracts';
+const _ts=document.getElementById('rpt-table-sub');if(_ts)_ts.textContent=`${d.total_contracts||0} contracts total`;
+const _th=document.getElementById('rpt-thead');if(_th)_th.innerHTML='<tr><th>Name</th><th>Party</th><th>Type</th><th>Status</th><th>Value</th><th>Department</th><th>Start</th><th>End</th></tr>';
+const _tb=document.getElementById('rpt-tbody');if(_tb)_tb.innerHTML=(d.contracts||[]).slice(0,50).map(c=>`<tr class="clickable" onclick="openContract(${c.id})"><td><strong>${esc(c.name)}</strong></td><td>${esc(c.party_name)}</td><td><span class="badge badge-${c.contract_type}"><span class="badge-dot"></span>${tc(c.contract_type)}</span></td><td><span class="badge badge-${c.status||'draft'}"><span class="badge-dot"></span>${tc(c.status||'draft')}</span></td><td>${c.value||'—'}</td><td>${c.department||'—'}</td><td>${c.start_date||'—'}</td><td>${c.end_date||'—'}</td></tr>`).join('')||'<tr><td colspan="8" class="empty-state"><p>No data</p></td></tr>';
 }else if(rtype==='expiry'){
-document.getElementById('report-summary-cards').innerHTML=`
+const _sc2=document.getElementById('report-summary-cards');if(_sc2)_sc2.innerHTML=`
 <div class="report-summary-card"><div class="val" style="color:var(--red)">${d.expired||0}</div><div class="lbl">Already Expired</div></div>
 <div class="report-summary-card"><div class="val" style="color:var(--orange)">${d.expiring_30||0}</div><div class="lbl">Next 30 Days</div></div>
 <div class="report-summary-card"><div class="val" style="color:var(--yellow)">${d.expiring_90||0}</div><div class="lbl">Next 90 Days</div></div>
@@ -2726,7 +2727,7 @@ document.getElementById('rpt-tbody').innerHTML=(d.contracts||[]).map(c=>{
 const dleft=c.days_left;const cls=dleft<0?'red':dleft<30?'orange':dleft<90?'yellow':'green';
 return `<tr class="clickable" onclick="openContract(${c.id})"><td><strong>${esc(c.name)}</strong></td><td>${esc(c.party_name)}</td><td>${c.end_date||'—'}</td><td><span style="font-weight:700;color:var(--${cls})">${dleft!=null?dleft+'d':'—'}</span></td><td><span class="badge badge-${c.status||'draft'}"><span class="badge-dot"></span>${tc(c.status||'draft')}</span></td><td>${c.value||'—'}</td></tr>`}).join('')||'<tr><td colspan="6" class="empty-state"><p>No data</p></td></tr>';
 }else if(rtype==='department'){
-document.getElementById('report-summary-cards').innerHTML=(d.departments||[]).map(dept=>`<div class="report-summary-card"><div class="val" style="color:var(--primary)">${dept.count}</div><div class="lbl">${esc(dept.department||'Unassigned')}</div></div>`).join('');
+const _sc2=document.getElementById('report-summary-cards');if(_sc2)_sc2.innerHTML=(d.departments||[]).map(dept=>`<div class="report-summary-card"><div class="val" style="color:var(--primary)">${dept.count}</div><div class="lbl">${esc(dept.department||'Unassigned')}</div></div>`).join('');
 document.getElementById('rpt-table-title').textContent='Department Breakdown';
 document.getElementById('rpt-table-sub').textContent=`${(d.departments||[]).length} departments`;
 document.getElementById('rpt-thead').innerHTML='<tr><th>Department</th><th>Contracts</th><th>Draft</th><th>Pending</th><th>Executed</th><th>Total Value</th></tr>';
