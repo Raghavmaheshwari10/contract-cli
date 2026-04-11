@@ -2034,6 +2034,25 @@ def delete_contract_link(link_id):
                  f"Unlinked from contract #{link.data[0]['vendor_contract_id']}")
     return jsonify({"message": "Unlinked"})
 
+@app.route("/api/contract-links", methods=["GET"])
+@auth
+@need_db
+def list_all_links():
+    """Get all contract links with contract names"""
+    rows = sb.table("contract_links").select("*").execute().data or []
+    if not rows: return jsonify([])
+    all_ids = list(set([r["client_contract_id"] for r in rows] + [r["vendor_contract_id"] for r in rows]))
+    contracts = sb.table("contracts").select("id,name,party_name").in_("id", all_ids).execute().data or []
+    cmap = {c["id"]: c for c in contracts}
+    result = []
+    for r in rows:
+        cl = cmap.get(r["client_contract_id"], {})
+        vn = cmap.get(r["vendor_contract_id"], {})
+        result.append({"id": r["id"], "client_contract_id": r["client_contract_id"], "vendor_contract_id": r["vendor_contract_id"],
+                        "client_name": cl.get("name", ""), "vendor_name": vn.get("name", ""),
+                        "notes": r.get("notes", ""), "created_at": r.get("created_at")})
+    return jsonify(result)
+
 @app.route("/api/contracts/linkable", methods=["GET"])
 @auth
 @need_db
