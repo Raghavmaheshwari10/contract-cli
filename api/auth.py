@@ -63,6 +63,9 @@ def _sanitize_html(text, max_len=10000):
     text = text[:max_len]
     return re.sub(r'<[^>]+>', '', text).strip()
 
+# Fields that allow large content (contract text, HTML content, etc.)
+_LARGE_FIELDS = {"content", "content_html", "description", "template_content"}
+
 def _sanitize_dict(d, fields=None):
     """Sanitize all string values in a dict"""
     if not d: return d
@@ -71,7 +74,8 @@ def _sanitize_dict(d, fields=None):
         if fields and k not in fields:
             out[k] = v
         elif isinstance(v, str):
-            out[k] = _sanitize(v)
+            max_len = 500000 if k in _LARGE_FIELDS else 10000
+            out[k] = _sanitize(v, max_len=max_len)
         else:
             out[k] = v
     return out
