@@ -1,6 +1,6 @@
 """Contract Lifecycle Management API — Full CLM with AI review, approvals, signatures, webhooks."""
 
-import os, sys, re, io, csv, json as J, time, hmac, hashlib, logging, difflib, secrets
+import os, sys, re, io, csv, json as J, time, hmac, hashlib, logging, difflib, secrets, html as html_mod
 import bcrypt
 from datetime import datetime, timedelta
 from functools import wraps
@@ -109,14 +109,15 @@ def login():
         except Exception as e:
             log.error(f"Login error: {e}")
     # Fallback: simple password auth (admin)
-    if not PASSWORD: return jsonify({"token": mk_token("raghav.maheshwari@emb.global"), "user": {"name": "Raghav Maheshwari", "email": "raghav.maheshwari@emb.global", "role": "admin"}})
+    if not PASSWORD:
+        return jsonify({"error": "APP_PASSWORD not configured. Set it in environment variables."}), 503
     if not hmac.compare_digest(password, PASSWORD):
         return jsonify({"error": "Invalid password"}), 401
     return jsonify({"token": mk_token("raghav.maheshwari@emb.global"), "user": {"name": "Raghav Maheshwari", "email": "raghav.maheshwari@emb.global", "role": "admin"}})
 
 @app.route("/api/auth/verify")
 def verify():
-    if not PASSWORD: return jsonify({"valid": True, "auth_enabled": False})
+    if not PASSWORD: return jsonify({"valid": False, "auth_enabled": True, "error": "APP_PASSWORD not configured"}), 503
     h = request.headers.get("Authorization", "")
     if h.startswith("Bearer "):
         valid, email = chk_token(h[7:])
@@ -157,7 +158,7 @@ def dashboard():
     global _dashboard_cache
     if _dashboard_cache["data"] and time.time() - _dashboard_cache["ts"] <= 60:
         return jsonify(_dashboard_cache["data"])
-    contracts = sb.table("contracts").select("id,status,contract_type,end_date,value").execute().data
+    contracts = sb.table("contracts").select("id,status,contract_type,end_date,value").limit(5000).execute().data
     today = datetime.now()
     stats = {"total": len(contracts), "draft": 0, "pending": 0, "in_review": 0,
              "executed": 0, "rejected": 0, "clients": 0, "vendors": 0, "expiring": 0, "expired": 0}
@@ -201,7 +202,7 @@ def dashboard():
 @need_db
 def executive_dashboard():
     """Executive-level dashboard with TCV, at-risk, renewals, pending approvals"""
-    contracts = sb.table("contracts").select("id,name,party_name,contract_type,status,start_date,end_date,value,department").execute().data or []
+    contracts = sb.table("contracts").select("id,name,party_name,contract_type,status,start_date,end_date,value,department").limit(5000).execute().data or []
     today = datetime.now()
     # Total contract value
     total_client_value = 0; total_vendor_value = 0
@@ -256,7 +257,7 @@ def executive_dashboard():
 @need_db
 def counterparty_risk_aggregation():
     """Aggregate exposure across all contracts with each counterparty"""
-    contracts = sb.table("contracts").select("id,name,party_name,contract_type,status,value,end_date,department").execute().data or []
+    contracts = sb.table("contracts").select("id,name,party_name,contract_type,status,value,end_date,department").limit(5000).execute().data or []
     today = datetime.now()
     parties = {}
     for c in contracts:
@@ -407,12 +408,13 @@ def create_contract():
         "content_html": d.get("content_html", ""),
         "start_date": d.get("start_date") or None, "end_date": d.get("end_date") or None,
         "value": str(d.get("value", "") or "")[:100] or None, "notes": str(d.get("notes", "") or "")[:1000],
-        "status": d.get("status", "draft"), "department": d.get("department", ""),
+        "status": "draft", "department": d.get("department", ""),
         "jurisdiction": d.get("jurisdiction", ""), "governing_law": d.get("governing_law", ""),
         "template_id": d.get("template_id"), "created_by": d.get("created_by", "User"),
         "added_on": datetime.now().isoformat(),
     }
     r = sb.table("contracts").insert(row).execute()
+    if not r.data: return jsonify({"error": "Failed to create contract"}), 500
     cid = r.data[0]["id"]
     log_activity(cid, "created", row["created_by"], f"Contract '{row['name']}' created")
     fire_webhooks("contract.created", {"contract_id": cid, "name": row["name"]})
@@ -654,7 +656,7 @@ def escalate_obligations():
         create_notification(
             f"Escalated: {o['title']}",
             f"Overdue obligation on '{cname}' has been escalated. Deadline was {o.get('deadline', 'N/A')}. Assigned to: {o.get('assigned_to', 'Unassigned')}",
-            "escalation", o.get("contract_id"), escalate_to or None
+            "warning", o.get("contract_id"), escalate_to or None
         )
         log_activity(o.get("contract_id"), "obligation_escalated", request.user_email,
                      f"Obligation '{o['title']}' escalated to {escalate_to or 'manager'}")
@@ -668,7 +670,8 @@ def escalate_obligations():
 def auto_escalate_obligations():
     """Auto-escalate obligations overdue by more than X days"""
     d = request.json or {}
-    threshold_days = int(d.get("threshold_days", 3))
+    try: threshold_days = int(d.get("threshold_days", 3))
+    except (ValueError, TypeError): threshold_days = 3
     escalate_to = d.get("escalate_to", "manager")
     cutoff = (datetime.now() - timedelta(days=threshold_days)).strftime("%Y-%m-%d")
     rows = sb.table("contract_obligations").select("*").eq("status", "pending").lt("deadline", cutoff).execute().data or []
@@ -687,7 +690,7 @@ def auto_escalate_obligations():
         create_notification(
             f"Auto-Escalated: {o['title']}",
             f"Obligation on '{cname}' is {threshold_days}+ days overdue. Deadline: {o.get('deadline', 'N/A')}",
-            "escalation", o.get("contract_id"), escalate_to
+            "warning", o.get("contract_id"), escalate_to
         )
         escalated += 1
     return jsonify({"message": f"{escalated} obligation(s) auto-escalated", "escalated": escalated, "total_overdue": len(rows)})
@@ -780,6 +783,10 @@ def request_approval(cid):
     cur_status = contract.data[0].get("status", "draft")
     if cur_status not in ("draft", "in_review"):
         return jsonify({"error": f"Cannot request approval when contract is '{cur_status}'"}), 400
+    # Prevent duplicate pending approval from same approver
+    existing = sb.table("contract_approvals").select("id").eq("contract_id", cid).eq("approver_name", d["approver_name"]).eq("status", "pending").execute()
+    if existing.data:
+        return jsonify({"error": f"Pending approval from {d['approver_name']} already exists"}), 409
     r = sb.table("contract_approvals").insert(row).execute()
     log_activity(cid, "approval_requested", request.user_email, f"Approval requested from {d['approver_name']}")
     create_notification(f"Approval Requested", f"{d['approver_name']} needs to review Contract #{cid}", "approval", cid)
@@ -1421,8 +1428,10 @@ def contract_diff(cid):
     v2 = request.args.get("v2")
     if not v1 or not v2:
         return jsonify({"error": "v1 and v2 version IDs required"}), 400
+    try: v1, v2 = int(v1), int(v2)
+    except (ValueError, TypeError): return jsonify({"error": "v1 and v2 must be integers"}), 400
 
-    ver1 = sb.table("contract_versions").select("*").eq("id", int(v1)).eq("contract_id", cid).execute()
+    ver1 = sb.table("contract_versions").select("*").eq("id", v1).eq("contract_id", cid).execute()
     ver2 = sb.table("contract_versions").select("*").eq("id", int(v2)).eq("contract_id", cid).execute()
 
     if not ver1.data or not ver2.data:
@@ -2613,6 +2622,10 @@ def auto_renew_contract(cid):
     c = sb.table("contracts").select("*").eq("id", cid).execute()
     if not c.data: return jsonify({"error": "Not found"}), 404
     orig = c.data[0]
+    # Idempotency: check if a renewal draft already exists for this contract
+    existing_renewal = sb.table("contracts").select("id,name").ilike("name", f"%Renewal of {orig['name']}%").eq("status", "draft").execute()
+    if existing_renewal.data:
+        return jsonify({"error": f"A renewal draft already exists (#{existing_renewal.data[0]['id']})", "id": existing_renewal.data[0]["id"]}), 409
     # Calculate new dates
     duration_days = 365
     if orig.get("start_date") and orig.get("end_date"):
@@ -2649,7 +2662,7 @@ def auto_renew_contract(cid):
             "description": o.get("description", ""), "assigned_to": o.get("assigned_to", ""),
             "status": "pending", "created_at": datetime.now().isoformat()
         }).execute()
-    create_notification(f"Contract renewed: {orig['name']}", f"Renewal draft created from contract #{cid}", "renewal", new_id)
+    create_notification(f"Contract renewed: {orig['name']}", f"Renewal draft created from contract #{cid}", "info", new_id)
     return jsonify({"id": new_id, "message": f"Renewal draft created (#{new_id})"}), 201
 
 # ─── Approval SLA Tracking ──────────────────────────────────────────────
@@ -2658,7 +2671,8 @@ def auto_renew_contract(cid):
 @need_db
 def approval_sla():
     """Get approval SLA data — flag approvals stuck beyond threshold"""
-    threshold_days = int(request.args.get("threshold", 3))
+    try: threshold_days = int(request.args.get("threshold", 3))
+    except (ValueError, TypeError): threshold_days = 3
     approvals = sb.table("contract_approvals").select("*").eq("status", "pending").execute().data or []
     today = datetime.now()
     results = []
@@ -2805,7 +2819,8 @@ def create_share_link(cid):
     chk = sb.table("contracts").select("id").eq("id", cid).execute()
     if not chk.data: return jsonify({"error": "Contract not found"}), 404
     d = request.json or {}
-    expires_hours = min(int(d.get("expires_hours", 72)), 720)  # max 30 days
+    try: expires_hours = min(int(d.get("expires_hours", 72)), 720)  # max 30 days
+    except (ValueError, TypeError): expires_hours = 72
     token = secrets.token_urlsafe(32)
     row = {
         "contract_id": cid, "token": token, "created_by": request.user_email,
@@ -3181,31 +3196,32 @@ def generate_pdf(cid):
         tags = tr.data or []
     except Exception as e: log.debug(f"generate_pdf: {e}")
 
-    # Build HTML for PDF
-    name = c.get("name", "Contract")
-    party = c.get("party_name", "")
-    ctype = c.get("contract_type", "")
-    status = c.get("status", "draft")
-    value = c.get("value", "")
-    dept = c.get("department", "")
-    start = c.get("start_date", "")
-    end = c.get("end_date", "")
-    jurisdiction = c.get("jurisdiction", "")
-    governing = c.get("governing_law", "")
-    content = c.get("content", "")
-    created = c.get("created_at", "")[:10] if c.get("created_at") else ""
+    # Build HTML for PDF — escape all user content to prevent XSS
+    _e = html_mod.escape
+    name = _e(c.get("name", "Contract"))
+    party = _e(c.get("party_name", ""))
+    ctype = _e(c.get("contract_type", ""))
+    status = _e(c.get("status", "draft"))
+    value = _e(c.get("value", ""))
+    dept = _e(c.get("department", ""))
+    start = _e(c.get("start_date", ""))
+    end = _e(c.get("end_date", ""))
+    jurisdiction = _e(c.get("jurisdiction", ""))
+    governing = _e(c.get("governing_law", ""))
+    content = _e(c.get("content", ""))
+    created = _e(c.get("created_at", "")[:10]) if c.get("created_at") else ""
 
     tag_html = ""
     if tags:
-        tag_html = '<div style="margin-bottom:20px"><strong>Tags: </strong>' + ", ".join(t["tag_name"] for t in tags) + "</div>"
+        tag_html = '<div style="margin-bottom:20px"><strong>Tags: </strong>' + ", ".join(_e(t["tag_name"]) for t in tags) + "</div>"
 
     cf_html = ""
     if cfields:
         cf_rows = ""
         for cf in cfields:
-            fname = cf.get("custom_field_defs", {}).get("field_name", "Field") if isinstance(cf.get("custom_field_defs"), dict) else "Field"
-            fval = cf.get("field_value", "---")
-            cf_rows += f"<tr><td style='padding:8px 12px;border:1px solid #e2e8f0;font-weight:600;background:#f8fafc;width:40%'>{fname}</td><td style='padding:8px 12px;border:1px solid #e2e8f0'>{fval or '---'}</td></tr>"
+            fname = _e(cf.get("custom_field_defs", {}).get("field_name", "Field") if isinstance(cf.get("custom_field_defs"), dict) else "Field")
+            fval = _e(cf.get("field_value", "---") or "---")
+            cf_rows += f"<tr><td style='padding:8px 12px;border:1px solid #e2e8f0;font-weight:600;background:#f8fafc;width:40%'>{fname}</td><td style='padding:8px 12px;border:1px solid #e2e8f0'>{fval}</td></tr>"
         if cf_rows:
             cf_html = f"<h3 style='margin-top:30px;margin-bottom:10px;color:#334155'>Custom Fields</h3><table style='width:100%;border-collapse:collapse;margin-bottom:20px'>{cf_rows}</table>"
 

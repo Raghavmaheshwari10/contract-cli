@@ -1750,7 +1750,8 @@ Upcoming Events</h4>
 <script>
 // ═══ STATE ═══
 let curPage=1,filterStatus='',chatHist=[],selCids=null,mCid=null,mData=null,editId=null,quill=null,sigCtx=null,sigDrawing=false,leegalityOk=false,searchTimer=null,dashData=null;
-const J=JSON.stringify,esc=s=>{const d=document.createElement('div');d.textContent=s;return d.innerHTML};
+const J=JSON.stringify,esc=s=>{if(!s)return '';const d=document.createElement('div');d.textContent=String(s);return d.innerHTML};
+const sanitizeHtml=h=>(h||'').replace(/<script[\s\S]*?<\/script>/gi,'').replace(/on\w+\s*=/gi,'data-x=').replace(/javascript:/gi,'');
 const tc=s=>(s||'').replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase());
 const authH=()=>{const h={'Content-Type':'application/json'};const t=localStorage.getItem('cm_token');if(t)h['Authorization']=`Bearer ${t}`;return h};
 const api=(u,o={})=>{if(!o.headers)o.headers=authH();return fetch(u,o)};
@@ -1770,17 +1771,18 @@ if(!t){try{const r=await fetch('/api/auth/verify');const d=await r.json();if(!d.
 try{const r=await fetch('/api/auth/verify',{headers:{Authorization:`Bearer ${t}`}});r.ok?showApp():(localStorage.removeItem('cm_token'),showLogin())}catch(e){showApp()}}
 
 // Auto-refresh token every 20 hours to keep session alive
-setInterval(async()=>{const t=localStorage.getItem('cm_token');if(!t)return;try{const r=await fetch('/api/auth/refresh',{headers:{Authorization:`Bearer ${t}`}});if(r.ok){const d=await r.json();if(d.token)localStorage.setItem('cm_token',d.token)}}catch(e){}},72000000);
+let _refreshInterval=null,_notifInterval=null;
+_refreshInterval=setInterval(async()=>{const t=localStorage.getItem('cm_token');if(!t)return;try{const r=await fetch('/api/auth/refresh',{headers:{Authorization:`Bearer ${t}`}});if(r.ok){const d=await r.json();if(d.token)localStorage.setItem('cm_token',d.token)}}catch(e){}},72000000);
 
 function showLogin(){document.getElementById('login-screen').style.display='flex';document.getElementById('app').style.display='none'}
 function showApp(){document.getElementById('login-screen').style.display='none';document.getElementById('app').style.display='flex';initApp();applyRBAC()}
 async function doLogin(e){e.preventDefault();const b=document.getElementById('login-btn');b.disabled=true;b.textContent='Signing in...';
 try{const r=await fetch('/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:J({email:document.getElementById('login-email').value.trim(),password:document.getElementById('login-pw').value})});const d=await r.json();if(d.token){localStorage.setItem('cm_token',d.token);if(d.user){localStorage.setItem('cm_user',J(d.user));document.querySelector('.sidebar-user .name').textContent=d.user.name;document.querySelector('.sidebar-user .role').textContent=d.user.role;document.querySelector('.sidebar-user .avatar').textContent=d.user.name.charAt(0).toUpperCase()}showApp();toast(`Welcome${d.user?' '+d.user.name:''}`,'success')}else{document.getElementById('login-error').textContent=d.error||'Invalid password'}}catch(e){document.getElementById('login-error').textContent='Connection failed'}
 b.disabled=false;b.textContent='Sign In'}
-async function doLogout(){try{await fetch('/api/auth/logout',{method:'POST',headers:authH()})}catch(e){}localStorage.removeItem('cm_token');showLogin()}
+async function doLogout(){try{await fetch('/api/auth/logout',{method:'POST',headers:authH()})}catch(e){}localStorage.removeItem('cm_token');if(_notifInterval){clearInterval(_notifInterval);_notifInterval=null}if(_refreshInterval){clearInterval(_refreshInterval);_refreshInterval=null}showLogin()}
 
 // ═══ INIT ═══
-function initApp(){loadDashboard();loadContracts();loadTemplateOptions();initQuill();checkLeegality();loadNotifications();setInterval(loadNotifications,60000)}
+function initApp(){loadDashboard();loadContracts();loadTemplateOptions();initQuill();checkLeegality();loadNotifications();if(_notifInterval)clearInterval(_notifInterval);_notifInterval=setInterval(loadNotifications,60000)}
 function initQuill(){if(!quill){quill=new Quill('#quill-editor',{theme:'snow',placeholder:'Use the rich text editor for formatted content...',modules:{toolbar:[[{'header':[1,2,3,false]}],['bold','italic','underline','strike'],[{'list':'ordered'},{'list':'bullet'}],[{'indent':'-1'},{'indent':'+1'}],['blockquote','code-block'],['link'],['clean']]}})}}
 
 // ═══ NAVIGATION ═══
@@ -2108,9 +2110,11 @@ if((!content||content.length<10)&&(!plainContent||plainContent.length<10))errs.p
 if(startD&&endD&&new Date(endD)<new Date(startD))errs.push('End date must be after start date');
 return errs;
 }
+let _saving=false;
 async function saveContract(status='draft'){
+if(_saving)return;_saving=true;
 const vErrs=validateContractForm();
-if(vErrs.length){toast(vErrs.join('. '),'error');return}
+if(vErrs.length){toast(vErrs.join('. '),'error');_saving=false;return}
 const name=document.getElementById('f-name').value.trim(),party=document.getElementById('f-party').value.trim(),content=document.getElementById('f-content').value.trim();
 const body={name,party_name:party,contract_type:document.getElementById('f-type').value,content,content_html:quill?quill.root.innerHTML:'',
 start_date:document.getElementById('f-start').value||null,end_date:document.getElementById('f-end').value||null,value:document.getElementById('f-value').value,
@@ -2120,7 +2124,7 @@ try{const url=editId?`/api/contracts/${editId}`:'/api/contracts';const method=ed
 const r=await api(url,{method,headers:authH(),body:J(body)});
 if(r.status===409){const d=await r.json();toast(d.error?.message||'Contract was modified by another user. Please reload.','error');return}
 const d=await r.json();
-toast(editId?'Contract updated':'Contract created','success');resetCreateForm();goPage('contracts');loadDashboard()}catch(e){toast('Failed to save','error')}}
+toast(editId?'Contract updated':'Contract created','success');resetCreateForm();goPage('contracts');loadDashboard()}catch(e){toast('Failed to save','error')}finally{_saving=false}}
 
 // ═══ TEMPLATES ═══
 async function loadTemplateOptions(){try{const r=await api('/api/templates');const d=await r.json();
@@ -2406,7 +2410,7 @@ document.getElementById('redline-stats').innerHTML=`
 <div style="font-size:.72rem;color:var(--text4);margin-left:auto">${d.stats?.old_word_count||0} → ${d.stats?.new_word_count||0} words</div>`;
 
 if(redlineMode==='inline'){
-document.getElementById('redline-content').innerHTML=`<div class="redline-viewer">${d.redline_html}</div>`}
+document.getElementById('redline-content').innerHTML=`<div class="redline-viewer">${sanitizeHtml(d.redline_html)}</div>`}
 else{
 // Side-by-side view — extract old and new text from word_diff
 let oldParts=[],newParts=[];
@@ -2452,7 +2456,7 @@ document.getElementById('versions-list').innerHTML=d.length?d.map(v=>`<div style
 <div style="font-size:.72rem;color:var(--text4);margin-top:.15rem">${ago(v.created_at)} &middot; by ${esc(v.changed_by)}</div></div>
 <div style="display:flex;gap:.3rem"><button class="btn btn-ghost btn-sm" onclick="viewVersion(${v.id})">View</button><button class="btn btn-ghost btn-sm" style="color:var(--primary)" onclick="compareVersion(${v.id})">Redline</button><button class="btn btn-outline btn-sm" onclick="restoreVersion(${v.id},${v.version_number})">Restore</button></div></div>`).join(''):'<div class="empty-state"><p>No versions yet. Versions are created automatically when you edit a contract.</p></div>'}catch(e){}}
 async function viewVersion(vid){try{const r=await api(`/api/contracts/${mCid}/versions/${vid}`);const d=await r.json();
-const w=window.open('','_blank','width=800,height=600');w.document.write(`<html><head><title>Version ${d.version_number}</title><style>body{font-family:Inter,sans-serif;padding:2rem;max-width:800px;margin:0 auto;line-height:1.7;color:#334155}h1{font-size:1.2rem;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:.5rem}</style></head><body><h1>Version ${d.version_number} — ${d.changed_by} (${d.created_at?.slice(0,10)})</h1><pre style="white-space:pre-wrap;font-size:.9rem">${d.content||'No content'}</pre></body></html>`)}catch(e){toast('Failed to load version','error')}}
+const w=window.open('','_blank','width=800,height=600');w.document.write(`<html><head><title>Version ${esc(String(d.version_number))}</title><style>body{font-family:Inter,sans-serif;padding:2rem;max-width:800px;margin:0 auto;line-height:1.7;color:#334155}h1{font-size:1.2rem;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:.5rem}</style></head><body><h1>Version ${esc(String(d.version_number))} — ${esc(d.changed_by)} (${esc(d.created_at?.slice(0,10))})</h1><pre style="white-space:pre-wrap;font-size:.9rem">${esc(d.content||'No content')}</pre></body></html>`)}catch(e){toast('Failed to load version','error')}}
 function compareVersion(vid){document.getElementById('redline-version').value=vid;mTab('redline');loadRedline()}
 async function restoreVersion(vid,vnum){if(!confirm(`Restore to version ${vnum}? Current content will be saved as a new version.`))return;
 try{await api(`/api/contracts/${mCid}/versions/${vid}/restore`,{method:'POST',headers:authH()});loadVersions();loadTimeline();toast(`Restored to version ${vnum}`,'success');
@@ -2562,7 +2566,7 @@ function toast(msg,type='info'){const w=document.getElementById('toast-wrap');
 if(!w)return;
 const icons={success:'&#x2705;',error:'&#x274C;',info:'&#x2139;&#xFE0F;'};
 const t=document.createElement('div');t.className='toast '+type;
-t.innerHTML=`<span class="t-icon">${icons[type]||icons.info}</span><span class="t-msg">${msg}</span>`;
+t.innerHTML=`<span class="t-icon">${icons[type]||icons.info}</span><span class="t-msg">${esc(msg)}</span>`;
 w.appendChild(t);setTimeout(()=>t.remove(),4000)}
 
 // ═══ NOTIFICATIONS ═══
@@ -2843,7 +2847,7 @@ document.getElementById('cmp-result').innerHTML=`
 </tr>`).join('')}</tbody></table></div>
 <div class="card">
 <div class="card-header"><h3>Content Diff</h3><span class="subtitle">Additions and deletions highlighted</span></div>
-<div class="redline-viewer" style="max-height:500px">${d.diff_html}</div>
+<div class="redline-viewer" style="max-height:500px">${sanitizeHtml(d.diff_html)}</div>
 <div class="redline-legend" style="display:flex;margin-top:.8rem">
 <span><span class="swatch del"></span> Only in ${esc(d.contract_1.name)}</span>
 <span><span class="swatch ins"></span> Only in ${esc(d.contract_2.name)}</span>
