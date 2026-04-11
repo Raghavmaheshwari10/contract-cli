@@ -2162,6 +2162,16 @@ catch(e){chatHist[chatHist.length-1].content='Error: '+e.message;renderChat()}
 btn.disabled=false;inp.focus()}
 function sendQuick(msg){document.getElementById('chat-input').value=msg;sendChat()}
 function renderChat(streaming=false){const el=document.getElementById('chat-messages');
+if(!chatHist.length){el.innerHTML=`<div class="empty-state" id="chat-empty">
+<div class="icon">&#x1F916;</div>
+<h3>AI Contract Assistant</h3>
+<p>Ask anything about your contracts — financial analysis, risk assessment, clause comparison, deadline tracking.</p>
+<div style="display:flex;flex-wrap:wrap;gap:.4rem;justify-content:center;margin-top:1rem">
+<button class="btn btn-outline btn-sm" onclick="sendQuick('What contracts are expiring in the next 30 days?')">Expiring contracts</button>
+<button class="btn btn-outline btn-sm" onclick="sendQuick('Summarize all active contracts by value')">Contract summary</button>
+<button class="btn btn-outline btn-sm" onclick="sendQuick('What are the key risks across all contracts?')">Risk analysis</button>
+<button class="btn btn-outline btn-sm" onclick="sendQuick('Compare payment terms across all contracts')">Payment terms</button>
+</div></div>`;return}
 el.innerHTML=chatHist.map(m=>{const isAI=m.role==='assistant';
 return `<div class="chat-msg ${m.role}"><div class="avatar">${isAI?'AI':'U'}</div><div class="bubble"><div class="sender">${isAI?'AI Assistant':'You'}</div><div class="text">${isAI?renderMd(m.content):esc(m.content)}</div>${m.sources?.length?`<div class="sources">${m.sources.map(s=>`<span>${esc(s.name)}</span>`).join('')}</div>`:''}</div></div>`}).join('');
 if(streaming||true)el.scrollTop=el.scrollHeight}
