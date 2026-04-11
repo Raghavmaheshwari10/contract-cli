@@ -960,7 +960,19 @@ Use placeholders like [PARTY_NAME], [DATE], [COMPANY_NAME], [ADDRESS] for fields
 <div class="chat-header">
 <h3><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg> AI Contract Assistant</h3>
 <div style="display:flex;align-items:center;gap:.5rem">
-<select class="filter-select" id="chat-scope" style="font-size:.78rem"><option value="">All Contracts</option></select>
+<div style="position:relative" id="chat-scope-wrap">
+<div class="filter-select" id="chat-scope-display" onclick="toggleChatScope()" style="font-size:.78rem;cursor:pointer;display:flex;align-items:center;gap:.4rem;min-width:180px;user-select:none">
+<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+<span id="chat-scope-label" style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">All Contracts</span>
+<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+</div>
+<div id="chat-scope-dropdown" style="display:none;position:absolute;top:calc(100% + 4px);right:0;width:320px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow-lg);z-index:50;overflow:hidden">
+<div style="padding:.5rem;border-bottom:1px solid var(--border3)">
+<input id="chat-scope-search" class="form-input" placeholder="Search contracts..." style="font-size:.8rem;padding:.4rem .6rem;width:100%" oninput="filterChatScope()" maxlength="200">
+</div>
+<div id="chat-scope-list" style="max-height:280px;overflow-y:auto"></div>
+</div>
+</div>
 <button class="btn btn-ghost btn-sm" onclick="chatHist=[];renderChat()">Clear</button>
 </div>
 </div>
@@ -1917,17 +1929,68 @@ toast(editId?'Contract updated':'Contract created','success');resetCreateForm();
 // ═══ TEMPLATES ═══
 async function loadTemplateOptions(){try{const r=await api('/api/templates');const d=await r.json();
 const sel=document.getElementById('template-select');sel.innerHTML='<option value="">Choose template...</option>'+d.map(t=>`<option value="${t.id}">${t.name}</option>`).join('');
-// Chat scope
-const cs=document.getElementById('chat-scope');
-const cr=await api('/api/contracts?per_page=100');const cd=await cr.json();
-const contracts=cd.data||[];
-let opts=contracts.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('');
-// Load linked pairs for combined analysis
-try{const lr=await api('/api/contract-links');const links=await lr.json();
-if(links.length){opts+=`<optgroup label="── Linked Pairs (Client + Vendor) ──">`;
-opts+=links.map(p=>`<option value="${p.client_contract_id},${p.vendor_contract_id}">${esc(p.client_name)} + ${esc(p.vendor_name)}</option>`).join('');
-opts+=`</optgroup>`}}catch(e){}
-cs.innerHTML='<option value="">All Contracts</option>'+opts}catch(e){}}
+// Chat scope — load contracts + linked pairs
+const cr=await api('/api/contracts?per_page=500');const cd=await cr.json();
+_chatScopeContracts=cd.data||[];
+_chatScopeLinks=[];
+try{const lr=await api('/api/contract-links');_chatScopeLinks=await lr.json()}catch(e){}
+_chatScopeValue='';
+renderChatScopeList('')}catch(e){}}
+
+let _chatScopeContracts=[],_chatScopeLinks=[],_chatScopeValue='';
+
+function toggleChatScope(){
+const dd=document.getElementById('chat-scope-dropdown');
+const open=dd.style.display==='block';
+dd.style.display=open?'none':'block';
+if(!open){document.getElementById('chat-scope-search').value='';filterChatScope();setTimeout(()=>document.getElementById('chat-scope-search').focus(),50)}}
+
+function selectChatScope(val,label){
+_chatScopeValue=val;
+document.getElementById('chat-scope-label').textContent=label||'All Contracts';
+document.getElementById('chat-scope-dropdown').style.display='none'}
+
+function filterChatScope(){
+const q=document.getElementById('chat-scope-search').value.trim().toLowerCase();
+renderChatScopeList(q)}
+
+function renderChatScopeList(q){
+const el=document.getElementById('chat-scope-list');
+if(!el)return;
+const itemStyle='padding:.55rem .8rem;cursor:pointer;font-size:.8rem;transition:background .1s;border-bottom:1px solid var(--border3);display:flex;align-items:center;gap:.5rem';
+const hoverAttr='onmouseover="this.style.background=\'var(--primary-bg)\'" onmouseout="this.style.background=\'none\'"';
+let html=`<div style="${itemStyle};font-weight:${!_chatScopeValue?'600':'400'};color:${!_chatScopeValue?'var(--primary)':'var(--text)'}" ${hoverAttr} onclick="selectChatScope('','All Contracts')">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg> All Contracts</div>`;
+
+// Linked pairs first
+const matchLinks=_chatScopeLinks.filter(p=>!q||p.client_name.toLowerCase().includes(q)||p.vendor_name.toLowerCase().includes(q));
+if(matchLinks.length){
+html+=`<div style="padding:.35rem .8rem;font-size:.65rem;font-weight:700;color:var(--text4);text-transform:uppercase;letter-spacing:.04em;background:var(--surface2)">Linked Pairs</div>`;
+matchLinks.forEach(p=>{
+const val=p.client_contract_id+','+p.vendor_contract_id;
+const sel=_chatScopeValue===val;
+html+=`<div style="${itemStyle};font-weight:${sel?'600':'400'};color:${sel?'var(--primary)':'var(--text)'}" ${hoverAttr} onclick="selectChatScope('${val}','${esc(p.client_name)} + ${esc(p.vendor_name)}')">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--purple)" stroke-width="2"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>
+<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(p.client_name)} + ${esc(p.vendor_name)}</span></div>`})}
+
+// Individual contracts
+const matchContracts=_chatScopeContracts.filter(c=>!q||c.name.toLowerCase().includes(q)||(c.party_name||'').toLowerCase().includes(q));
+if(matchContracts.length){
+html+=`<div style="padding:.35rem .8rem;font-size:.65rem;font-weight:700;color:var(--text4);text-transform:uppercase;letter-spacing:.04em;background:var(--surface2)">Contracts (${matchContracts.length})</div>`;
+matchContracts.slice(0,50).forEach(c=>{
+const sel=_chatScopeValue===String(c.id);
+html+=`<div style="${itemStyle};font-weight:${sel?'600':'400'};color:${sel?'var(--primary)':'var(--text)'}" ${hoverAttr} onclick="selectChatScope('${c.id}','${esc(c.name)}')">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="${c.contract_type==='vendor'?'var(--purple)':'var(--primary)'}" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+<div style="flex:1;min-width:0;overflow:hidden"><div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(c.name)}</div>
+<div style="font-size:.68rem;color:var(--text4)">${esc(c.party_name||'')} · ${tc(c.contract_type||'client')}</div></div></div>`})
+if(matchContracts.length>50)html+=`<div style="padding:.5rem .8rem;font-size:.72rem;color:var(--text4);text-align:center">+${matchContracts.length-50} more — refine search</div>`}
+
+if(!matchLinks.length&&!matchContracts.length&&q){
+html+=`<div style="padding:1.5rem;text-align:center;color:var(--text4);font-size:.82rem">No contracts matching "${esc(q)}"</div>`}
+el.innerHTML=html}
+
+// Close dropdown when clicking outside
+document.addEventListener('click',e=>{const w=document.getElementById('chat-scope-wrap');if(w&&!w.contains(e.target)){document.getElementById('chat-scope-dropdown').style.display='none'}})
 let _editTplId=null;
 async function loadTemplates(){try{const r=await api('/api/templates');const d=await r.json();
 document.getElementById('templates-grid').innerHTML=d.map(t=>`<div class="card" style="position:relative">
@@ -2084,7 +2147,7 @@ function loadChatScope(){loadTemplateOptions()}
 async function sendChat(){const inp=document.getElementById('chat-input');const msg=inp.value.trim();if(!msg)return;
 inp.value='';document.getElementById('chat-empty')?.remove();
 chatHist.push({role:'user',content:msg});renderChat();
-const scope=document.getElementById('chat-scope').value;
+const scope=_chatScopeValue||'';
 const cids=scope?scope.split(',').map(s=>parseInt(s.trim())):null;
 const btn=document.getElementById('chat-send-btn');btn.disabled=true;
 chatHist.push({role:'assistant',content:''});
