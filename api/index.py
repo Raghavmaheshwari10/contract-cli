@@ -1021,14 +1021,15 @@ def chat():
         ctx = "\n---\n".join(parts)
         summ = "\n".join(f"- {c['name']} ({c['party_name']}, {c['contract_type']})" for c in meta)
 
-        # For single-contract queries: if RAG returned few chunks, supplement with full text
-        if cids and len(cids) == 1 and len(chunks) < 10:
+        # For single-contract queries: supplement with full text to catch missed sections
+        if cids and len(cids) <= 3:
             try:
-                full = sb.table("contracts").select("content").eq("id", cids[0]).execute().data
-                if full and full[0].get("content"):
-                    content = full[0]["content"]
-                    # Add truncated full text as additional context (up to 12K chars)
-                    ctx += f"\n\n--- FULL CONTRACT TEXT (supplementary) ---\n{content[:12000]}"
+                full = sb.table("contracts").select("content").in_("id", cids).execute().data
+                for fc in (full or []):
+                    content = fc.get("content", "")
+                    if content:
+                        # Send full text (up to 30K chars) to ensure no section is missed
+                        ctx += f"\n\n--- FULL CONTRACT TEXT ---\n{content[:30000]}"
             except: pass
     else:
         q = sb.table("contracts").select("id,name,party_name,contract_type,content")
