@@ -1957,6 +1957,108 @@ def email_status():
         "from_address": EMAIL_FROM if RESEND_API_KEY else None
     })
 
+# ─── Contract Linking (Client ↔ Vendor) ──────────────────────────────────
+@app.route("/api/contracts/<int:cid>/links", methods=["GET"])
+@auth
+@need_db
+def get_contract_links(cid):
+    """Get all contracts linked to this contract"""
+    c = sb.table("contracts").select("id,contract_type").eq("id", cid).execute()
+    if not c.data: return jsonify({"error": "Not found"}), 404
+    ctype = c.data[0]["contract_type"]
+
+    links = []
+    if ctype == "client":
+        rows = sb.table("contract_links").select("*").eq("client_contract_id", cid).execute().data or []
+        linked_ids = [r["vendor_contract_id"] for r in rows]
+    else:
+        rows = sb.table("contract_links").select("*").eq("vendor_contract_id", cid).execute().data or []
+        linked_ids = [r["client_contract_id"] for r in rows]
+
+    if linked_ids:
+        linked = sb.table("contracts").select("id,name,party_name,contract_type,status,value,start_date,end_date").in_("id", linked_ids).execute().data or []
+        link_map = {r["vendor_contract_id" if ctype == "client" else "client_contract_id"]: r for r in rows}
+        for lc in linked:
+            link_row = link_map.get(lc["id"], {})
+            links.append({**lc, "link_id": link_row.get("id"), "link_notes": link_row.get("notes", ""), "linked_at": link_row.get("created_at")})
+
+    return jsonify({"contract_id": cid, "contract_type": ctype, "links": links})
+
+@app.route("/api/contracts/<int:cid>/links", methods=["POST"])
+@auth
+@role_required("editor")
+@need_db
+def add_contract_link(cid):
+    """Link a client contract to a vendor contract (or vice versa)"""
+    d = request.json or {}
+    target_id = d.get("linked_contract_id")
+    if not target_id: return jsonify({"error": "Missing linked_contract_id"}), 400
+
+    # Get both contracts
+    contracts = sb.table("contracts").select("id,contract_type,name").in_("id", [cid, int(target_id)]).execute().data or []
+    if len(contracts) < 2: return jsonify({"error": "One or both contracts not found"}), 404
+
+    by_id = {c["id"]: c for c in contracts}
+    c1, c2 = by_id.get(cid), by_id.get(int(target_id))
+    if not c1 or not c2: return jsonify({"error": "Contract not found"}), 404
+
+    # Determine which is client and which is vendor
+    if c1["contract_type"] == c2["contract_type"]:
+        return jsonify({"error": "Can only link a client contract to a vendor contract"}), 400
+
+    client_id = cid if c1["contract_type"] == "client" else int(target_id)
+    vendor_id = int(target_id) if c1["contract_type"] == "client" else cid
+
+    try:
+        row = {"client_contract_id": client_id, "vendor_contract_id": vendor_id,
+               "notes": _sanitize(d.get("notes", ""), max_len=1000),
+               "created_by": getattr(request, 'user_email', 'User')}
+        r = sb.table("contract_links").insert(row).execute()
+        log_activity(cid, "linked", row["created_by"], f"Linked to contract #{target_id}")
+        return jsonify({"message": "Linked", "link_id": r.data[0]["id"]}), 201
+    except Exception as e:
+        if "duplicate" in str(e).lower() or "unique" in str(e).lower():
+            return jsonify({"error": "These contracts are already linked"}), 409
+        raise
+
+@app.route("/api/contract-links/<int:link_id>", methods=["DELETE"])
+@auth
+@role_required("editor")
+@need_db
+def delete_contract_link(link_id):
+    """Remove a contract link"""
+    link = sb.table("contract_links").select("*").eq("id", link_id).execute()
+    if not link.data: return jsonify({"error": "Link not found"}), 404
+    sb.table("contract_links").delete().eq("id", link_id).execute()
+    log_activity(link.data[0]["client_contract_id"], "unlinked", getattr(request, 'user_email', 'User'),
+                 f"Unlinked from contract #{link.data[0]['vendor_contract_id']}")
+    return jsonify({"message": "Unlinked"})
+
+@app.route("/api/contracts/linkable", methods=["GET"])
+@auth
+@need_db
+def get_linkable_contracts():
+    """Get contracts that can be linked to a given contract (opposite type, not already linked)"""
+    cid = request.args.get("contract_id")
+    if not cid: return jsonify({"error": "Provide contract_id"}), 400
+    c = sb.table("contracts").select("id,contract_type").eq("id", int(cid)).execute()
+    if not c.data: return jsonify({"error": "Not found"}), 404
+
+    opposite = "vendor" if c.data[0]["contract_type"] == "client" else "client"
+    # Get already linked IDs
+    if c.data[0]["contract_type"] == "client":
+        existing = sb.table("contract_links").select("vendor_contract_id").eq("client_contract_id", int(cid)).execute().data or []
+        linked_ids = [r["vendor_contract_id"] for r in existing]
+    else:
+        existing = sb.table("contract_links").select("client_contract_id").eq("vendor_contract_id", int(cid)).execute().data or []
+        linked_ids = [r["client_contract_id"] for r in existing]
+
+    q = sb.table("contracts").select("id,name,party_name,status,value").eq("contract_type", opposite)
+    if linked_ids:
+        q = q.not_.in_("id", linked_ids)
+    available = q.execute().data or []
+    return jsonify({"contract_type": opposite, "contracts": available})
+
 # ─── Contract Comparison ──────────────────────────────────────────────────
 @app.route("/api/contracts/compare")
 @auth

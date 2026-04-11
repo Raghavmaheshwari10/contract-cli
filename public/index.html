@@ -1321,6 +1321,7 @@ Use placeholders like [PARTY_NAME], [DATE], [COMPANY_NAME], [ADDRESS] for fields
 <div class="tab" onclick="mTab('approvals')">Approvals</div>
 <div class="tab" onclick="mTab('collaborators')">Collaborators</div>
 <div class="tab" onclick="mTab('customfields')">Custom Fields</div>
+<div class="tab" onclick="mTab('linked')">Linked Contracts</div>
 </div>
 
 <div class="tab-panel active" id="mp-details">
@@ -1435,6 +1436,22 @@ Use placeholders like [PARTY_NAME], [DATE], [COMPANY_NAME], [ADDRESS] for fields
 <button class="btn btn-primary btn-sm" onclick="saveCustomFields()">Save Fields</button>
 </div>
 <div class="cf-grid" id="cf-grid"></div>
+</div>
+
+<div class="tab-panel" id="mp-linked">
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem">
+<div><h3 style="font-size:.95rem;font-weight:600">Linked Contracts</h3><p style="font-size:.78rem;color:var(--text4)">Client ↔ Vendor contract relationships</p></div>
+<button class="btn btn-primary btn-sm" onclick="showLinkPicker()" id="link-add-btn">+ Link Contract</button>
+</div>
+<div id="linked-list"></div>
+<div id="link-picker" style="display:none;margin-top:1rem;padding:1rem;border:1px solid var(--border3);border-radius:var(--radius);background:var(--bg2)">
+<div style="display:flex;gap:.5rem;align-items:center;margin-bottom:.8rem">
+<select class="filter-select" id="link-select" style="flex:1;font-size:.82rem"></select>
+<input class="form-input" id="link-notes" placeholder="Notes (optional)" style="flex:1;font-size:.82rem">
+<button class="btn btn-primary btn-sm" onclick="addLink()">Link</button>
+<button class="btn btn-outline btn-sm" onclick="hideLinkPicker()">Cancel</button>
+</div>
+</div>
 </div>
 </div>
 </div>
@@ -1653,7 +1670,7 @@ document.getElementById('m-details-grid').innerHTML=`
 `;
 document.getElementById('m-content').textContent=mData.content||'No content';
 document.getElementById('contract-modal').classList.add('active');
-mTab('details');loadComments();loadObligations();loadSignatures();loadTimeline();loadApprovals();loadCollaborators();loadVersions();loadRedlineVersions();checkLeegality();loadContractTags();loadCustomFields();applyRBAC();
+mTab('details');loadComments();loadObligations();loadSignatures();loadTimeline();loadApprovals();loadCollaborators();loadVersions();loadRedlineVersions();checkLeegality();loadContractTags();loadCustomFields();loadLinkedContracts();applyRBAC();
 document.getElementById('review-results').innerHTML='';
 document.getElementById('review-summary').style.display='none';
 }catch(e){toast('Failed to load contract','error')}}
@@ -2247,6 +2264,42 @@ const fields=[];
 inputs.forEach(inp=>{fields.push({field_id:parseInt(inp.dataset.fid),value:inp.value})});
 try{const r=await api(`/api/contracts/${mCid}/custom-fields`,{method:'POST',headers:authH(),body:J({fields})});
 const d=await r.json();toast(`${d.saved} fields saved`,'success')}catch(e){toast('Failed to save','error')}}
+
+// ═══ LINKED CONTRACTS ═══
+async function loadLinkedContracts(){if(!mCid)return;
+try{const r=await api(`/api/contracts/${mCid}/links`);const d=await r.json();
+const links=d.links||[];
+const oppositeType=d.contract_type==='client'?'Vendor':'Client';
+if(!links.length){
+document.getElementById('linked-list').innerHTML=`<div class="empty-state"><div class="icon" style="font-size:2rem">&#x1F517;</div><h3>No linked ${oppositeType.toLowerCase()} contracts</h3><p>Link this ${d.contract_type} contract to its corresponding ${oppositeType.toLowerCase()} contract(s) to track the full relationship.</p></div>`;return}
+document.getElementById('linked-list').innerHTML=`<div style="font-size:.75rem;color:var(--text4);margin-bottom:.5rem;text-transform:uppercase;font-weight:600">Linked ${oppositeType} Contracts</div>`+links.map(l=>`<div style="display:flex;align-items:center;gap:.8rem;padding:.8rem;border:1px solid var(--border3);border-radius:var(--radius-sm);margin-bottom:.5rem;cursor:pointer" onclick="closeModal();setTimeout(()=>openContract(${l.id}),300)">
+<div style="flex:1">
+<div style="font-size:.88rem;font-weight:600;color:var(--text)">${esc(l.name)}</div>
+<div style="font-size:.78rem;color:var(--text4)">${esc(l.party_name)} &middot; <span class="badge badge-${l.status}"><span class="badge-dot"></span>${tc(l.status||'draft')}</span> &middot; ${l.value||'—'}</div>
+${l.link_notes?`<div style="font-size:.72rem;color:var(--text4);margin-top:.2rem;font-style:italic">${esc(l.link_notes)}</div>`:''}
+</div>
+<button class="btn btn-sm btn-outline" onclick="event.stopPropagation();unlinkContract(${l.link_id})" title="Unlink" style="color:var(--red);border-color:var(--red-border)">&times;</button>
+</div>`).join('')}catch(e){document.getElementById('linked-list').innerHTML='<div class="empty-state"><p>Failed to load linked contracts</p></div>'}}
+
+async function showLinkPicker(){
+document.getElementById('link-picker').style.display='block';
+try{const r=await api(`/api/contracts/linkable?contract_id=${mCid}`);const d=await r.json();
+const sel=document.getElementById('link-select');
+sel.innerHTML=d.contracts.length?'<option value="">Select '+d.contract_type+' contract...</option>'+d.contracts.map(c=>`<option value="${c.id}">${esc(c.name)} — ${esc(c.party_name)} (${c.value||'—'})</option>`).join(''):'<option value="">No '+d.contract_type+' contracts available</option>'}catch(e){toast('Failed to load','error')}}
+
+function hideLinkPicker(){document.getElementById('link-picker').style.display='none'}
+
+async function addLink(){
+const tid=document.getElementById('link-select').value;
+if(!tid){toast('Select a contract to link','error');return}
+const notes=document.getElementById('link-notes').value.trim();
+try{await api(`/api/contracts/${mCid}/links`,{method:'POST',headers:authH(),body:J({linked_contract_id:parseInt(tid),notes})});
+hideLinkPicker();loadLinkedContracts();toast('Contract linked','success')}catch(e){const d=await e.json?.().catch(()=>({}));toast(d?.error||'Failed to link','error')}}
+
+async function unlinkContract(linkId){
+if(!confirm('Remove this contract link?'))return;
+try{await api(`/api/contract-links/${linkId}`,{method:'DELETE',headers:authH()});
+loadLinkedContracts();toast('Contract unlinked','success')}catch(e){toast('Failed to unlink','error')}}
 
 // ═══ CONTRACT COMPARISON ═══
 async function loadCompareOptions(){
