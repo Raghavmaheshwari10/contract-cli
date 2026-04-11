@@ -446,32 +446,34 @@ kbd{display:none}
 
 /* ═══ CALENDAR ═══ */
 .cal-container{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
-.cal-header{display:flex;align-items:center;justify-content:space-between;padding:1rem 1.5rem;border-bottom:1px solid var(--border)}
-.cal-header h3{font-size:1.05rem;font-weight:700}
-.cal-nav{display:flex;align-items:center;gap:.5rem}
-.cal-nav button{width:32px;height:32px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--surface);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text3);transition:var(--transition)}
+.cal-header{display:flex;align-items:center;justify-content:space-between;padding:1rem 1.5rem;border-bottom:1px solid var(--border);background:var(--surface2)}
+.cal-header h3{font-size:1.1rem;font-weight:700;color:var(--text);min-width:180px;text-align:center}
+.cal-nav{display:flex;align-items:center;gap:.4rem}
+.cal-nav button{width:34px;height:34px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--surface);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text3);transition:var(--transition);font-size:.9rem}
 .cal-nav button:hover{background:var(--primary-bg);color:var(--primary);border-color:var(--primary-border)}
 .cal-grid{display:grid;grid-template-columns:repeat(7,1fr)}
-.cal-day-name{padding:.6rem;text-align:center;font-size:.7rem;font-weight:600;color:var(--text4);text-transform:uppercase;background:var(--surface2);border-bottom:1px solid var(--border)}
-.cal-cell{min-height:100px;padding:.4rem;border-right:1px solid var(--border3);border-bottom:1px solid var(--border3);position:relative;transition:background .15s}
+.cal-day-name{padding:.7rem;text-align:center;font-size:.7rem;font-weight:700;color:var(--text4);text-transform:uppercase;background:var(--surface2);border-bottom:1px solid var(--border);letter-spacing:.04em}
+.cal-cell{min-height:110px;padding:.5rem;border-right:1px solid var(--border3);border-bottom:1px solid var(--border3);position:relative;transition:background .15s}
 .cal-cell:nth-child(7n){border-right:none}
 .cal-cell:hover{background:var(--primary-bg)}
-.cal-cell.other-month{background:var(--surface2);opacity:.5}
-.cal-cell.today{background:var(--primary-bg)}
-.cal-date{font-size:.75rem;font-weight:600;color:var(--text3);margin-bottom:.3rem}
-.cal-cell.today .cal-date{color:var(--primary);font-weight:700}
-.cal-event{font-size:.65rem;padding:.15rem .35rem;border-radius:3px;margin-bottom:.2rem;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#fff;font-weight:500;transition:transform .15s}
-.cal-event:hover{transform:scale(1.02)}
+.cal-cell.other-month{background:var(--surface2);opacity:.4}
+.cal-cell.today{background:linear-gradient(135deg,var(--primary-bg),transparent);box-shadow:inset 0 0 0 2px var(--primary-border)}
+.cal-date{font-size:.78rem;font-weight:600;color:var(--text3);margin-bottom:.35rem;width:26px;height:26px;display:flex;align-items:center;justify-content:center;border-radius:50%}
+.cal-cell.today .cal-date{background:var(--primary);color:#fff;font-weight:700}
+.cal-event{font-size:.65rem;padding:.2rem .4rem;border-radius:4px;margin-bottom:.25rem;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#fff;font-weight:500;transition:all .15s;display:block}
+.cal-event:hover{transform:scale(1.03);box-shadow:0 2px 6px rgba(0,0,0,.15)}
 .cal-event.start{background:#059669}
-.cal-event.end{background:#ea580c}
+.cal-event.end{background:#2563eb}
 .cal-event.expiring{background:#dc2626}
 .cal-event.obligation{background:#7c3aed}
-.cal-more{font-size:.65rem;color:var(--primary);cursor:pointer;font-weight:600}
-.cal-sidebar{display:grid;grid-template-columns:1fr 320px;gap:1rem}
-.cal-events-list{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1rem}
-.cal-event-item{display:flex;align-items:center;gap:.6rem;padding:.6rem;border-radius:var(--radius-sm);border:1px solid var(--border3);margin-bottom:.4rem;cursor:pointer;transition:var(--transition)}
-.cal-event-item:hover{background:var(--primary-bg);border-color:var(--primary-border)}
-.cal-event-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.cal-more{font-size:.65rem;color:var(--primary);cursor:pointer;font-weight:600;padding:.1rem .3rem;border-radius:3px;transition:background .15s}
+.cal-more:hover{background:var(--primary-bg)}
+.cal-sidebar{display:grid;grid-template-columns:1fr 340px;gap:1.2rem}
+@media(max-width:900px){.cal-sidebar{grid-template-columns:1fr}.cal-cell{min-height:80px}}
+.cal-events-list{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.2rem;max-height:calc(100vh - var(--header-h) - 8rem);overflow-y:auto}
+.cal-event-item{display:flex;align-items:center;gap:.7rem;padding:.7rem .8rem;border-radius:var(--radius-sm);border:1px solid var(--border3);margin-bottom:.5rem;cursor:pointer;transition:var(--transition)}
+.cal-event-item:hover{background:var(--primary-bg);border-color:var(--primary-border);transform:translateX(2px)}
+.cal-event-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;box-shadow:0 0 0 2px rgba(0,0,0,.05)}
 
 /* ═══ WORKFLOW ═══ */
 .wf-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1rem;margin-bottom:.6rem;transition:var(--transition)}
@@ -559,31 +561,47 @@ kbd{display:none}
 .theme-switch.on::after{transform:translateX(16px);background:#fff}
 
 /* ═══ KANBAN ═══ */
-.kanban-container{display:flex;gap:.8rem;overflow-x:auto;padding:.5rem 0;min-height:calc(100vh - var(--header-h) - 8rem)}
-.kanban-col{flex:0 0 260px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-lg);display:flex;flex-direction:column;max-height:calc(100vh - var(--header-h) - 8rem)}
-.kanban-col-header{padding:.8rem 1rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:var(--surface2);border-radius:var(--radius-lg) var(--radius-lg) 0 0}
-.kanban-col-header h4{font-size:.82rem;font-weight:600;display:flex;align-items:center;gap:.4rem}
-.kanban-col-header .col-count{width:22px;height:22px;border-radius:50%;background:var(--border);display:flex;align-items:center;justify-content:center;font-size:.68rem;font-weight:700;color:var(--text3)}
-.kanban-col-body{flex:1;padding:.5rem;overflow-y:auto;min-height:60px}
-.kanban-col-body.drag-over{background:var(--primary-bg);border:2px dashed var(--primary);border-radius:0 0 var(--radius-lg) var(--radius-lg)}
-.kanban-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:.75rem;margin-bottom:.5rem;cursor:grab;transition:var(--transition);box-shadow:var(--shadow-sm)}
-.kanban-card:hover{box-shadow:var(--shadow-md);transform:translateY(-1px)}
-.kanban-card:active{cursor:grabbing;opacity:.8;transform:rotate(2deg)}
-.kanban-card.dragging{opacity:.4;transform:rotate(3deg)}
-.kanban-card .kc-name{font-size:.82rem;font-weight:600;color:var(--text);margin-bottom:.3rem;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-.kanban-card .kc-party{font-size:.72rem;color:var(--text3);margin-bottom:.4rem}
-.kanban-card .kc-meta{display:flex;align-items:center;justify-content:space-between;font-size:.68rem;color:var(--text4)}
-.kanban-card .kc-value{font-weight:600;color:var(--primary)}
-.kanban-card .kc-tags{display:flex;gap:.2rem;flex-wrap:wrap;margin-top:.3rem}
-.kanban-card .kc-tag{font-size:.6rem;padding:1px 5px;border-radius:8px;color:#fff;font-weight:500}
+.kanban-container{display:flex;gap:1rem;overflow-x:auto;padding:.5rem 0;min-height:calc(100vh - var(--header-h) - 10rem)}
+.kanban-col{flex:1;min-width:240px;max-width:340px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-lg);display:flex;flex-direction:column;max-height:calc(100vh - var(--header-h) - 10rem)}
+.kanban-col-header{padding:.8rem 1rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:var(--surface2);border-radius:var(--radius-lg) var(--radius-lg) 0 0;z-index:1}
+.kanban-col-header h4{font-size:.82rem;font-weight:700;display:flex;align-items:center;gap:.5rem}
+.kanban-col-header .col-count{min-width:24px;height:24px;border-radius:12px;background:var(--border);display:flex;align-items:center;justify-content:center;font-size:.7rem;font-weight:700;color:var(--text3);padding:0 6px}
+.kanban-col-body{flex:1;padding:.6rem;overflow-y:auto;min-height:80px;scrollbar-width:thin}
+.kanban-col-body.drag-over{background:var(--primary-bg);outline:2px dashed var(--primary);outline-offset:-4px;border-radius:0 0 var(--radius-lg) var(--radius-lg)}
+.kanban-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:.85rem;margin-bottom:.6rem;cursor:grab;transition:all .2s ease;box-shadow:var(--shadow-sm)}
+.kanban-card:hover{box-shadow:var(--shadow-md);transform:translateY(-2px);border-color:var(--primary-border)}
+.kanban-card:active{cursor:grabbing;opacity:.85;transform:rotate(1.5deg) scale(.98)}
+.kanban-card.dragging{opacity:.3;transform:rotate(2deg)}
+.kanban-card .kc-header{display:flex;align-items:flex-start;justify-content:space-between;gap:.4rem;margin-bottom:.4rem}
+.kanban-card .kc-name{font-size:.82rem;font-weight:600;color:var(--text);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.4}
+.kanban-card .kc-type{font-size:.6rem;padding:2px 6px;border-radius:6px;font-weight:600;text-transform:uppercase;white-space:nowrap;flex-shrink:0;letter-spacing:.03em}
+.kanban-card .kc-type.client{background:var(--primary-bg);color:var(--primary);border:1px solid var(--primary-border)}
+.kanban-card .kc-type.vendor{background:var(--purple-bg);color:var(--purple);border:1px solid var(--purple-border)}
+.kanban-card .kc-party{font-size:.74rem;color:var(--text3);margin-bottom:.5rem;display:flex;align-items:center;gap:.3rem}
+.kanban-card .kc-party svg{flex-shrink:0;opacity:.5}
+.kanban-card .kc-divider{height:1px;background:var(--border3);margin:.4rem 0}
+.kanban-card .kc-meta{display:flex;align-items:center;justify-content:space-between;font-size:.7rem;color:var(--text4)}
+.kanban-card .kc-value{font-weight:700;color:var(--primary);font-size:.78rem}
+.kanban-card .kc-date{display:flex;align-items:center;gap:.2rem}
+.kanban-card .kc-date svg{opacity:.5}
+.kanban-card .kc-tags{display:flex;gap:.25rem;flex-wrap:wrap;margin-top:.45rem}
+.kanban-card .kc-tag{font-size:.6rem;padding:2px 6px;border-radius:8px;color:#fff;font-weight:500}
 .kanban-col.col-draft .kanban-col-header{border-top:3px solid #94a3b8}
-.kanban-col.col-pending .kanban-col-header{border-top:3px solid #ea580c}
+.kanban-col.col-pending .kanban-col-header{border-top:3px solid #f59e0b}
 .kanban-col.col-in_review .kanban-col-header{border-top:3px solid #0891b2}
 .kanban-col.col-executed .kanban-col-header{border-top:3px solid #059669}
 .kanban-col.col-rejected .kanban-col-header{border-top:3px solid #dc2626}
 .kanban-view-toggle{display:flex;gap:0;border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden}
-.kanban-view-btn{padding:.35rem .7rem;font-size:.78rem;background:var(--surface);border:none;cursor:pointer;color:var(--text3);transition:var(--transition)}
+.kanban-view-btn{padding:.4rem .8rem;font-size:.78rem;background:var(--surface);border:none;cursor:pointer;color:var(--text3);transition:var(--transition);font-weight:500}
 .kanban-view-btn.active{background:var(--primary);color:#fff}
+.kanban-empty{text-align:center;padding:2.5rem 1rem;color:var(--text4);font-size:.78rem}
+.kanban-empty .ke-icon{font-size:1.8rem;margin-bottom:.5rem;opacity:.4}
+.kanban-empty p{margin:0;line-height:1.5}
+.kanban-stats{display:flex;gap:.6rem;margin-bottom:1rem;flex-wrap:wrap}
+.kanban-stat{display:flex;align-items:center;gap:.4rem;padding:.4rem .8rem;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);font-size:.75rem}
+.kanban-stat .ks-dot{width:8px;height:8px;border-radius:50%}
+.kanban-stat .ks-count{font-weight:700;color:var(--text)}
+.kanban-stat .ks-label{color:var(--text4)}
 
 </style>
 </head>
@@ -1091,30 +1109,51 @@ Use placeholders like [PARTY_NAME], [DATE], [COMPANY_NAME], [ADDRESS] for fields
 
 <!-- ═══ CALENDAR PAGE ═══ -->
 <div class="page" id="pg-calendar">
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:.5rem">
+<div>
+<h2 style="font-size:1.15rem;font-weight:700;margin:0">Contract Calendar</h2>
+<p style="font-size:.8rem;color:var(--text4);margin-top:.2rem">Track contract dates, deadlines, and obligations</p>
+</div>
+<div style="display:flex;gap:.4rem;align-items:center">
+<select class="filter-select" id="cal-type-filter" onchange="loadCalendar()" style="font-size:.78rem;padding:.35rem .6rem">
+<option value="">All Types</option>
+<option value="start">Start Dates</option>
+<option value="end">End Dates</option>
+<option value="obligation">Obligations</option>
+<option value="expiring">Expiring</option>
+</select>
+<button class="btn btn-outline btn-sm" onclick="loadCalendar()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg></button>
+</div>
+</div>
 <div class="cal-sidebar">
 <div class="cal-container">
 <div class="cal-header">
 <div class="cal-nav">
-<button onclick="calNav(-1)">&laquo;</button>
+<button onclick="calNav(-1)" title="Previous month">&lsaquo;</button>
 </div>
-<h3 id="cal-title">January 2025</h3>
+<div style="display:flex;align-items:center;gap:.5rem">
+<select class="filter-select" id="cal-month-select" onchange="calMonth=parseInt(this.value);loadCalendar()" style="font-size:.85rem;font-weight:600;padding:.3rem .5rem;border:none;background:transparent;color:var(--text);cursor:pointer"></select>
+<select class="filter-select" id="cal-year-select" onchange="calYear=parseInt(this.value);loadCalendar()" style="font-size:.85rem;font-weight:600;padding:.3rem .5rem;border:none;background:transparent;color:var(--text);cursor:pointer"></select>
+</div>
 <div class="cal-nav">
-<button onclick="calNav(1)">&raquo;</button>
-<button class="btn btn-outline btn-sm" onclick="calToday()">Today</button>
+<button onclick="calNav(1)" title="Next month">&rsaquo;</button>
+<button class="btn btn-outline btn-sm" onclick="calToday()" style="font-size:.72rem;padding:.3rem .6rem">Today</button>
 </div>
 </div>
 <div class="cal-grid" id="cal-grid"></div>
 </div>
 <div class="cal-events-list">
-<h4 style="font-size:.88rem;font-weight:600;margin-bottom:.8rem" id="cal-events-title">Upcoming Events</h4>
+<h4 style="font-size:.9rem;font-weight:700;margin-bottom:.8rem;display:flex;align-items:center;gap:.4rem" id="cal-events-title">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+Upcoming Events</h4>
 <div id="cal-events-list"></div>
-<div style="margin-top:1rem;padding-top:.8rem;border-top:1px solid var(--border3)">
-<div style="font-size:.72rem;font-weight:600;color:var(--text4);text-transform:uppercase;margin-bottom:.5rem">Legend</div>
-<div style="display:flex;flex-direction:column;gap:.3rem">
-<div style="display:flex;align-items:center;gap:.4rem;font-size:.75rem"><span class="cal-event-dot" style="background:#059669"></span> Contract Start</div>
-<div style="display:flex;align-items:center;gap:.4rem;font-size:.75rem"><span class="cal-event-dot" style="background:#2563eb"></span> Contract Expiry</div>
-<div style="display:flex;align-items:center;gap:.4rem;font-size:.75rem"><span class="cal-event-dot" style="background:#dc2626"></span> Expired / Expiring Soon</div>
-<div style="display:flex;align-items:center;gap:.4rem;font-size:.75rem"><span class="cal-event-dot" style="background:#7c3aed"></span> Obligation Deadline</div>
+<div style="margin-top:1.2rem;padding-top:1rem;border-top:1px solid var(--border3)">
+<div style="font-size:.7rem;font-weight:700;color:var(--text4);text-transform:uppercase;margin-bottom:.6rem;letter-spacing:.04em">Legend</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:.4rem">
+<div style="display:flex;align-items:center;gap:.4rem;font-size:.74rem"><span class="cal-event-dot" style="background:#059669"></span> Start Date</div>
+<div style="display:flex;align-items:center;gap:.4rem;font-size:.74rem"><span class="cal-event-dot" style="background:#2563eb"></span> End Date</div>
+<div style="display:flex;align-items:center;gap:.4rem;font-size:.74rem"><span class="cal-event-dot" style="background:#dc2626"></span> Expiring</div>
+<div style="display:flex;align-items:center;gap:.4rem;font-size:.74rem"><span class="cal-event-dot" style="background:#7c3aed"></span> Obligation</div>
 </div>
 </div>
 </div>
@@ -1202,16 +1241,25 @@ Use placeholders like [PARTY_NAME], [DATE], [COMPANY_NAME], [ADDRESS] for fields
 
 <!-- ═══ KANBAN BOARD PAGE ═══ -->
 <div class="page" id="pg-kanban">
-<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem">
-<div><p style="font-size:.84rem;color:var(--text3)">Drag and drop contracts between columns to change their status</p></div>
-<div style="display:flex;gap:.5rem;align-items:center">
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.8rem;flex-wrap:wrap;gap:.5rem">
+<div>
+<h2 style="font-size:1.15rem;font-weight:700;margin:0">Kanban Board</h2>
+<p style="font-size:.8rem;color:var(--text4);margin-top:.2rem">Drag and drop contracts between columns to update status</p>
+</div>
+<div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap">
+<select class="filter-select" id="kanban-type-filter" onchange="renderKanban()" style="font-size:.78rem;padding:.35rem .6rem">
+<option value="">All Types</option>
+<option value="client">Client</option>
+<option value="vendor">Vendor</option>
+</select>
 <div class="kanban-view-toggle">
-<button class="kanban-view-btn active" onclick="goPage('kanban')">Board</button>
-<button class="kanban-view-btn" onclick="goPage('contracts')">List</button>
+<button class="kanban-view-btn active" onclick="goPage('kanban')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg> Board</button>
+<button class="kanban-view-btn" onclick="goPage('contracts')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg> List</button>
 </div>
 <button class="btn btn-outline btn-sm" onclick="loadKanban()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg> Refresh</button>
 </div>
 </div>
+<div class="kanban-stats" id="kanban-stats"></div>
 <div class="kanban-container" id="kanban-board"></div>
 </div>
 
@@ -2389,10 +2437,25 @@ let calYear=new Date().getFullYear(),calMonth=new Date().getMonth(),calEvents=[]
 function calNav(dir){calMonth+=dir;if(calMonth>11){calMonth=0;calYear++}if(calMonth<0){calMonth=11;calYear--}loadCalendar()}
 function calToday(){calYear=new Date().getFullYear();calMonth=new Date().getMonth();loadCalendar()}
 
+function updateCalSelectors(){
+const months=['January','February','March','April','May','June','July','August','September','October','November','December'];
+const ms=document.getElementById('cal-month-select');
+if(ms){ms.innerHTML=months.map((m,i)=>`<option value="${i}"${i===calMonth?' selected':''}>${m}</option>`).join('')}
+const ys=document.getElementById('cal-year-select');
+if(ys){const cy=new Date().getFullYear();ys.innerHTML='';for(let y=cy-3;y<=cy+5;y++){ys.innerHTML+=`<option value="${y}"${y===calYear?' selected':''}>${y}</option>`}}}
+
 async function loadCalendar(){
 const m=String(calMonth+1).padStart(2,'0');
-document.getElementById('cal-title').textContent=new Date(calYear,calMonth).toLocaleDateString('en-US',{month:'long',year:'numeric'});
-try{const r=await api(`/api/calendar?year=${calYear}&month=${m}`);calEvents=await r.json();renderCalendar();renderCalEvents()}catch(e){console.error(e)}}
+updateCalSelectors();
+try{const r=await api(`/api/calendar?year=${calYear}&month=${m}`);const allEvents=await r.json();
+const typeFilter=document.getElementById('cal-type-filter')?.value||'';
+if(typeFilter){
+const typeMap={start:'contract_start',end:'contract_end',obligation:'obligation',expiring:'expiring'};
+calEvents=allEvents.filter(e=>{
+if(typeFilter==='expiring')return e.meta?.days_left!=null&&e.meta.days_left<=30;
+return e.type===typeMap[typeFilter]});
+}else{calEvents=allEvents}
+renderCalendar();renderCalEvents()}catch(e){console.error(e)}}
 
 function renderCalendar(){
 const grid=document.getElementById('cal-grid');
@@ -2412,8 +2475,8 @@ const isToday=dateStr===todayStr;
 const dayEvents=calEvents.filter(e=>e.date===dateStr);
 const evHtml=dayEvents.slice(0,3).map(e=>{
 const cls=e.type==='contract_start'?'start':e.type==='obligation'?'obligation':e.meta?.days_left<0?'expiring':'end';
-return `<div class="cal-event ${cls}" onclick="event.stopPropagation();${e.contract_id?`openContract(${e.contract_id})`:''}" title="${esc(e.title)}" style="background:${e.color}">${esc(e.title).substring(0,20)}</div>`}).join('');
-const moreHtml=dayEvents.length>3?`<div class="cal-more">+${dayEvents.length-3} more</div>`:'';
+return `<div class="cal-event ${cls}" onclick="event.stopPropagation();${e.contract_id?`openContract(${e.contract_id})`:''}" title="${esc(e.title)}${e.meta?.party?' — '+e.meta.party:''}">${esc(e.title).substring(0,18)}</div>`}).join('');
+const moreHtml=dayEvents.length>3?`<div class="cal-more" title="${dayEvents.slice(3).map(e=>e.title).join(', ')}">+${dayEvents.length-3} more</div>`:'';
 html+=`<div class="cal-cell${isToday?' today':''}"><div class="cal-date">${d}</div>${evHtml}${moreHtml}</div>`}
 
 // Fill remaining cells
@@ -2424,14 +2487,29 @@ grid.innerHTML=html}
 
 function renderCalEvents(){
 const today=new Date().toISOString().slice(0,10);
-const upcoming=calEvents.filter(e=>e.date>=today).slice(0,15);
+const sorted=[...calEvents].sort((a,b)=>a.date.localeCompare(b.date));
+const upcoming=sorted.filter(e=>e.date>=today).slice(0,20);
+const past=sorted.filter(e=>e.date<today).slice(-5).reverse();
 const el=document.getElementById('cal-events-list');
-document.getElementById('cal-events-title').textContent=`Events in ${new Date(calYear,calMonth).toLocaleDateString('en-US',{month:'long',year:'numeric'})} (${calEvents.length})`;
-el.innerHTML=upcoming.length?upcoming.map(e=>`<div class="cal-event-item" onclick="${e.contract_id?`openContract(${e.contract_id})`:''}" title="${esc(e.title)}">
-<span class="cal-event-dot" style="background:${e.color}"></span>
+const monthName=new Date(calYear,calMonth).toLocaleDateString('en-US',{month:'long',year:'numeric'});
+document.getElementById('cal-events-title').innerHTML=`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> ${monthName} <span style="font-weight:400;color:var(--text4);font-size:.78rem">(${calEvents.length} events)</span>`;
+
+let html='';
+if(upcoming.length){
+html+=`<div style="font-size:.68rem;font-weight:700;color:var(--text4);text-transform:uppercase;letter-spacing:.04em;margin-bottom:.4rem;padding:.2rem 0">Upcoming</div>`;
+html+=upcoming.map(e=>`<div class="cal-event-item" onclick="${e.contract_id?`openContract(${e.contract_id})`:''}" title="${esc(e.title)}">
+<span class="cal-event-dot" style="background:${e.type==='contract_start'?'#059669':e.type==='obligation'?'#7c3aed':e.meta?.days_left<0?'#dc2626':'#2563eb'}"></span>
 <div style="flex:1;min-width:0"><div style="font-size:.82rem;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(e.title)}</div>
 <div style="font-size:.7rem;color:var(--text4)">${e.date}${e.meta?.party?' · '+esc(e.meta.party):''}${e.meta?.assigned_to?' · '+esc(e.meta.assigned_to):''}</div></div>
-${e.meta?.days_left!=null?`<span style="font-size:.72rem;font-weight:700;color:${e.meta.days_left<0?'var(--red)':e.meta.days_left<30?'var(--orange)':'var(--green)'}">${e.meta.days_left}d</span>`:''}</div>`).join(''):'<div class="empty-state" style="padding:1rem"><p>No upcoming events</p></div>'}
+${e.meta?.days_left!=null?`<span style="font-size:.72rem;font-weight:700;padding:.15rem .4rem;border-radius:6px;background:${e.meta.days_left<0?'var(--red-bg)':e.meta.days_left<30?'var(--orange-bg)':'var(--green-bg)'};color:${e.meta.days_left<0?'var(--red)':e.meta.days_left<30?'var(--orange)':'var(--green)'}">${e.meta.days_left<0?Math.abs(e.meta.days_left)+'d ago':e.meta.days_left+'d'}</span>`:''}</div>`).join('')}
+if(past.length){
+html+=`<div style="font-size:.68rem;font-weight:700;color:var(--text4);text-transform:uppercase;letter-spacing:.04em;margin:.8rem 0 .4rem;padding:.2rem 0;border-top:1px solid var(--border3);padding-top:.6rem">Past</div>`;
+html+=past.map(e=>`<div class="cal-event-item" style="opacity:.6" onclick="${e.contract_id?`openContract(${e.contract_id})`:''}" title="${esc(e.title)}">
+<span class="cal-event-dot" style="background:${e.type==='contract_start'?'#059669':e.type==='obligation'?'#7c3aed':'#2563eb'}"></span>
+<div style="flex:1;min-width:0"><div style="font-size:.82rem;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(e.title)}</div>
+<div style="font-size:.7rem;color:var(--text4)">${e.date}${e.meta?.party?' · '+esc(e.meta.party):''}</div></div></div>`).join('')}
+if(!upcoming.length&&!past.length){html='<div class="empty-state" style="padding:2rem"><div class="icon" style="font-size:1.5rem;opacity:.4">&#x1F4C5;</div><h3 style="font-size:.88rem">No events this month</h3><p style="font-size:.78rem">Add contracts with start/end dates or create obligations to see them here.</p></div>'}
+el.innerHTML=html}
 
 // ═══ WORKFLOWS ═══
 async function loadWorkflows(){
@@ -2691,28 +2769,48 @@ async function loadKanban(){
 try{const r=await api('/api/contracts?per_page=200');const d=await r.json();kanbanData=d.data||d.contracts||[];renderKanban()}catch(e){console.error('Kanban error:',e);toast('Failed to load kanban','error')}}
 
 function renderKanban(){
+const typeFilter=document.getElementById('kanban-type-filter')?.value||'';
+const filtered=typeFilter?kanbanData.filter(c=>c.contract_type===typeFilter):kanbanData;
 const cols=[
-{id:'draft',label:'Draft',icon:'📝',color:'#94a3b8'},
-{id:'pending',label:'Pending',icon:'⏳',color:'#ea580c'},
-{id:'in_review',label:'In Review',icon:'🔍',color:'#0891b2'},
-{id:'executed',label:'Executed',icon:'✅',color:'#059669'},
-{id:'rejected',label:'Rejected',icon:'❌',color:'#dc2626'}
+{id:'draft',label:'Draft',icon:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>',color:'#94a3b8'},
+{id:'pending',label:'Pending',icon:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>',color:'#f59e0b'},
+{id:'in_review',label:'In Review',icon:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>',color:'#0891b2'},
+{id:'executed',label:'Executed',icon:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>',color:'#059669'},
+{id:'rejected',label:'Rejected',icon:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>',color:'#dc2626'}
 ];
+
+// Stats bar
+const statsEl=document.getElementById('kanban-stats');
+statsEl.innerHTML=cols.map(col=>{
+const count=filtered.filter(c=>(c.status||'draft')===col.id).length;
+return `<div class="kanban-stat"><span class="ks-dot" style="background:${col.color}"></span><span class="ks-count">${count}</span><span class="ks-label">${col.label}</span></div>`}).join('')+`<div class="kanban-stat"><span class="ks-count">${filtered.length}</span><span class="ks-label">Total</span></div>`;
+
 const board=document.getElementById('kanban-board');
 board.innerHTML=cols.map(col=>{
-const items=kanbanData.filter(c=>(c.status||'draft')===col.id);
+const items=filtered.filter(c=>(c.status||'draft')===col.id);
 return `<div class="kanban-col col-${col.id}" data-status="${col.id}">
-<div class="kanban-col-header"><h4>${col.icon} ${col.label}</h4><span class="col-count">${items.length}</span></div>
+<div class="kanban-col-header"><h4><span style="color:${col.color};display:flex">${col.icon}</span> ${col.label}</h4><span class="col-count">${items.length}</span></div>
 <div class="kanban-col-body" ondragover="kanbanDragOver(event)" ondragleave="kanbanDragLeave(event)" ondrop="kanbanDrop(event,'${col.id}')">
-${items.map(c=>`<div class="kanban-card" draggable="true" ondragstart="kanbanDragStart(event,${c.id})" onclick="openContract(${c.id})" data-id="${c.id}">
+${items.map(c=>{
+const endDate=c.end_date?new Date(c.end_date):null;
+const daysLeft=endDate?Math.ceil((endDate-new Date())/(1000*60*60*24)):null;
+const dateColor=daysLeft!==null?(daysLeft<0?'var(--red)':daysLeft<30?'var(--orange)':'var(--text4)'):'var(--text4)';
+return `<div class="kanban-card" draggable="true" ondragstart="kanbanDragStart(event,${c.id})" onclick="openContract(${c.id})" data-id="${c.id}">
+<div class="kc-header">
 <div class="kc-name">${esc(c.name)}</div>
-<div class="kc-party">${esc(c.party_name||'')}</div>
-<div class="kc-meta"><span>${c.end_date||'No end date'}</span><span class="kc-value">${c.value||''}</span></div>
-${c.tags?`<div class="kc-tags">${c.tags.split(',').filter(Boolean).slice(0,3).map(t=>`<span class="kc-tag" style="background:var(--primary)">${esc(t.trim())}</span>`).join('')}</div>`:''}</div>`).join('')||'<div style="text-align:center;padding:2rem;color:var(--text4);font-size:.78rem">No contracts</div>'}
+<span class="kc-type ${c.contract_type||'client'}">${(c.contract_type||'client').toUpperCase()}</span>
+</div>
+<div class="kc-party"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> ${esc(c.party_name||'')}</div>
+<div class="kc-divider"></div>
+<div class="kc-meta">
+<span class="kc-date" style="color:${dateColor}"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/></svg> ${c.end_date||'No end date'}${daysLeft!==null?` (${daysLeft}d)`:''}</span>
+<span class="kc-value">${c.value||''}</span>
+</div>
+${c.tags?`<div class="kc-tags">${c.tags.split(',').filter(Boolean).slice(0,3).map((t,i)=>`<span class="kc-tag" style="background:${['var(--primary)','var(--cyan)','var(--purple)'][i%3]}">${esc(t.trim())}</span>`).join('')}</div>`:''}</div>`}).join('')||`<div class="kanban-empty"><div class="ke-icon">${col.icon}</div><p>No ${col.label.toLowerCase()}<br>contracts</p></div>`}
 </div></div>`}).join('')}
 
 let dragCid=null;
-function kanbanDragStart(e,cid){dragCid=cid;e.dataTransfer.effectAllowed='move';e.target.classList.add('dragging');setTimeout(()=>e.target.style.opacity='.4',0)}
+function kanbanDragStart(e,cid){dragCid=cid;e.dataTransfer.effectAllowed='move';e.target.classList.add('dragging');setTimeout(()=>e.target.style.opacity='.3',0)}
 function kanbanDragOver(e){e.preventDefault();e.dataTransfer.dropEffect='move';e.currentTarget.classList.add('drag-over')}
 function kanbanDragLeave(e){e.currentTarget.classList.remove('drag-over')}
 async function kanbanDrop(e,newStatus){
@@ -2722,7 +2820,7 @@ if(!dragCid)return;
 const card=kanbanData.find(c=>c.id===dragCid);
 if(card&&card.status!==newStatus){
 try{await api(`/api/contracts/${dragCid}/status`,{method:'PUT',headers:authH(),body:J({status:newStatus})});
-card.status=newStatus;renderKanban();toast(`Moved to ${newStatutc(s)}`,'success');loadDashboard()}catch(e){toast('Failed to update status','error')}}
+card.status=newStatus;renderKanban();toast(`Moved to ${tc(newStatus)}`,'success');loadDashboard()}catch(e){toast('Failed to update status','error')}}
 dragCid=null}
 
 // ═══ PDF DOWNLOAD ═══
