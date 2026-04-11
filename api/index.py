@@ -1021,7 +1021,9 @@ def chat():
     if cids and len(cids) <= 3:
         full_data = sb.table("contracts").select("id,name,party_name,contract_type,content").in_("id", cids).execute().data or []
         if full_data:
-            ctx = "\n\n".join(f"=== CONTRACT: {c['name']} ({c['party_name']}) ===\n{c['content']}" for c in full_data)
+            # Limit per-contract text to avoid exceeding token limits (especially with 2-3 contracts)
+            max_per = 120000 // max(len(full_data), 1)
+            ctx = "\n\n".join(f"=== CONTRACT: {c['name']} ({c['party_name']}) ===\n{(c.get('content') or '')[:max_per]}" for c in full_data)
             summ = "\n".join(f"- {c['name']} ({c['party_name']}, {c['contract_type']})" for c in full_data)
             meta = full_data
         elif chunks:
