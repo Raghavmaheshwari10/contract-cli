@@ -24,9 +24,10 @@
 --shadow-md:0 4px 6px -1px rgba(0,0,0,.07),0 2px 4px -2px rgba(0,0,0,.04);
 --shadow-lg:0 10px 15px -3px rgba(0,0,0,.08),0 4px 6px -4px rgba(0,0,0,.04);
 --shadow-xl:0 20px 25px -5px rgba(0,0,0,.1),0 8px 10px -6px rgba(0,0,0,.06);
---transition:all .2s cubic-bezier(.4,0,.2,1)
+--transition:all .2s cubic-bezier(.4,0,.2,1);
+--danger:#dc2626;--success:#059669;--bg2:#f8fafc;--blue:#2563eb
 }
-body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);font-size:13.5px;line-height:1.6;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);font-size:13.5px;line-height:1.6;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;overflow-x:hidden}
 ::selection{background:var(--primary-bg);color:var(--primary)}
 ::-webkit-scrollbar{width:5px;height:5px}
 ::-webkit-scrollbar-track{background:transparent}
@@ -87,7 +88,7 @@ input,select,textarea,button{font-family:inherit}
 .sidebar-user .logout{color:#475569;cursor:pointer;padding:5px;border-radius:6px;transition:var(--transition)}
 .sidebar-user .logout:hover{color:#fb7185;background:rgba(251,113,133,.1)}
 
-.main{margin-left:var(--sidebar-w);flex:1;display:flex;flex-direction:column;min-height:100vh}
+.main{margin-left:var(--sidebar-w);flex:1;display:flex;flex-direction:column;min-height:100vh;overflow-x:hidden;min-width:0}
 .topbar{height:var(--header-h);background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 2rem;position:sticky;top:0;z-index:40;backdrop-filter:blur(12px);background:rgba(255,255,255,.85)}
 .topbar-left{display:flex;align-items:center;gap:1rem}
 .topbar-left h1{font-size:1.1rem;font-weight:700;color:var(--text);letter-spacing:-.01em}
@@ -104,7 +105,7 @@ input,select,textarea,button{font-family:inherit}
 .icon-btn svg{width:17px;height:17px}
 .icon-btn .notif-dot{position:absolute;top:5px;right:5px;width:7px;height:7px;background:#ef4444;border-radius:50%;border:2px solid var(--surface)}
 
-.content{flex:1;padding:1.25rem 2rem 2rem;max-width:1440px;width:100%;margin:0 auto}
+.content{flex:1;padding:1.25rem 2rem 2rem;max-width:1440px;width:100%;margin:0 auto;overflow-x:hidden;box-sizing:border-box}
 .page{display:none;animation:fadeIn .3s cubic-bezier(.4,0,.2,1)}
 .page.active{display:block}
 @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
@@ -156,11 +157,12 @@ input,select,textarea,button{font-family:inherit}
 .dash-grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:1rem;margin-top:1rem}
 
 /* ═══ TABLES ═══ */
-.table-container{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;box-shadow:var(--shadow-sm);transition:var(--transition)}
+.table-container{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;box-shadow:var(--shadow-sm);transition:var(--transition);max-width:100%}
+.table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;max-width:100%}
 .table-container:hover{box-shadow:var(--shadow)}
 .table-toolbar{display:flex;align-items:center;justify-content:space-between;padding:.8rem 1.4rem;border-bottom:1px solid var(--border3);gap:.8rem;flex-wrap:wrap}
 .table-toolbar .left{display:flex;align-items:center;gap:.6rem;flex-wrap:wrap}
-.table-toolbar .right{display:flex;align-items:center;gap:.5rem}
+.table-toolbar .right{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap}
 .search-input{display:flex;align-items:center;gap:.5rem;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:.4rem .8rem;transition:var(--transition)}
 .search-input:focus-within{border-color:var(--primary);box-shadow:0 0 0 3px rgba(37,99,235,.08)}
 .search-input svg{width:15px;height:15px;color:var(--text4);flex-shrink:0}
@@ -172,6 +174,8 @@ input,select,textarea,button{font-family:inherit}
 .filter-select{padding:.4rem .8rem;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);font-size:.82rem;color:var(--text2);cursor:pointer;transition:var(--transition)}
 .filter-select:focus{outline:none;border-color:var(--primary)}
 table{width:100%;border-collapse:collapse}
+#pg-contracts .table-wrap table{width:100%;table-layout:fixed}
+#pg-contracts .table-wrap th,#pg-contracts .table-wrap td{padding:.55rem .6rem;font-size:.8rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 thead{background:var(--surface2)}
 th{text-align:left;padding:.7rem 1rem;font-size:.72rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text4);border-bottom:1px solid var(--border);white-space:nowrap;user-select:none}
 th.sortable{cursor:pointer}
@@ -700,7 +704,19 @@ Kanban Board
 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
 Counterparty
 </div>
+<div class="nav-item" onclick="goPage('margins')">
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
+Margins
+</div>
 <div class="nav-section">Analytics</div>
+<div class="nav-item" onclick="goPage('exec-dashboard')">
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/></svg>
+Executive Dashboard
+</div>
+<div class="nav-item" onclick="goPage('approval-sla')">
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+Approval SLA
+</div>
 <div class="nav-item" onclick="goPage('reports')">
 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.21 15.89A10 10 0 118 2.83"/><path d="M22 12A10 10 0 0012 2v10z"/></svg>
 Reports
@@ -845,8 +861,8 @@ Dark Mode
 </div>
 <div class="table-wrap" style="overflow-x:auto"><table>
 <thead><tr>
-<th style="width:30px"><input type="checkbox" id="select-all-cb" onchange="toggleSelectAll(this)" style="width:16px;height:16px;cursor:pointer;accent-color:var(--primary)"></th>
-<th>Contract Name</th><th>Party</th><th>Type</th><th>Status</th><th>Tags</th><th>Value</th><th>Start</th><th>End</th><th>Department</th><th></th>
+<th style="width:32px"><input type="checkbox" id="select-all-cb" onchange="toggleSelectAll(this)" style="width:16px;height:16px;cursor:pointer;accent-color:var(--primary)"></th>
+<th style="width:22%">Contract Name</th><th style="width:14%">Party</th><th style="width:8%">Type</th><th style="width:9%">Status</th><th style="width:8%">Tags</th><th style="width:10%">Value</th><th style="width:9%">Start</th><th style="width:9%">End</th><th style="width:9%">Dept</th><th style="width:50px"></th>
 </tr></thead>
 <tbody id="contracts-tbody"></tbody>
 </table></div>
@@ -881,7 +897,9 @@ Dark Mode
 <label class="btn btn-outline" style="cursor:pointer;margin:0"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg> Upload PDF<input type="file" accept=".pdf" id="f-pdf" onchange="uploadPDF()" hidden></label>
 <span id="pdf-status" style="font-size:.82rem;color:var(--text3)">No file uploaded</span>
 <button class="btn btn-outline btn-sm" onclick="aiAutoFill()" id="ai-fill-btn" style="margin-left:auto"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg> AI Auto-Fill</button>
+<button class="btn btn-outline btn-sm" onclick="aiSuggestClauses()" id="ai-clause-btn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg> AI Clauses</button>
 </div>
+<div id="clause-suggestions" style="display:none;margin-bottom:1rem"></div>
 
 <div class="form-group"><label>Contract Content (Plain Text) <span class="req">*</span></label><textarea class="form-input" id="f-content" placeholder="Paste or type the full contract text..." rows="8"></textarea></div>
 <div class="form-group"><label>Rich Text Editor</label><div id="quill-editor"></div></div>
@@ -1035,8 +1053,19 @@ Use placeholders like [PARTY_NAME], [DATE], [COMPANY_NAME], [ADDRESS] for fields
 
 <!-- ═══ WEBHOOKS PAGE ═══ -->
 <div class="page" id="pg-webhooks">
+<div class="card" style="margin-bottom:1rem">
+<div class="card-header"><h3><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.5 10c-.83 0-1.5-.67-1.5-1.5v-5c0-.83.67-1.5 1.5-1.5s1.5.67 1.5 1.5v5c0 .83-.67 1.5-1.5 1.5z"/><path d="M20.5 10H19V8.5c0-.83.67-1.5 1.5-1.5s1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"/><path d="M9.5 14c.83 0 1.5.67 1.5 1.5v5c0 .83-.67 1.5-1.5 1.5S8 21.33 8 20.5v-5c0-.83.67-1.5 1.5-1.5z"/><path d="M3.5 14H5v1.5C5 16.33 4.33 17 3.5 17S2 16.33 2 15.5 2.67 14 3.5 14z"/><path d="M14 14.5c0-.83.67-1.5 1.5-1.5h5c.83 0 1.5.67 1.5 1.5s-.67 1.5-1.5 1.5h-5c-.83 0-1.5-.67-1.5-1.5z"/><path d="M14 20.5c0-.83.67-1.5 1.5-1.5H17c.83 0 1.5.67 1.5 1.5s-.67 1.5-1.5 1.5h-1.5c-.83 0-1.5-.67-1.5-1.5z"/><path d="M10 9.5C10 10.33 9.33 11 8.5 11h-5C2.67 11 2 10.33 2 9.5S2.67 8 3.5 8h5c.83 0 1.5.67 1.5 1.5z"/><path d="M8.5 5H10V3.5C10 2.67 9.33 2 8.5 2S7 2.67 7 3.5 7.67 5 8.5 5z"/></svg> Slack/Teams Integration</h3><span class="subtitle">Global notification webhook</span></div>
+<div class="card-body" style="padding:1rem 1.5rem">
+<div style="display:flex;gap:.5rem;align-items:center;margin-bottom:.8rem">
+<input class="form-input" id="slack-webhook-url" placeholder="https://hooks.slack.com/services/..." style="flex:1">
+<button class="btn btn-primary btn-sm" onclick="saveSlackWebhook()">Save</button>
+<button class="btn btn-outline btn-sm" onclick="testSlackWebhook()">Test</button>
+</div>
+<p style="font-size:.72rem;color:var(--text4);margin:0">Paste your Slack Incoming Webhook URL or Microsoft Teams webhook URL. Contract events (created, executed, approval) will be sent here automatically.</p>
+</div>
+</div>
 <div class="card">
-<div class="card-header"><h3>Webhook Integrations</h3><span class="subtitle">Connect to Slack, Zapier, or custom endpoints</span></div>
+<div class="card-header"><h3>Event Webhooks</h3><span class="subtitle">Connect to Slack, Zapier, or custom endpoints</span></div>
 <div class="form-grid" style="margin-bottom:1rem">
 <div class="form-group" style="margin:0"><select class="form-input" id="wh-event"><option value="contract.created">Contract Created</option><option value="contract.executed">Contract Executed</option><option value="contract.rejected">Contract Rejected</option><option value="contract.pending">Status → Pending</option><option value="contract.in_review">Status → In Review</option><option value="contract.approved">Approval Approved</option><option value="contract.esign_sent">E-Sign Sent</option></select></div>
 <div class="form-group" style="margin:0;display:flex;gap:.5rem"><input class="form-input" id="wh-url" placeholder="https://hooks.slack.com/..."><button class="btn btn-primary" onclick="addWebhook()">Add</button></div>
@@ -1228,6 +1257,9 @@ Upcoming Events</h4>
 <option value="summary">Summary Overview</option>
 <option value="expiry">Expiry Report</option>
 <option value="department">Department Breakdown</option>
+<option value="health">Contract Health Scores</option>
+<option value="at_risk">At-Risk Contracts</option>
+<option value="dept_spend">Dept Spend vs Revenue</option>
 </select>
 </div>
 <div style="display:flex;flex-direction:column;gap:.25rem">
@@ -1267,6 +1299,9 @@ Upcoming Events</h4>
 <p style="font-size:.8rem;color:var(--text4);margin-top:.2rem">Drag and drop contracts between columns to update status</p>
 </div>
 <div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap">
+<select class="filter-select" id="kanban-dept-filter" onchange="renderKanban()" style="font-size:.78rem;padding:.35rem .6rem">
+<option value="">All Departments</option>
+</select>
 <select class="filter-select" id="kanban-type-filter" onchange="renderKanban()" style="font-size:.78rem;padding:.35rem .6rem">
 <option value="">All Types</option>
 <option value="client">Client</option>
@@ -1288,8 +1323,85 @@ Upcoming Events</h4>
 <div style="display:flex;gap:.6rem;align-items:center;margin-bottom:1rem">
 <select class="form-input" id="cp-select" style="flex:1;max-width:400px" onchange="loadCounterparty()"><option value="">Select a party...</option></select>
 <button class="btn btn-primary btn-sm" onclick="loadCounterparty()">View</button>
+<button class="btn btn-outline btn-sm" onclick="goPage('counterparty-risk')" style="margin-left:auto"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> Risk Aggregation</button>
 </div>
 <div id="cp-result"></div>
+</div>
+
+<!-- ═══ MARGINS PAGE ═══ -->
+<div class="page" id="pg-margins">
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.2rem">
+<div><h2 style="font-size:1.1rem;font-weight:700;margin:0">Margin Tracking</h2><p style="font-size:.8rem;color:var(--text4);margin:.2rem 0 0">Client revenue vs vendor costs across linked contracts</p></div>
+</div>
+<div class="stats-row" id="margin-stats" style="display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;margin-bottom:1.2rem"></div>
+<div class="table-container">
+<div class="table-wrap" style="overflow-x:auto"><table>
+<thead><tr><th style="width:22%">Client Contract</th><th style="width:14%">Party</th><th style="width:8%">Dept</th><th style="width:10%">Status</th><th style="width:12%">Client Value</th><th style="width:12%">Vendor Cost</th><th style="width:12%">Margin</th><th style="width:8%">Margin %</th><th style="width:5%">Vendors</th></tr></thead>
+<tbody id="margin-tbody"></tbody>
+</table></div>
+</div>
+</div>
+
+<!-- ═══ EXECUTIVE DASHBOARD PAGE ═══ -->
+<div class="page" id="pg-exec-dashboard">
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.2rem">
+<div><h2 style="font-size:1.1rem;font-weight:700;margin:0">Executive Dashboard</h2><p style="font-size:.8rem;color:var(--text4);margin:.2rem 0 0">High-level portfolio overview — TCV, risk, renewals, approvals</p></div>
+<button class="btn btn-outline btn-sm" onclick="loadExecDashboard()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg> Refresh</button>
+</div>
+<div class="stats-row" id="exec-stats" style="display:grid;grid-template-columns:repeat(5,1fr);gap:1rem;margin-bottom:1.2rem"></div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1.2rem">
+<div class="card"><div class="card-header"><h3 style="font-size:.9rem;font-weight:600">At-Risk Contracts</h3><span class="badge badge-pending" id="exec-risk-count">0</span></div>
+<div id="exec-at-risk" style="max-height:280px;overflow-y:auto;padding:.5rem"></div></div>
+<div class="card"><div class="card-header"><h3 style="font-size:.9rem;font-weight:600">Upcoming Renewals</h3></div>
+<div style="display:flex;gap:.5rem;padding:.5rem .8rem;border-bottom:1px solid var(--border3)">
+<span class="badge badge-pending" id="exec-ren30">0 in 30d</span>
+<span class="badge" style="background:var(--orange-bg);color:var(--orange);border:1px solid var(--orange-border)" id="exec-ren60">0 in 60d</span>
+<span class="badge badge-executed" id="exec-ren90">0 in 90d</span>
+</div>
+<div id="exec-renewals" style="max-height:240px;overflow-y:auto;padding:.5rem"></div></div>
+</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1.2rem">
+<div class="card"><div class="card-header"><h3 style="font-size:.9rem;font-weight:600">Pending Approvals</h3><span class="badge badge-pending" id="exec-appr-count">0</span></div>
+<div id="exec-approvals" style="max-height:250px;overflow-y:auto;padding:.5rem"></div></div>
+<div class="card"><div class="card-header"><h3 style="font-size:.9rem;font-weight:600">Department Breakdown</h3></div>
+<div id="exec-departments" style="max-height:250px;overflow-y:auto;padding:.5rem"></div></div>
+</div>
+</div>
+
+<!-- ═══ APPROVAL SLA PAGE ═══ -->
+<div class="page" id="pg-approval-sla">
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.2rem">
+<div><h2 style="font-size:1.1rem;font-weight:700;margin:0">Approval SLA Tracking</h2><p style="font-size:.8rem;color:var(--text4);margin:.2rem 0 0">Monitor pending approvals and flag SLA breaches</p></div>
+<div style="display:flex;gap:.5rem;align-items:center">
+<label style="font-size:.78rem;font-weight:600;color:var(--text3)">SLA Threshold (days):</label>
+<select class="form-input" id="sla-threshold" style="width:80px;padding:.35rem .5rem;font-size:.82rem" onchange="loadApprovalSLA()">
+<option value="1">1</option><option value="2">2</option><option value="3" selected>3</option><option value="5">5</option><option value="7">7</option>
+</select>
+<button class="btn btn-outline btn-sm" onclick="loadApprovalSLA()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg> Refresh</button>
+</div>
+</div>
+<div class="stats-row" id="sla-stats" style="display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin-bottom:1.2rem"></div>
+<div class="table-container">
+<div class="table-wrap" style="overflow-x:auto"><table>
+<thead><tr><th style="width:5%">#</th><th style="width:22%">Contract</th><th style="width:15%">Party</th><th style="width:15%">Approver</th><th style="width:12%">Requested</th><th style="width:10%">Days Pending</th><th style="width:10%">SLA Status</th><th style="width:11%">Actions</th></tr></thead>
+<tbody id="sla-tbody"></tbody>
+</table></div>
+</div>
+</div>
+
+<!-- ═══ COUNTERPARTY RISK PAGE ═══ -->
+<div class="page" id="pg-counterparty-risk">
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.2rem">
+<div><h2 style="font-size:1.1rem;font-weight:700;margin:0">Counterparty Risk Aggregation</h2><p style="font-size:.8rem;color:var(--text4);margin:.2rem 0 0">Exposure and risk scoring across all counterparties</p></div>
+<button class="btn btn-outline btn-sm" onclick="loadCounterpartyRisk()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg> Refresh</button>
+</div>
+<div class="stats-row" id="cpr-stats" style="display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;margin-bottom:1.2rem"></div>
+<div class="table-container">
+<div class="table-wrap" style="overflow-x:auto"><table>
+<thead><tr><th style="width:20%">Counterparty</th><th style="width:8%">Contracts</th><th style="width:8%">Active</th><th style="width:12%">Total Value</th><th style="width:12%">Client Value</th><th style="width:12%">Vendor Value</th><th style="width:8%">Expiring</th><th style="width:8%">Expired</th><th style="width:12%">Risk Score</th></tr></thead>
+<tbody id="cpr-tbody"></tbody>
+</table></div>
+</div>
 </div>
 
 <!-- ═══ RENEWALS PAGE ═══ -->
@@ -1371,7 +1483,9 @@ Upcoming Events</h4>
 <select class="filter-select" id="m-status" onchange="changeStatus()" style="font-size:.78rem"></select>
 <button class="btn btn-sm btn-outline" onclick="downloadPDF()" title="Download PDF"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> PDF</button>
 <button class="btn btn-sm btn-outline" onclick="editContract(mCid)">Edit</button>
+<button class="btn btn-sm btn-outline" onclick="showShareDialog()" title="Share externally"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg> Share</button>
 <button class="btn btn-sm btn-outline" onclick="cloneContract()">Clone</button>
+<button class="btn btn-sm btn-outline" onclick="autoRenewContract()" title="Create renewal draft"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 11-7.778 7.778 5.5 5.5 0 017.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg> Renew</button>
 <button class="btn btn-sm btn-danger" onclick="deleteContract()">Delete</button>
 <button class="modal-close" onclick="closeModal()">&times;</button>
 </div>
@@ -1390,6 +1504,8 @@ Upcoming Events</h4>
 <div class="tab" onclick="mTab('collaborators')">Collaborators</div>
 <div class="tab" onclick="mTab('customfields')">Custom Fields</div>
 <div class="tab" onclick="mTab('linked')">Linked Contracts</div>
+<div class="tab" onclick="mTab('parties')">Parties</div>
+<div class="tab" onclick="mTab('invoices')">Invoices</div>
 </div>
 
 <div class="tab-panel active" id="mp-details">
@@ -1521,6 +1637,75 @@ Upcoming Events</h4>
 </div>
 </div>
 </div>
+
+<div class="tab-panel" id="mp-parties">
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem">
+<div><h3 style="font-size:.95rem;font-weight:600">Contract Parties</h3><p style="font-size:.78rem;color:var(--text4)">Clients, vendors &amp; subcontractors on this contract</p></div>
+<button class="btn btn-primary btn-sm" onclick="showAddPartyForm()">+ Add Party</button>
+</div>
+<div id="parties-list"></div>
+<div id="add-party-form" style="display:none;margin-top:1rem;padding:1rem;border:1px solid var(--border3);border-radius:var(--radius);background:var(--bg2)">
+<div class="form-grid" style="margin-bottom:.8rem">
+<div class="form-group"><label>Party Name <span class="req">*</span></label><input class="form-input" id="ap-name" placeholder="e.g., Acme Corp" maxlength="500"></div>
+<div class="form-group"><label>Type <span class="req">*</span></label><select class="form-input" id="ap-type"><option value="client">Client</option><option value="vendor">Vendor</option><option value="subcontractor">Subcontractor</option></select></div>
+<div class="form-group"><label>Role</label><input class="form-input" id="ap-role" placeholder="e.g., Primary Client" maxlength="200"></div>
+<div class="form-group"><label>Value</label><input class="form-input" id="ap-value" placeholder="e.g., INR 10,00,000" maxlength="100"></div>
+<div class="form-group"><label>Contact Name</label><input class="form-input" id="ap-contact" placeholder="Contact person" maxlength="200"></div>
+<div class="form-group"><label>Contact Email</label><input class="form-input" id="ap-email" placeholder="email@company.com" maxlength="200"></div>
+</div>
+<div class="form-group" style="margin-bottom:.8rem"><label>Scope</label><input class="form-input" id="ap-scope" placeholder="What this party is responsible for..." maxlength="1000"></div>
+<div class="form-group" style="margin-bottom:.8rem"><label>Notes</label><input class="form-input" id="ap-notes" placeholder="Internal notes..." maxlength="1000"></div>
+<div style="display:flex;gap:.5rem;justify-content:flex-end">
+<button class="btn btn-outline btn-sm" onclick="hideAddPartyForm()">Cancel</button>
+<button class="btn btn-primary btn-sm" onclick="saveParty()">Save Party</button>
+</div>
+</div>
+</div>
+
+<div class="tab-panel" id="mp-invoices">
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem">
+<div><h3 style="font-size:.95rem;font-weight:600">PO / Invoices</h3><p style="font-size:.78rem;color:var(--text4)">Track purchase orders and invoices for this contract</p></div>
+<button class="btn btn-primary btn-sm" onclick="showAddInvoiceForm()">+ Add Invoice</button>
+</div>
+<div id="invoices-list"></div>
+<div id="add-invoice-form" style="display:none;margin-top:1rem;padding:1rem;border:1px solid var(--border3);border-radius:var(--radius);background:var(--bg2)">
+<div class="form-grid" style="margin-bottom:.8rem">
+<div class="form-group"><label>Invoice # <span class="req">*</span></label><input class="form-input" id="inv-number" placeholder="INV-001" maxlength="100"></div>
+<div class="form-group"><label>PO Number</label><input class="form-input" id="inv-po" placeholder="PO-001" maxlength="100"></div>
+<div class="form-group"><label>Amount</label><input class="form-input" id="inv-amount" placeholder="e.g., INR 5,00,000" maxlength="100"></div>
+<div class="form-group"><label>Status</label><select class="form-input" id="inv-status"><option value="pending">Pending</option><option value="paid">Paid</option><option value="overdue">Overdue</option><option value="cancelled">Cancelled</option></select></div>
+<div class="form-group"><label>Invoice Date</label><input type="date" class="form-input" id="inv-date"></div>
+<div class="form-group"><label>Due Date</label><input type="date" class="form-input" id="inv-due"></div>
+</div>
+<div class="form-group" style="margin-bottom:.8rem"><label>Notes</label><input class="form-input" id="inv-notes" placeholder="Notes..." maxlength="500"></div>
+<div style="display:flex;gap:.5rem;justify-content:flex-end">
+<button class="btn btn-outline btn-sm" onclick="hideAddInvoiceForm()">Cancel</button>
+<button class="btn btn-primary btn-sm" onclick="saveInvoice()">Save Invoice</button>
+</div>
+</div>
+</div>
+
+</div>
+</div>
+</div>
+
+<!-- ═══ SHARE DIALOG ═══ -->
+<div class="modal-overlay" id="share-modal" onclick="if(event.target===this)closeShareDialog()" style="display:none">
+<div class="modal" style="max-width:560px">
+<div class="modal-header"><h2>Share Contract</h2><button class="modal-close" onclick="closeShareDialog()">&times;</button></div>
+<div class="modal-body">
+<div class="form-grid" style="margin-bottom:1rem">
+<div class="form-group"><label>Recipient Name</label><input class="form-input" id="sh-name" placeholder="e.g., John from Acme" maxlength="200"></div>
+<div class="form-group"><label>Recipient Email</label><input class="form-input" id="sh-email" placeholder="john@acme.com" maxlength="200"></div>
+<div class="form-group"><label>Permission</label><select class="form-input" id="sh-perm"><option value="view">View Only</option><option value="comment">View & Comment</option></select></div>
+<div class="form-group"><label>Expires In</label><select class="form-input" id="sh-expires"><option value="24">24 hours</option><option value="72" selected>3 days</option><option value="168">7 days</option><option value="336">14 days</option><option value="720">30 days</option></select></div>
+</div>
+<button class="btn btn-primary" onclick="createShareLink()" style="width:100%;margin-bottom:1.2rem">Generate Share Link</button>
+<div id="share-link-result" style="display:none;margin-bottom:1rem;padding:.8rem;background:var(--surface2);border-radius:var(--radius-sm);border:1px solid var(--border)">
+<label style="font-size:.72rem;font-weight:600;color:var(--text4);text-transform:uppercase;display:block;margin-bottom:.3rem">Share Link</label>
+<div style="display:flex;gap:.5rem;align-items:center"><input class="form-input" id="share-url" readonly style="flex:1;font-size:.78rem"><button class="btn btn-outline btn-sm" onclick="navigator.clipboard.writeText(document.getElementById('share-url').value);toast('Copied!','success')">Copy</button></div>
+</div>
+<div style="border-top:1px solid var(--border);padding-top:1rem"><h4 style="font-size:.82rem;font-weight:600;margin-bottom:.5rem">Active Share Links</h4><div id="share-links-list"></div></div>
 </div>
 </div>
 </div>
@@ -1604,7 +1789,7 @@ document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
 document.getElementById('pg-'+id).classList.add('active');
 document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
 document.querySelectorAll('.nav-item').forEach(n=>{if(n.textContent.trim().toLowerCase().includes(id==='create'?'new':id==='chat'?'ai assistant':id==='email-settings'?'email':id))n.classList.add('active')});
-const titles={dashboard:'Dashboard',contracts:'Contracts',create:editId?'Edit Contract':'New Contract',templates:'Templates','template-form':_editTplId?'Edit Template':'New Template','contract-audit':'Audit Trail',clauses:'Clause Library',chat:'AI Assistant',users:'User Management',webhooks:'Webhooks',reports:'Reports & Analytics',audit:'Audit Log',calendar:'Calendar',workflows:'Workflow Automation',compare:'Contract Comparison',kanban:'Kanban Board','email-settings':'Email Notifications',counterparty:'Counterparty View',renewals:'Renewal Tracker'};
+const titles={dashboard:'Dashboard',contracts:'Contracts',create:editId?'Edit Contract':'New Contract',templates:'Templates','template-form':_editTplId?'Edit Template':'New Template','contract-audit':'Audit Trail',clauses:'Clause Library',chat:'AI Assistant',users:'User Management',webhooks:'Webhooks',reports:'Reports & Analytics',audit:'Audit Log',calendar:'Calendar',workflows:'Workflow Automation',compare:'Contract Comparison',kanban:'Kanban Board','email-settings':'Email Notifications',counterparty:'Counterparty View',renewals:'Renewal Tracker',margins:'Margin Tracking','exec-dashboard':'Executive Dashboard','approval-sla':'Approval SLA','counterparty-risk':'Counterparty Risk'};
 document.getElementById('page-title').textContent=titles[id]||id;
 if(id==='contracts')loadContracts();
 if(id==='dashboard')loadDashboard();
@@ -1622,6 +1807,10 @@ if(id==='kanban')loadKanban();
 if(id==='email-settings')loadEmailSettings();
 if(id==='counterparty')loadCounterpartyOptions();
 if(id==='renewals')loadRenewals();
+if(id==='margins')loadMargins();
+if(id==='exec-dashboard')loadExecDashboard();
+if(id==='approval-sla')loadApprovalSLA();
+if(id==='counterparty-risk')loadCounterpartyRisk();
 }
 function toggleSidebar(){document.getElementById('sidebar').classList.toggle('open');document.getElementById('sidebar-overlay').classList.toggle('open')}
 
@@ -1648,7 +1837,7 @@ document.getElementById('dash-activity').innerHTML=d.recent_activity?.length?d.r
 // Obligations
 document.getElementById('dash-obligations').innerHTML=d.pending_obligations?.length?d.pending_obligations.slice(0,5).map(o=>`<div style="display:flex;justify-content:space-between;padding:.5rem 0;border-bottom:1px solid var(--border3)"><span style="font-size:.82rem">${esc(o.title)}</span><span style="font-size:.72rem;color:var(--text4)">${o.deadline||'No deadline'}</span></div>`).join(''):'<div class="empty-state"><p>All clear!</p></div>';
 
-if(d.pending_obligations?.length)document.getElementById('notif-dot').style.display='block';
+if(d.pending_obligations?.length){const nb=document.getElementById('notif-badge');if(nb){nb.style.display='flex';nb.textContent=d.pending_obligations.length}}
 renderCharts(d);
 }catch(e){console.error('Dashboard error:',e)}}
 
@@ -1672,7 +1861,7 @@ charts.trend=new Chart(trendCtx,{type:'line',data:{labels,datasets:[{label:'Cont
 
 // ═══ CONTRACTS ═══
 async function loadContracts(){
-document.getElementById('contracts-tbody').innerHTML='<tr><td colspan="10"><div class="skeleton skeleton-row"></div></td></tr>'.repeat(5);
+document.getElementById('contracts-tbody').innerHTML='<tr><td colspan="11"><div class="skeleton skeleton-row"></div></td></tr>'.repeat(5);
 const type=document.getElementById('type-filter').value;
 const search=document.getElementById('contract-search')?.value||'';
 let url=`/api/contracts?page=${curPage}&per_page=15`;
@@ -1697,7 +1886,7 @@ document.getElementById('contracts-tbody').innerHTML=data.length?data.map(c=>`<t
 <td>${c.start_date||'—'}</td>
 <td>${c.end_date||'—'}</td>
 <td>${c.department||'—'}</td>
-<td onclick="event.stopPropagation()"><button class="btn btn-ghost btn-sm" onclick="openContractAudit(${c.id},'${esc(c.name)}')" title="Audit Trail" style="padding:4px 8px;font-size:.7rem;display:flex;align-items:center;gap:4px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 8v4l3 3"/><circle cx="12" cy="12" r="10"/></svg>Audit</button></td>
+<td onclick="event.stopPropagation()"><button class="btn btn-ghost btn-sm" onclick="openContractAudit(${c.id},'${esc(c.name)}')" title="Audit Trail" style="padding:2px 6px;font-size:.68rem;display:flex;align-items:center;gap:3px"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 8v4l3 3"/><circle cx="12" cy="12" r="10"/></svg>Audit</button></td>
 </tr>`).join(''):'<tr><td colspan="11"><div class="empty-state"><div class="icon">&#x1F4C4;</div><h3>No contracts found</h3><p>Create your first contract to get started</p></div></td></tr>';
 // Load tags for visible contracts
 data.forEach(c=>loadListTags(c.id));
@@ -1738,7 +1927,7 @@ document.getElementById('m-details-grid').innerHTML=`
 `;
 document.getElementById('m-content').textContent=mData.content||'No content';
 document.getElementById('contract-modal').classList.add('active');
-mTab('details');loadComments();loadObligations();loadSignatures();loadTimeline();loadApprovals();loadCollaborators();loadVersions();loadRedlineVersions();checkLeegality();loadContractTags();loadCustomFields();loadLinkedContracts();applyRBAC();
+mTab('details');loadComments();loadObligations();loadSignatures();loadTimeline();loadApprovals();loadCollaborators();loadVersions();loadRedlineVersions();checkLeegality();loadContractTags();loadCustomFields();loadLinkedContracts();loadContractParties();loadInvoices();applyRBAC();
 document.getElementById('review-results').innerHTML='';
 document.getElementById('review-summary').style.display='none';
 }catch(e){toast('Failed to load contract','error')}}
@@ -1793,14 +1982,21 @@ try{await api(`/api/contracts/${mCid}/comments`,{method:'POST',headers:authH(),b
 
 // ═══ OBLIGATIONS ═══
 async function loadObligations(){try{const r=await api(`/api/contracts/${mCid}/obligations`);const d=await r.json();
-document.getElementById('obl-list').innerHTML=d.length?d.map(o=>`<div style="display:flex;align-items:center;gap:.8rem;padding:.7rem;border:1px solid var(--border3);border-radius:var(--radius-sm);margin-bottom:.4rem">
+document.getElementById('obl-list').innerHTML=d.length?d.map(o=>{
+const isOverdue=o.status==='pending'&&o.deadline&&new Date(o.deadline)<new Date();
+const daysOver=isOverdue?Math.floor((new Date()-new Date(o.deadline))/(1000*60*60*24)):0;
+return `<div style="display:flex;align-items:center;gap:.8rem;padding:.7rem;border:1px solid ${isOverdue?'var(--red-border,#fca5a5)':'var(--border3)'};border-radius:var(--radius-sm);margin-bottom:.4rem;${isOverdue?'background:rgba(239,68,68,.04)':''}">
 <input type="checkbox" ${o.status==='completed'?'checked':''} onchange="toggleObl(${o.id},this.checked)" style="cursor:pointer;width:18px;height:18px;accent-color:var(--green)">
 <div style="flex:1"><div style="font-size:.84rem;font-weight:500;${o.status==='completed'?'text-decoration:line-through;color:var(--text4)':''}">${esc(o.title)}</div>
-<div style="font-size:.72rem;color:var(--text4)">${o.deadline||'No deadline'} &middot; ${o.assigned_to||'Unassigned'}</div></div></div>`).join(''):'<div class="empty-state"><p>No obligations tracked</p></div>'}catch(e){}}
+<div style="font-size:.72rem;color:var(--text4)">${o.deadline||'No deadline'} &middot; ${o.assigned_to||'Unassigned'}${isOverdue?` &middot; <span style="color:var(--red);font-weight:600">${daysOver}d overdue</span>`:''}${o.escalated?` &middot; <span style="color:var(--orange);font-weight:600">Escalated to ${esc(o.escalated_to||'manager')}</span>`:''}</div></div>
+${isOverdue&&!o.escalated?`<button class="btn btn-outline btn-sm" onclick="escalateObl(${o.id})" style="font-size:.68rem;padding:2px 8px;color:var(--orange);border-color:var(--orange);flex-shrink:0">Escalate</button>`:''}</div>`}).join(''):'<div class="empty-state"><p>No obligations tracked</p></div>'}catch(e){}}
 async function addObligation(){const t=document.getElementById('obl-title').value.trim();if(!t){toast('Title required','error');return}
 try{await api(`/api/contracts/${mCid}/obligations`,{method:'POST',headers:authH(),body:J({title:t,deadline:document.getElementById('obl-deadline').value||null,assigned_to:document.getElementById('obl-assign').value})});
 document.getElementById('obl-title').value='';loadObligations();toast('Obligation added','success')}catch(e){toast('Failed','error')}}
-async function toggleObl(id,checked){try{await api(`/api/obligations/${id}`,{method:'PUT',headers:authH(),body:J({status:checked?'completed':'pending'})})}catch(e){}}
+async function toggleObl(id,checked){try{await api(`/api/obligations/${id}`,{method:'PUT',headers:authH(),body:J({status:checked?'completed':'pending'})});loadObligations()}catch(e){}}
+async function escalateObl(oid){const to=prompt('Escalate to (email or role):','manager');if(!to)return;
+try{await api('/api/obligations/escalate',{method:'POST',headers:authH(),body:J({obligation_ids:[oid],escalate_to:to})});
+toast('Obligation escalated','success');loadObligations()}catch(e){toast('Escalation failed','error')}}
 
 // ═══ APPROVALS ═══
 async function loadApprovals(){try{const r=await api(`/api/contracts/${mCid}/approvals`);const d=await r.json();
@@ -2177,7 +2373,7 @@ return `<div class="chat-msg ${m.role}"><div class="avatar">${isAI?'AI':'U'}</di
 if(streaming||true)el.scrollTop=el.scrollHeight}
 
 // ═══ WEBHOOKS ═══
-async function loadWebhooks(){try{const r=await api('/api/webhooks');const d=await r.json();
+async function loadWebhooks(){loadSlackWebhook();try{const r=await api('/api/webhooks');const d=await r.json();
 document.getElementById('webhooks-list').innerHTML=d.length?d.map(w=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:.7rem;border:1px solid var(--border3);border-radius:var(--radius-sm);margin-bottom:.4rem"><div><strong style="font-size:.82rem">${esc(w.event_type)}</strong><br><span style="font-size:.72rem;color:var(--text4)">${esc(w.url)}</span></div><button class="btn btn-ghost btn-sm" onclick="deleteWebhook(${w.id})" style="color:var(--red)">Delete</button></div>`).join(''):'<div class="empty-state"><p>No webhooks configured</p></div>'}catch(e){}}
 async function addWebhook(){const u=document.getElementById('wh-url').value.trim(),e=document.getElementById('wh-event').value;
 if(!u){toast('URL required','error');return}
@@ -2450,6 +2646,168 @@ if(!confirm('Remove this contract link?'))return;
 try{await api(`/api/contract-links/${linkId}`,{method:'DELETE',headers:authH()});
 loadLinkedContracts();toast('Contract unlinked','success')}catch(e){toast('Failed to unlink','error')}}
 
+// ═══ CONTRACT PARTIES (MULTI-VENDOR) ═══
+let _editPartyId=null,_partiesData=[];
+async function loadContractParties(){if(!mCid)return;
+try{const r=await api(`/api/contracts/${mCid}/parties`);const parties=await r.json();_partiesData=parties;
+if(!parties.length){document.getElementById('parties-list').innerHTML=`<div class="empty-state"><div class="icon" style="font-size:2rem">&#x1F465;</div><h3>No additional parties</h3><p>Add clients, vendors, or subcontractors involved in this contract.</p></div>`;return}
+const typeColors={client:'var(--blue)',vendor:'var(--orange)',subcontractor:'var(--purple)'};
+document.getElementById('parties-list').innerHTML=parties.map(p=>`<div style="display:flex;align-items:flex-start;gap:.8rem;padding:.8rem;border:1px solid var(--border3);border-radius:var(--radius-sm);margin-bottom:.5rem">
+<div style="width:36px;height:36px;border-radius:50%;background:${typeColors[p.party_type]||'var(--text4)'};opacity:.15;display:flex;align-items:center;justify-content:center;flex-shrink:0;position:relative"><span style="position:absolute;font-size:.7rem;font-weight:700;color:${typeColors[p.party_type]||'var(--text4)'}">${p.party_type[0].toUpperCase()}</span></div>
+<div style="flex:1;min-width:0">
+<div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap">
+<span style="font-size:.88rem;font-weight:600;color:var(--text)">${esc(p.party_name)}</span>
+<span class="badge badge-${p.party_type}"><span class="badge-dot"></span>${tc(p.party_type)}</span>
+${p.role?`<span style="font-size:.72rem;color:var(--text4)">${esc(p.role)}</span>`:''}
+${p.status==='inactive'?'<span style="font-size:.68rem;background:var(--surface2);color:var(--text4);padding:1px 6px;border-radius:4px">Inactive</span>':''}
+${p.status==='terminated'?'<span style="font-size:.68rem;background:rgba(239,68,68,.1);color:var(--red);padding:1px 6px;border-radius:4px">Terminated</span>':''}
+</div>
+<div style="display:flex;gap:1rem;flex-wrap:wrap;margin-top:.3rem">
+${p.party_value?`<span style="font-size:.78rem;color:var(--text3)"><strong>Value:</strong> ${esc(p.party_value)}</span>`:''}
+${p.contact_name?`<span style="font-size:.78rem;color:var(--text3)"><strong>Contact:</strong> ${esc(p.contact_name)}${p.contact_email?' ('+esc(p.contact_email)+')':''}</span>`:''}
+</div>
+${p.scope?`<div style="font-size:.78rem;color:var(--text4);margin-top:.2rem"><strong>Scope:</strong> ${esc(p.scope)}</div>`:''}
+${p.notes?`<div style="font-size:.72rem;color:var(--text4);margin-top:.2rem;font-style:italic">${esc(p.notes)}</div>`:''}
+</div>
+<div style="display:flex;gap:.3rem;flex-shrink:0">
+<button class="btn btn-ghost btn-sm" onclick="editParty(${p.id})" style="font-size:.72rem;padding:3px 8px">Edit</button>
+<button class="btn btn-ghost btn-sm" onclick="deleteParty(${p.id})" style="font-size:.72rem;padding:3px 8px;color:var(--red)">Remove</button>
+</div>
+</div>`).join('')}catch(e){document.getElementById('parties-list').innerHTML='<div class="empty-state"><p>Failed to load parties</p></div>'}}
+
+function showAddPartyForm(){_editPartyId=null;['ap-name','ap-role','ap-value','ap-contact','ap-email','ap-scope','ap-notes'].forEach(id=>document.getElementById(id).value='');
+document.getElementById('ap-type').value='vendor';document.getElementById('add-party-form').style.display='block'}
+function hideAddPartyForm(){document.getElementById('add-party-form').style.display='none';_editPartyId=null}
+
+function editParty(id){
+const p=_partiesData.find(x=>x.id===id);if(!p)return;
+_editPartyId=id;
+document.getElementById('ap-name').value=p.party_name||'';document.getElementById('ap-type').value=p.party_type||'vendor';
+document.getElementById('ap-role').value=p.role||'';document.getElementById('ap-value').value=p.party_value||'';
+document.getElementById('ap-contact').value=p.contact_name||'';document.getElementById('ap-email').value=p.contact_email||'';
+document.getElementById('ap-scope').value=p.scope||'';document.getElementById('ap-notes').value=p.notes||'';
+document.getElementById('add-party-form').style.display='block'}
+
+async function saveParty(){
+const name=document.getElementById('ap-name').value.trim();
+if(!name){toast('Party name is required','error');return}
+const body={party_name:name,party_type:document.getElementById('ap-type').value,
+role:document.getElementById('ap-role').value.trim(),party_value:document.getElementById('ap-value').value.trim(),
+contact_name:document.getElementById('ap-contact').value.trim(),contact_email:document.getElementById('ap-email').value.trim(),
+scope:document.getElementById('ap-scope').value.trim(),notes:document.getElementById('ap-notes').value.trim()};
+try{
+if(_editPartyId){await api(`/api/contract-parties/${_editPartyId}`,{method:'PUT',headers:authH(),body:J(body)});toast('Party updated','success')}
+else{await api(`/api/contracts/${mCid}/parties`,{method:'POST',headers:authH(),body:J(body)});toast('Party added','success')}
+hideAddPartyForm();loadContractParties()}catch(e){toast('Failed to save party','error')}}
+
+async function deleteParty(pid){if(!confirm('Remove this party from the contract?'))return;
+try{await api(`/api/contract-parties/${pid}`,{method:'DELETE',headers:authH()});
+loadContractParties();toast('Party removed','success')}catch(e){toast('Failed to remove','error')}}
+
+// ═══ AI CLAUSE SUGGESTIONS ═══
+async function aiSuggestClauses(){
+const btn=document.getElementById('ai-clause-btn');btn.disabled=true;btn.textContent='Suggesting...';
+const body={contract_type:document.getElementById('f-type').value,context:document.getElementById('f-content').value.substring(0,2000),department:document.getElementById('f-dept').value};
+try{const r=await api('/api/ai/suggest-clauses',{method:'POST',headers:authH(),body:J(body)});const d=await r.json();
+if(d.error){toast(d.error,'error');return}
+const suggestions=d.suggestions||[];
+const el=document.getElementById('clause-suggestions');
+el.style.display='block';
+el.innerHTML=`<div style="padding:.8rem;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface2)">
+<h4 style="font-size:.82rem;font-weight:600;margin-bottom:.6rem">AI Suggested Clauses</h4>
+${suggestions.map((s,i)=>`<div style="padding:.6rem;border:1px solid var(--border3);border-radius:var(--radius-sm);margin-bottom:.4rem;background:var(--surface)">
+<div style="display:flex;justify-content:space-between;align-items:center">
+<strong style="font-size:.82rem">${esc(s.title)}</strong>
+<button class="btn btn-outline btn-sm" onclick="insertClause(${i})" style="font-size:.68rem;padding:2px 8px">+ Insert</button>
+</div>
+<div style="font-size:.78rem;color:var(--text2);margin-top:.3rem" id="clause-text-${i}">${esc(s.content)}</div>
+${s.reason?`<div style="font-size:.7rem;color:var(--text4);margin-top:.2rem;font-style:italic">${esc(s.reason)}</div>`:''}
+</div>`).join('')}
+<button class="btn btn-ghost btn-sm" onclick="document.getElementById('clause-suggestions').style.display='none'" style="margin-top:.3rem;font-size:.72rem">Dismiss</button>
+</div>`}catch(e){toast('Failed to get suggestions','error')}finally{btn.disabled=false;btn.textContent='AI Clauses'}}
+
+function insertClause(idx){
+const el=document.getElementById('clause-text-'+idx);
+if(!el)return;
+const content=document.getElementById('f-content');
+content.value=(content.value?content.value+'\n\n':'')+el.textContent;
+toast('Clause inserted','success')}
+
+// ═══ RENEWAL AUTOPILOT ═══
+async function autoRenewContract(){
+if(!mCid)return;
+if(!confirm('Create a renewal draft from this contract? A new contract will be created as a draft with extended dates.'))return;
+try{const r=await api(`/api/contracts/${mCid}/auto-renew`,{method:'POST',headers:authH()});const d=await r.json();
+if(d.error){toast(d.error,'error');return}
+toast(d.message,'success');closeModal();loadContracts();loadDashboard();
+setTimeout(()=>openContract(d.id),500)}catch(e){toast('Renewal failed','error')}}
+
+// ═══ INVOICES ═══
+let _editInvoiceId=null;
+async function loadInvoices(){if(!mCid)return;
+try{const r=await api(`/api/contracts/${mCid}/invoices`);const invoices=await r.json();
+if(!invoices.length){document.getElementById('invoices-list').innerHTML=`<div class="empty-state"><div class="icon" style="font-size:2rem">&#x1F4C4;</div><h3>No invoices</h3><p>Track POs and invoices linked to this contract.</p></div>`;return}
+const statusColors={pending:'var(--orange)',paid:'var(--green)',overdue:'var(--red)',cancelled:'var(--text4)'};
+const total=invoices.reduce((s,i)=>{const n=parseFloat((i.amount||'').replace(/[^\d.]/g,''));return s+(isNaN(n)?0:n)},0);
+const paid=invoices.filter(i=>i.status==='paid').reduce((s,i)=>{const n=parseFloat((i.amount||'').replace(/[^\d.]/g,''));return s+(isNaN(n)?0:n)},0);
+document.getElementById('invoices-list').innerHTML=`
+<div style="display:flex;gap:1rem;margin-bottom:.8rem">
+<div style="padding:.5rem .8rem;background:var(--surface2);border-radius:var(--radius-sm);font-size:.78rem"><strong>Total:</strong> ${invoices.length} invoices</div>
+<div style="padding:.5rem .8rem;background:var(--surface2);border-radius:var(--radius-sm);font-size:.78rem"><strong>Value:</strong> ${total.toLocaleString('en-IN')}</div>
+<div style="padding:.5rem .8rem;background:var(--surface2);border-radius:var(--radius-sm);font-size:.78rem"><strong>Paid:</strong> ${paid.toLocaleString('en-IN')}</div>
+</div>`+invoices.map(inv=>`<div style="display:flex;align-items:center;gap:.8rem;padding:.6rem;border:1px solid var(--border3);border-radius:var(--radius-sm);margin-bottom:.4rem">
+<div style="flex:1">
+<div style="display:flex;align-items:center;gap:.5rem"><strong style="font-size:.84rem">${esc(inv.invoice_number)}</strong>
+${inv.po_number?`<span style="font-size:.72rem;color:var(--text4)">PO: ${esc(inv.po_number)}</span>`:''}
+<span style="font-size:.72rem;font-weight:600;color:${statusColors[inv.status]||'var(--text4)'}">${tc(inv.status)}</span></div>
+<div style="font-size:.75rem;color:var(--text4)">${inv.amount||'—'} &middot; ${inv.invoice_date||'No date'} ${inv.due_date?'&middot; Due: '+inv.due_date:''}</div>
+</div>
+<button class="btn btn-ghost btn-sm" onclick="deleteInvoice(${inv.id})" style="font-size:.68rem;padding:2px 6px;color:var(--red)">Remove</button>
+</div>`).join('')}catch(e){document.getElementById('invoices-list').innerHTML='<div class="empty-state"><p>Failed to load invoices</p></div>'}}
+
+function showAddInvoiceForm(){_editInvoiceId=null;['inv-number','inv-po','inv-amount','inv-date','inv-due','inv-notes'].forEach(id=>document.getElementById(id).value='');
+document.getElementById('inv-status').value='pending';document.getElementById('add-invoice-form').style.display='block'}
+function hideAddInvoiceForm(){document.getElementById('add-invoice-form').style.display='none';_editInvoiceId=null}
+
+async function saveInvoice(){
+const num=document.getElementById('inv-number').value.trim();
+if(!num){toast('Invoice number required','error');return}
+const body={invoice_number:num,po_number:document.getElementById('inv-po').value.trim(),
+amount:document.getElementById('inv-amount').value.trim(),status:document.getElementById('inv-status').value,
+invoice_date:document.getElementById('inv-date').value||null,due_date:document.getElementById('inv-due').value||null,
+notes:document.getElementById('inv-notes').value.trim()};
+try{await api(`/api/contracts/${mCid}/invoices`,{method:'POST',headers:authH(),body:J(body)});
+hideAddInvoiceForm();loadInvoices();toast('Invoice added','success')}catch(e){toast('Failed','error')}}
+
+async function deleteInvoice(iid){if(!confirm('Remove this invoice?'))return;
+try{await api(`/api/contract-invoices/${iid}`,{method:'DELETE',headers:authH()});loadInvoices();toast('Invoice removed','success')}catch(e){toast('Failed','error')}}
+
+// ═══ SHARE LINKS ═══
+function showShareDialog(){document.getElementById('share-modal').style.display='flex';document.getElementById('share-link-result').style.display='none';loadShareLinks()}
+function closeShareDialog(){document.getElementById('share-modal').style.display='none'}
+async function createShareLink(){
+const body={recipient_name:document.getElementById('sh-name').value.trim(),recipient_email:document.getElementById('sh-email').value.trim(),
+permissions:document.getElementById('sh-perm').value,expires_hours:parseInt(document.getElementById('sh-expires').value)};
+try{const r=await api(`/api/contracts/${mCid}/share-links`,{method:'POST',headers:authH(),body:J(body)});const d=await r.json();
+const url=window.location.origin+'/shared.html?token='+d.token;
+document.getElementById('share-url').value=url;document.getElementById('share-link-result').style.display='block';
+loadShareLinks();toast('Share link created','success')}catch(e){toast('Failed to create share link','error')}}
+
+async function loadShareLinks(){if(!mCid)return;
+try{const r=await api(`/api/contracts/${mCid}/share-links`);const links=await r.json();
+document.getElementById('share-links-list').innerHTML=links.length?links.map(l=>{
+const expired=new Date(l.expires_at)<new Date();
+const status=!l.is_active?'Revoked':expired?'Expired':'Active';
+const color=status==='Active'?'var(--green)':status==='Expired'?'var(--orange)':'var(--red)';
+return `<div style="display:flex;align-items:center;gap:.6rem;padding:.5rem;border:1px solid var(--border3);border-radius:var(--radius-sm);margin-bottom:.4rem;font-size:.78rem">
+<div style="flex:1"><strong>${esc(l.recipient_name||'Anonymous')}</strong> ${l.recipient_email?'('+esc(l.recipient_email)+')':''}
+<div style="font-size:.7rem;color:var(--text4)">${tc(l.permissions)} &middot; Accessed ${l.accessed_count||0}x &middot; <span style="color:${color};font-weight:600">${status}</span></div></div>
+${l.is_active&&!expired?`<button class="btn btn-ghost btn-sm" onclick="revokeShareLink(${l.id})" style="font-size:.68rem;padding:2px 6px;color:var(--red)">Revoke</button>`:''}</div>`}).join(''):'<div style="font-size:.78rem;color:var(--text4);text-align:center;padding:.5rem">No share links created</div>'
+}catch(e){}}
+
+async function revokeShareLink(lid){if(!confirm('Revoke this share link?'))return;
+try{await api(`/api/share-links/${lid}/revoke`,{method:'POST',headers:authH()});loadShareLinks();toast('Link revoked','success')}catch(e){toast('Failed','error')}}
+
 // ═══ CONTRACT COMPARISON ═══
 async function loadCompareOptions(){
 try{const r=await api('/api/contracts?per_page=100');const d=await r.json();
@@ -2704,8 +3062,8 @@ if(dc&&deptData.length){const deptColors=['#2563eb','#059669','#d97706','#dc2626
 rptCharts.dept=new Chart(dc,{type:'bar',data:{labels:deptData.map(x=>x.department||'Unassigned'),datasets:[{label:'Contracts',data:deptData.map(x=>x.count),backgroundColor:deptData.map((_,i)=>deptColors[i%deptColors.length]),borderRadius:6,borderSkipped:false}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false},ticks:{font:{size:10,family:font.family}}},y:{beginAtZero:true,ticks:{stepSize:1,font:{size:10,family:font.family}}}}}})}
 // Monthly trend
 const trendData=d.monthly_trend||[];
-const tc=document.getElementById('rpt-chart-trend');
-if(tc&&trendData.length){rptCharts.trend=new Chart(tc,{type:'line',data:{labels:trendData.map(m=>m.month),datasets:[{label:'Contracts',data:trendData.map(m=>m.count),borderColor:'#2563eb',backgroundColor:'rgba(37,99,235,.08)',fill:true,tension:.4,pointRadius:4,pointBackgroundColor:'#2563eb',borderWidth:2}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false},ticks:{font:{size:10,family:font.family}}},y:{beginAtZero:true,ticks:{stepSize:1,font:{size:10,family:font.family}}}}}})}
+const trendCanvas=document.getElementById('rpt-chart-trend');
+if(trendCanvas&&trendData.length){rptCharts.trend=new Chart(trendCanvas,{type:'line',data:{labels:trendData.map(m=>m.month),datasets:[{label:'Contracts',data:trendData.map(m=>m.count),borderColor:'#2563eb',backgroundColor:'rgba(37,99,235,.08)',fill:true,tension:.4,pointRadius:4,pointBackgroundColor:'#2563eb',borderWidth:2}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false},ticks:{font:{size:10,family:font.family}}},y:{beginAtZero:true,ticks:{stepSize:1,font:{size:10,family:font.family}}}}}})}
 // Value chart
 const vc=document.getElementById('rpt-chart-value');
 if(vc){rptCharts.value=new Chart(vc,{type:'doughnut',data:{labels:['Client','Vendor'],datasets:[{data:[d.client_count||0,d.vendor_count||0],backgroundColor:['#2563eb','#d97706'],borderWidth:0,hoverOffset:8}]},options:{responsive:true,maintainAspectRatio:false,cutout:'60%',plugins:{legend:{position:'right',labels:{font:{size:11,family:font.family},padding:14,usePointStyle:true}}}}})}
@@ -2732,9 +3090,57 @@ document.getElementById('rpt-table-title').textContent='Department Breakdown';
 document.getElementById('rpt-table-sub').textContent=`${(d.departments||[]).length} departments`;
 document.getElementById('rpt-thead').innerHTML='<tr><th>Department</th><th>Contracts</th><th>Draft</th><th>Pending</th><th>Executed</th><th>Total Value</th></tr>';
 document.getElementById('rpt-tbody').innerHTML=(d.departments||[]).map(dept=>`<tr><td><strong>${esc(dept.department||'Unassigned')}</strong></td><td>${dept.count}</td><td>${dept.draft||0}</td><td>${dept.pending||0}</td><td>${dept.executed||0}</td><td>${dept.total_value||'—'}</td></tr>`).join('')||'<tr><td colspan="6" class="empty-state"><p>No data</p></td></tr>';
+}else if(rtype==='health'){
+const s=d.summary||{};
+const _sc2=document.getElementById('report-summary-cards');if(_sc2)_sc2.innerHTML=`
+<div class="report-summary-card"><div class="val" style="color:var(--primary)">${s.avg_score||0}</div><div class="lbl">Avg Health Score</div></div>
+<div class="report-summary-card"><div class="val" style="color:var(--green)">${s.healthy||0}</div><div class="lbl">Healthy (80+)</div></div>
+<div class="report-summary-card"><div class="val" style="color:var(--orange)">${s.warning||0}</div><div class="lbl">Warning (50-79)</div></div>
+<div class="report-summary-card"><div class="val" style="color:var(--red)">${s.critical||0}</div><div class="lbl">Critical (&lt;50)</div></div>`;
+document.getElementById('rpt-table-title').textContent='Contract Health Scores';
+document.getElementById('rpt-table-sub').textContent=`${s.total||0} contracts analyzed`;
+document.getElementById('rpt-thead').innerHTML='<tr><th>Contract</th><th>Party</th><th>Score</th><th>Health</th><th>Risks</th><th>Status</th></tr>';
+document.getElementById('rpt-tbody').innerHTML=(d.contracts||[]).map(c=>{
+const sColor=c.health_score>=80?'var(--green)':c.health_score>=50?'var(--orange)':'var(--red)';
+const hBadge=c.health==='healthy'?'executed':c.health==='warning'?'pending':'rejected';
+return `<tr class="clickable" onclick="openContract(${c.id})"><td><strong>${esc(c.name)}</strong></td><td>${esc(c.party_name)}</td>
+<td style="font-weight:700;color:${sColor};font-size:1rem">${c.health_score}</td>
+<td><span class="badge badge-${hBadge}"><span class="badge-dot"></span>${tc(c.health)}</span></td>
+<td style="font-size:.75rem">${(c.risks||[]).map(r=>'<span style="display:inline-block;background:rgba(239,68,68,.08);color:var(--red);padding:1px 6px;border-radius:4px;margin:1px 2px;font-size:.68rem">'+esc(r)+'</span>').join('')||'—'}</td>
+<td><span class="badge badge-${c.status||'draft'}"><span class="badge-dot"></span>${tc(c.status||'draft')}</span></td></tr>`}).join('')||'<tr><td colspan="6" class="empty-state"><p>No data</p></td></tr>';
+}else if(rtype==='at_risk'){
+const _sc2=document.getElementById('report-summary-cards');if(_sc2)_sc2.innerHTML=`
+<div class="report-summary-card"><div class="val" style="color:var(--red)">${d.total_at_risk||0}</div><div class="lbl">At-Risk Contracts</div></div>
+<div class="report-summary-card"><div class="val" style="color:var(--primary)">${d.total_contracts||0}</div><div class="lbl">Total Contracts</div></div>
+<div class="report-summary-card"><div class="val" style="color:var(--orange)">${d.total_contracts?(((d.total_at_risk||0)/d.total_contracts)*100).toFixed(0)+'%':'0%'}</div><div class="lbl">Risk Rate</div></div>`;
+document.getElementById('rpt-table-title').textContent='At-Risk Contracts';
+document.getElementById('rpt-table-sub').textContent=`${d.total_at_risk||0} contracts need attention`;
+document.getElementById('rpt-thead').innerHTML='<tr><th>Contract</th><th>Party</th><th>Risk Level</th><th>Reasons</th><th>Status</th><th>Value</th></tr>';
+document.getElementById('rpt-tbody').innerHTML=(d.contracts||[]).map(c=>{
+const lvl=c.risk_level>=3?'Critical':c.risk_level>=2?'High':'Medium';
+const lColor=c.risk_level>=3?'var(--red)':c.risk_level>=2?'var(--orange)':'var(--yellow)';
+return `<tr class="clickable" onclick="openContract(${c.id})"><td><strong>${esc(c.name)}</strong></td><td>${esc(c.party_name)}</td>
+<td style="font-weight:700;color:${lColor}">${lvl}</td>
+<td style="font-size:.75rem">${(c.risk_reasons||[]).map(r=>'<span style="display:inline-block;background:rgba(239,68,68,.08);color:var(--red);padding:1px 6px;border-radius:4px;margin:1px 2px;font-size:.68rem">'+esc(r)+'</span>').join('')}</td>
+<td><span class="badge badge-${c.status||'draft'}"><span class="badge-dot"></span>${tc(c.status||'draft')}</span></td><td>${c.value||'—'}</td></tr>`}).join('')||'<tr><td colspan="6" class="empty-state"><p>No at-risk contracts</p></td></tr>';
+}else if(rtype==='dept_spend'){
+const s=d.summary||{};const fmt=v=>{if(v>=10000000)return'INR '+Math.round(v/100000)/100+'Cr';if(v>=100000)return'INR '+Math.round(v/1000)/100+'L';return'INR '+v.toLocaleString('en-IN')};
+const _sc2=document.getElementById('report-summary-cards');if(_sc2)_sc2.innerHTML=`
+<div class="report-summary-card"><div class="val" style="color:var(--green)">${fmt(s.total_revenue||0)}</div><div class="lbl">Total Revenue</div></div>
+<div class="report-summary-card"><div class="val" style="color:var(--orange)">${fmt(s.total_cost||0)}</div><div class="lbl">Total Cost</div></div>
+<div class="report-summary-card"><div class="val" style="color:var(--primary)">${fmt(s.total_margin||0)}</div><div class="lbl">Net Margin</div></div>
+<div class="report-summary-card"><div class="val" style="color:var(--purple)">${s.margin_pct||0}%</div><div class="lbl">Margin %</div></div>`;
+document.getElementById('rpt-table-title').textContent='Department Spend vs Revenue';
+document.getElementById('rpt-table-sub').textContent=`${(d.departments||[]).length} departments`;
+document.getElementById('rpt-thead').innerHTML='<tr><th>Department</th><th>Contracts</th><th>Client</th><th>Vendor</th><th>Revenue</th><th>Cost</th><th>Margin</th><th>Margin %</th></tr>';
+document.getElementById('rpt-tbody').innerHTML=(d.departments||[]).map(dept=>{
+const mColor=dept.margin>=0?'var(--green)':'var(--red)';
+return `<tr><td><strong>${esc(dept.department)}</strong></td><td>${dept.contracts}</td><td>${dept.client_count}</td><td>${dept.vendor_count}</td>
+<td style="font-weight:500">${fmt(dept.revenue)}</td><td style="font-weight:500">${fmt(dept.cost)}</td>
+<td style="font-weight:700;color:${mColor}">${fmt(dept.margin)}</td><td style="font-weight:600;color:${mColor}">${dept.margin_pct}%</td></tr>`}).join('')||'<tr><td colspan="8" class="empty-state"><p>No data</p></td></tr>';
 }
 }catch(e){console.error('Report error:',e);toast('Failed to load report','error')}}
-function exportReport(){const t=document.getElementById('rpt-type').value;let url=`/api/audit-log?format=csv`;window.open(url,'_blank')}
+function exportReport(){const t=document.getElementById('rpt-type').value;const from=document.getElementById('rpt-from')?.value||'';const to=document.getElementById('rpt-to')?.value||'';let url=`/api/reports?type=${t}&format=csv`;if(from)url+=`&from=${from}`;if(to)url+=`&to=${to}`;window.open(url,'_blank')}
 
 // ═══ AUDIT LOG ═══
 async function loadAuditLog(){
@@ -2865,11 +3271,19 @@ initTheme();
 // ═══ KANBAN BOARD ═══
 let kanbanData=[];
 async function loadKanban(){
-try{const r=await api('/api/contracts?per_page=200');const d=await r.json();kanbanData=d.data||d.contracts||[];renderKanban()}catch(e){console.error('Kanban error:',e);toast('Failed to load kanban','error')}}
+try{const r=await api('/api/contracts?per_page=200');const d=await r.json();kanbanData=d.data||d.contracts||[];
+// Populate department filter
+const depts=[...new Set(kanbanData.map(c=>c.department).filter(Boolean))].sort();
+const sel=document.getElementById('kanban-dept-filter');const cur=sel.value;
+sel.innerHTML='<option value="">All Departments</option>'+depts.map(d=>`<option value="${esc(d)}"${d===cur?' selected':''}>${esc(d)}</option>`).join('');
+renderKanban()}catch(e){console.error('Kanban error:',e);toast('Failed to load kanban','error')}}
 
 function renderKanban(){
 const typeFilter=document.getElementById('kanban-type-filter')?.value||'';
-const filtered=typeFilter?kanbanData.filter(c=>c.contract_type===typeFilter):kanbanData;
+const deptFilter=document.getElementById('kanban-dept-filter')?.value||'';
+let filtered=kanbanData;
+if(typeFilter)filtered=filtered.filter(c=>c.contract_type===typeFilter);
+if(deptFilter)filtered=filtered.filter(c=>c.department===deptFilter);
 const cols=[
 {id:'draft',label:'Draft',icon:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>',color:'#94a3b8'},
 {id:'pending',label:'Pending',icon:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>',color:'#f59e0b'},
@@ -3016,6 +3430,33 @@ document.getElementById('cp-result').innerHTML=`
 <div class="table-container"><table><thead><tr><th>Contract</th><th>Type</th><th>Status</th><th>Value</th><th>Start</th><th>End</th><th>Department</th></tr></thead>
 <tbody>${(d.contracts||[]).map(c=>`<tr class="clickable" onclick="openContract(${c.id})"><td><strong>${esc(c.name)}</strong></td><td><span class="badge badge-${c.contract_type}"><span class="badge-dot"></span>${tc(c.contract_type)}</span></td><td><span class="badge badge-${c.status||'draft'}"><span class="badge-dot"></span>${tc(c.status||'draft')}</span></td><td>${c.value||'—'}</td><td>${c.start_date||'—'}</td><td>${c.end_date||'—'}</td><td>${c.department||'—'}</td></tr>`).join('')||'<tr><td colspan="7"><div class="empty-state"><p>No contracts found</p></div></td></tr>'}</tbody></table></div>`}catch(e){toast('Failed to load counterparty data','error')}}
 
+// ═══ MARGIN TRACKING ═══
+async function loadMargins(){
+try{const r=await api('/api/margins');const d=await r.json();
+const s=d.summary||{};
+const fmt=v=>{if(v>=10000000)return'₹'+Math.round(v/100000)/100+'Cr';if(v>=100000)return'₹'+Math.round(v/1000)/100+'L';return'₹'+v.toLocaleString('en-IN')};
+document.getElementById('margin-stats').innerHTML=`
+<div class="stat-card blue"><div class="stat-val">${fmt(s.total_revenue||0)}</div><div class="stat-lbl">Total Client Revenue</div></div>
+<div class="stat-card orange"><div class="stat-val">${fmt(s.total_cost||0)}</div><div class="stat-lbl">Total Vendor Cost</div></div>
+<div class="stat-card ${s.total_margin>=0?'green':'red'}"><div class="stat-val">${fmt(s.total_margin||0)}</div><div class="stat-lbl">Net Margin</div></div>
+<div class="stat-card purple"><div class="stat-val">${s.total_margin_pct||0}%</div><div class="stat-lbl">Margin %</div></div>`;
+const rows=d.contracts||[];
+document.getElementById('margin-tbody').innerHTML=rows.length?rows.map(c=>{
+const mColor=c.margin>=0?'var(--green)':'var(--red)';
+const pctColor=c.margin_pct>=20?'var(--green)':c.margin_pct>=0?'var(--orange)':'var(--red)';
+return `<tr class="clickable" onclick="openContract(${c.id})">
+<td><strong style="font-weight:600;color:var(--text)">${esc(c.name)}</strong></td>
+<td>${esc(c.party_name)}</td>
+<td>${c.department||'—'}</td>
+<td><span class="badge badge-${c.status||'draft'}"><span class="badge-dot"></span>${tc(c.status||'draft')}</span></td>
+<td style="font-weight:600">${c.client_value?fmt(c.client_value):'—'}</td>
+<td style="font-weight:500">${c.vendor_cost?fmt(c.vendor_cost):'—'}</td>
+<td style="font-weight:700;color:${mColor}">${fmt(c.margin)}</td>
+<td style="font-weight:600;color:${pctColor}">${c.margin_pct}%</td>
+<td style="text-align:center">${c.vendor_count}</td>
+</tr>`}).join(''):'<tr><td colspan="9"><div class="empty-state"><div class="icon" style="font-size:2rem">&#x1F4B0;</div><h3>No margin data</h3><p>Link vendor contracts to client contracts to see margin analysis</p></div></td></tr>'
+}catch(e){toast('Failed to load margins','error')}}
+
 // ═══ RENEWALS ═══
 async function loadRenewals(){
 const days=document.getElementById('ren-days').value;
@@ -3039,6 +3480,95 @@ const adminPw=prompt('Enter admin password to confirm:');
 if(!adminPw)return;
 try{const r=await fetch('/api/auth/reset-password',{method:'POST',headers:{'Content-Type':'application/json'},body:J({email,new_password:pw,admin_password:adminPw})});const d=await r.json();
 if(d.error){toast(d.error,'error')}else{toast(d.message,'success');document.getElementById('reset-email').value='';document.getElementById('reset-pw').value=''}}catch(e){toast('Reset failed','error')}}
+
+// ═══ EXECUTIVE DASHBOARD ═══
+async function loadExecDashboard(){
+try{const r=await api('/api/executive-dashboard');const d=await r.json();
+const fmt=v=>{if(v>=10000000)return'₹'+Math.round(v/100000)/100+'Cr';if(v>=100000)return'₹'+Math.round(v/1000)/100+'L';return'₹'+v.toLocaleString('en-IN')};
+document.getElementById('exec-stats').innerHTML=`
+<div class="stat-card blue"><div class="stat-val">${fmt(d.tcv||0)}</div><div class="stat-lbl">Total Contract Value</div></div>
+<div class="stat-card green"><div class="stat-val">${fmt(d.total_client_value||0)}</div><div class="stat-lbl">Client Revenue</div></div>
+<div class="stat-card orange"><div class="stat-val">${fmt(d.total_vendor_value||0)}</div><div class="stat-lbl">Vendor Costs</div></div>
+<div class="stat-card ${(d.net_margin||0)>=0?'green':'red'}"><div class="stat-val">${fmt(d.net_margin||0)}</div><div class="stat-lbl">Net Margin</div></div>
+<div class="stat-card purple"><div class="stat-val">${d.total_contracts||0}</div><div class="stat-lbl">Total Contracts</div></div>`;
+document.getElementById('exec-risk-count').textContent=d.at_risk_count||0;
+document.getElementById('exec-at-risk').innerHTML=(d.at_risk||[]).length?(d.at_risk||[]).map(c=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:.5rem .6rem;border:1px solid var(--red-border);border-radius:var(--radius-sm);margin-bottom:.4rem;background:var(--red-bg);cursor:pointer" onclick="openContract(${c.id})">
+<div><div style="font-size:.82rem;font-weight:600">${esc(c.name)}</div><div style="font-size:.72rem;color:var(--text4)">${esc(c.party_name||'')}</div></div>
+<span class="badge" style="background:var(--red-bg);color:var(--red);border:1px solid var(--red-border);font-size:.7rem">${c.risk||c.days_left+'d'}</span></div>`).join(''):'<div class="empty-state"><p>No at-risk contracts</p></div>';
+document.getElementById('exec-ren30').textContent=(d.renewals_30||0)+' in 30d';
+document.getElementById('exec-ren60').textContent=(d.renewals_60||0)+' in 60d';
+document.getElementById('exec-ren90').textContent=(d.renewals_90||0)+' in 90d';
+document.getElementById('exec-renewals').innerHTML=(d.renewal_contracts||[]).length?(d.renewal_contracts||[]).map(c=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:.45rem .6rem;border-bottom:1px solid var(--border3);cursor:pointer" onclick="openContract(${c.id})">
+<div style="font-size:.82rem;font-weight:500">${esc(c.name)}</div>
+<span style="font-size:.72rem;font-weight:600;color:${c.days_left<=30?'var(--red)':c.days_left<=60?'var(--orange)':'var(--green)'}">${c.days_left}d left</span></div>`).join(''):'<div class="empty-state"><p>No upcoming renewals</p></div>';
+document.getElementById('exec-appr-count').textContent=d.pending_approvals||0;
+document.getElementById('exec-approvals').innerHTML=(d.approval_list||[]).length?(d.approval_list||[]).map(a=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:.45rem .6rem;border-bottom:1px solid var(--border3);cursor:pointer" onclick="openContract(${a.contract_id})">
+<div><div style="font-size:.82rem;font-weight:500">Contract #${a.contract_id}</div><div style="font-size:.72rem;color:var(--text4)">${esc(a.approver_name||'')}</div></div>
+<span style="font-size:.7rem;color:var(--text4)">${ago(a.created_at)}</span></div>`).join(''):'<div class="empty-state"><p>No pending approvals</p></div>';
+document.getElementById('exec-departments').innerHTML=(d.departments||[]).length?(d.departments||[]).map(dp=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:.5rem .6rem;border-bottom:1px solid var(--border3)">
+<div><div style="font-size:.82rem;font-weight:600">${esc(dp.department)}</div><div style="font-size:.72rem;color:var(--text4)">${dp.count} contracts</div></div>
+<div style="text-align:right"><div style="font-size:.82rem;font-weight:600;color:var(--green)">${fmt(dp.revenue||0)}</div><div style="font-size:.72rem;color:var(--text4)">Cost: ${fmt(dp.cost||0)}</div></div></div>`).join(''):'<div class="empty-state"><p>No department data</p></div>';
+}catch(e){console.error('Exec dashboard error:',e);toast('Failed to load executive dashboard','error')}}
+
+// ═══ APPROVAL SLA ═══
+async function loadApprovalSLA(){
+const threshold=document.getElementById('sla-threshold').value;
+try{const r=await api(`/api/approvals/sla?threshold=${threshold}`);const d=await r.json();
+document.getElementById('sla-stats').innerHTML=`
+<div class="stat-card blue"><div class="stat-val">${d.total||0}</div><div class="stat-lbl">Total Pending</div></div>
+<div class="stat-card red"><div class="stat-val">${d.overdue||0}</div><div class="stat-lbl">SLA Breached</div></div>
+<div class="stat-card green"><div class="stat-val">${(d.total||0)-(d.overdue||0)}</div><div class="stat-lbl">Within SLA</div></div>`;
+document.getElementById('sla-tbody').innerHTML=(d.approvals||[]).length?(d.approvals||[]).map((a,i)=>`<tr style="${a.is_overdue?'background:var(--red-bg)':''}">
+<td>${i+1}</td>
+<td><strong style="cursor:pointer;color:var(--primary)" onclick="openContract(${a.contract_id})">${esc(a.contract_name||'Contract #'+a.contract_id)}</strong></td>
+<td>${esc(a.party_name||'—')}</td>
+<td>${esc(a.approver_name||a.approver_email||'—')}</td>
+<td>${a.created_at?new Date(a.created_at).toLocaleDateString():''}</td>
+<td style="font-weight:700;color:${a.is_overdue?'var(--red)':'var(--green)'}">${a.days_pending||0}d</td>
+<td>${a.is_overdue?'<span class="badge" style="background:var(--red-bg);color:var(--red);border:1px solid var(--red-border)">Breached</span>':'<span class="badge badge-executed"><span class="badge-dot"></span>On Track</span>'}</td>
+<td><button class="btn btn-ghost btn-sm" onclick="openContract(${a.contract_id})" style="font-size:.72rem">View</button></td>
+</tr>`).join(''):'<tr><td colspan="8"><div class="empty-state"><p>No pending approvals</p></div></td></tr>';
+}catch(e){toast('Failed to load approval SLA','error')}}
+
+// ═══ COUNTERPARTY RISK AGGREGATION ═══
+async function loadCounterpartyRisk(){
+try{const r=await api('/api/counterparty-risk');const d=await r.json();
+const parties=d.parties||[];
+const fmt=v=>{if(v>=10000000)return'₹'+Math.round(v/100000)/100+'Cr';if(v>=100000)return'₹'+Math.round(v/1000)/100+'L';return'₹'+v.toLocaleString('en-IN')};
+const totalVal=parties.reduce((s,p)=>s+p.total_value,0);
+const highRisk=parties.filter(p=>p.risk_score>=3).length;
+document.getElementById('cpr-stats').innerHTML=`
+<div class="stat-card blue"><div class="stat-val">${d.total_parties||0}</div><div class="stat-lbl">Total Counterparties</div></div>
+<div class="stat-card green"><div class="stat-val">${fmt(totalVal)}</div><div class="stat-lbl">Total Exposure</div></div>
+<div class="stat-card red"><div class="stat-val">${highRisk}</div><div class="stat-lbl">High Risk Parties</div></div>
+<div class="stat-card orange"><div class="stat-val">${parties.reduce((s,p)=>s+p.expiring_count,0)}</div><div class="stat-lbl">Expiring Contracts</div></div>`;
+document.getElementById('cpr-tbody').innerHTML=parties.length?parties.map(p=>{
+const riskColor=p.risk_score>=5?'var(--red)':p.risk_score>=3?'var(--orange)':p.risk_score>=1?'var(--yellow)':'var(--green)';
+const riskLabel=p.risk_score>=5?'Critical':p.risk_score>=3?'High':p.risk_score>=1?'Medium':'Low';
+return `<tr>
+<td><strong style="font-weight:600">${esc(p.party_name)}</strong></td>
+<td style="text-align:center">${p.contract_count}</td>
+<td style="text-align:center">${p.active_count}</td>
+<td style="font-weight:600">${fmt(p.total_value)}</td>
+<td style="color:var(--green)">${fmt(p.client_value)}</td>
+<td style="color:var(--orange)">${fmt(p.vendor_value)}</td>
+<td style="text-align:center;color:${p.expiring_count?'var(--orange)':'var(--text4)'}">${p.expiring_count}</td>
+<td style="text-align:center;color:${p.expired_count?'var(--red)':'var(--text4)'}">${p.expired_count}</td>
+<td><span class="badge" style="background:${riskColor}22;color:${riskColor};border:1px solid ${riskColor}44;font-weight:700">${p.risk_score} - ${riskLabel}</span></td>
+</tr>`}).join(''):'<tr><td colspan="9"><div class="empty-state"><p>No counterparty data</p></div></td></tr>';
+}catch(e){toast('Failed to load counterparty risk','error')}}
+
+// ═══ SLACK WEBHOOK SETTINGS ═══
+async function loadSlackWebhook(){
+try{const r=await api('/api/settings/slack-webhook');const d=await r.json();
+document.getElementById('slack-webhook-url').value=d.url||''}catch(e){}}
+async function saveSlackWebhook(){
+const url=document.getElementById('slack-webhook-url').value.trim();
+try{const r=await api('/api/settings/slack-webhook',{method:'POST',headers:authH(),body:J({url})});const d=await r.json();
+if(d.error){toast(d.error,'error')}else{toast('Slack webhook saved','success')}}catch(e){toast('Failed to save','error')}}
+async function testSlackWebhook(){
+try{const r=await api('/api/settings/slack-test',{method:'POST',headers:authH()});const d=await r.json();
+if(d.error){toast(d.error,'error')}else{toast(d.message,'success')}}catch(e){toast('Failed to test','error')}}
 
 // ═══ KEYBOARD ═══
 document.addEventListener('keydown',e=>{

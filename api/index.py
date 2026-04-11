@@ -1,6 +1,6 @@
 """Contract Lifecycle Management API — Full CLM with AI review, approvals, signatures, webhooks."""
 
-import os, sys, re, io, csv, json as J, time, hmac, hashlib, logging, difflib
+import os, sys, re, io, csv, json as J, time, hmac, hashlib, logging, difflib, secrets
 import bcrypt
 from datetime import datetime, timedelta
 from functools import wraps
@@ -195,6 +195,95 @@ def dashboard():
     _dashboard_cache["data"] = result
     _dashboard_cache["ts"] = time.time()
     return jsonify(result)
+
+@app.route("/api/executive-dashboard")
+@auth
+@need_db
+def executive_dashboard():
+    """Executive-level dashboard with TCV, at-risk, renewals, pending approvals"""
+    contracts = sb.table("contracts").select("id,name,party_name,contract_type,status,start_date,end_date,value,department").execute().data or []
+    today = datetime.now()
+    # Total contract value
+    total_client_value = 0; total_vendor_value = 0
+    by_dept = {}; at_risk = []; renewals_30 = []; renewals_60 = []; renewals_90 = []
+    for c in contracts:
+        cv = _parse_currency(c.get("value", ""))
+        dept = c.get("department", "Unassigned") or "Unassigned"
+        if dept not in by_dept: by_dept[dept] = {"revenue": 0, "cost": 0, "count": 0}
+        by_dept[dept]["count"] += 1
+        if c.get("contract_type") == "client":
+            total_client_value += cv; by_dept[dept]["revenue"] += cv
+        else:
+            total_vendor_value += cv; by_dept[dept]["cost"] += cv
+        if c.get("end_date"):
+            try:
+                days = (datetime.strptime(c["end_date"], "%Y-%m-%d") - today).days
+                if days < 0: at_risk.append({**c, "days_left": days, "risk": "Expired"})
+                elif days <= 30: renewals_30.append({**c, "days_left": days})
+                elif days <= 60: renewals_60.append({**c, "days_left": days})
+                elif days <= 90: renewals_90.append({**c, "days_left": days})
+            except: pass
+    # Pending approvals
+    approvals = sb.table("contract_approvals").select("id,contract_id,approver_name,created_at").eq("status", "pending").execute().data or []
+    # Overdue obligations
+    overdue_obs = sb.table("contract_obligations").select("id,contract_id,title,deadline").eq("status", "pending").lt("deadline", today.strftime("%Y-%m-%d")).execute().data or []
+    at_risk_cids = {r["id"] for r in at_risk}
+    for o in overdue_obs:
+        cid = o.get("contract_id")
+        if cid and cid not in at_risk_cids:
+            # Find the contract in our list and add to at_risk
+            match = next((c for c in contracts if c["id"] == cid), None)
+            if match:
+                at_risk.append({**match, "days_left": None, "risk": "Overdue Obligation"})
+                at_risk_cids.add(cid)
+    # Department summary
+    dept_summary = [{"department": k, **v, "margin": v["revenue"] - v["cost"]} for k, v in sorted(by_dept.items(), key=lambda x: -x[1]["revenue"])]
+    return jsonify({
+        "tcv": total_client_value + total_vendor_value,
+        "total_client_value": total_client_value, "total_vendor_value": total_vendor_value,
+        "net_margin": total_client_value - total_vendor_value,
+        "total_contracts": len(contracts),
+        "at_risk_count": len(at_risk), "at_risk": at_risk[:10],
+        "renewals_30": len(renewals_30), "renewals_60": len(renewals_60), "renewals_90": len(renewals_90),
+        "renewal_contracts": (renewals_30 + renewals_60 + renewals_90)[:15],
+        "pending_approvals": len(approvals), "approval_list": approvals[:10],
+        "overdue_obligations": len(overdue_obs),
+        "departments": dept_summary
+    })
+
+@app.route("/api/counterparty-risk", methods=["GET"])
+@auth
+@need_db
+def counterparty_risk_aggregation():
+    """Aggregate exposure across all contracts with each counterparty"""
+    contracts = sb.table("contracts").select("id,name,party_name,contract_type,status,value,end_date,department").execute().data or []
+    today = datetime.now()
+    parties = {}
+    for c in contracts:
+        pn = c.get("party_name", "Unknown")
+        if pn not in parties:
+            parties[pn] = {"party_name": pn, "contracts": [], "total_value": 0,
+                          "client_value": 0, "vendor_value": 0, "contract_count": 0,
+                          "active_count": 0, "expiring_count": 0, "expired_count": 0, "risk_score": 0}
+        p = parties[pn]
+        cv = _parse_currency(c.get("value", ""))
+        p["contracts"].append({"id": c["id"], "name": c["name"], "type": c["contract_type"],
+                               "status": c["status"], "value": c.get("value", ""), "end_date": c.get("end_date")})
+        p["total_value"] += cv; p["contract_count"] += 1
+        if c["contract_type"] == "client": p["client_value"] += cv
+        else: p["vendor_value"] += cv
+        if c.get("status") in ("executed", "pending", "in_review"): p["active_count"] += 1
+        if c.get("end_date"):
+            try:
+                days = (datetime.strptime(c["end_date"], "%Y-%m-%d") - today).days
+                if days < 0: p["expired_count"] += 1; p["risk_score"] += 3
+                elif days <= 30: p["expiring_count"] += 1; p["risk_score"] += 2
+                elif days <= 60: p["expiring_count"] += 1; p["risk_score"] += 1
+            except: pass
+    result = sorted(parties.values(), key=lambda x: -x["total_value"])
+    # Limit contracts in response to top 5 per party
+    for p in result: p["contracts"] = p["contracts"][:5]
+    return jsonify({"parties": result, "total_parties": len(result)})
 
 # ─── Templates ─────────────────────────────────────────────────────────────
 @app.route("/api/templates")
@@ -487,6 +576,7 @@ def list_obligations(cid):
 
 @app.route("/api/contracts/<int:cid>/obligations", methods=["POST"])
 @auth
+@role_required("editor")
 @need_db
 def add_obligation(cid):
     d = request.json or {}
@@ -508,9 +598,99 @@ def update_obligation(oid):
     if "title" in d: u["title"] = d["title"]
     if "deadline" in d: u["deadline"] = d["deadline"]
     if "assigned_to" in d: u["assigned_to"] = d["assigned_to"]
+    if "description" in d: u["description"] = d["description"]
+    if "escalated" in d: u["escalated"] = d["escalated"]
+    if "escalated_to" in d: u["escalated_to"] = d["escalated_to"]
     if not u: return jsonify({"error": "Nothing to update"}), 400
     sb.table("contract_obligations").update(u).eq("id", oid).execute()
     return jsonify({"message": "Updated"})
+
+@app.route("/api/obligations/overdue", methods=["GET"])
+@auth
+@need_db
+def get_overdue_obligations():
+    """Get all overdue pending obligations"""
+    today = datetime.now().strftime("%Y-%m-%d")
+    rows = sb.table("contract_obligations").select("*").eq("status", "pending").lt("deadline", today).order("deadline").execute().data or []
+    # Enrich with contract names
+    cids = list(set(o["contract_id"] for o in rows if o.get("contract_id")))
+    cmap = {}
+    if cids:
+        cdata = sb.table("contracts").select("id,name,party_name,department").in_("id", cids).execute().data or []
+        cmap = {c["id"]: c for c in cdata}
+    for o in rows:
+        c = cmap.get(o.get("contract_id"), {})
+        o["contract_name"] = c.get("name", "Unknown")
+        o["party_name"] = c.get("party_name", "")
+        o["department"] = c.get("department", "")
+        days_overdue = (datetime.now() - datetime.strptime(o["deadline"], "%Y-%m-%d")).days if o.get("deadline") else 0
+        o["days_overdue"] = days_overdue
+    return jsonify(rows)
+
+@app.route("/api/obligations/escalate", methods=["POST"])
+@auth
+@role_required("manager")
+@need_db
+def escalate_obligations():
+    """Escalate overdue obligations — create notifications and mark as escalated"""
+    d = request.json or {}
+    escalate_to = d.get("escalate_to", "").strip()
+    obligation_ids = d.get("obligation_ids", [])
+    if not obligation_ids: return jsonify({"error": "No obligations selected"}), 400
+    escalated = 0
+    for oid in obligation_ids:
+        ob = sb.table("contract_obligations").select("*").eq("id", oid).execute()
+        if not ob.data: continue
+        o = ob.data[0]
+        sb.table("contract_obligations").update({
+            "escalated": True, "escalated_to": escalate_to or "manager",
+            "escalated_at": datetime.now().isoformat()
+        }).eq("id", oid).execute()
+        # Get contract name for notification
+        cname = ""
+        if o.get("contract_id"):
+            cn = sb.table("contracts").select("name").eq("id", o["contract_id"]).execute()
+            cname = cn.data[0]["name"] if cn.data else ""
+        create_notification(
+            f"Escalated: {o['title']}",
+            f"Overdue obligation on '{cname}' has been escalated. Deadline was {o.get('deadline', 'N/A')}. Assigned to: {o.get('assigned_to', 'Unassigned')}",
+            "escalation", o.get("contract_id"), escalate_to or None
+        )
+        log_activity(o.get("contract_id"), "obligation_escalated", request.user_email,
+                     f"Obligation '{o['title']}' escalated to {escalate_to or 'manager'}")
+        escalated += 1
+    return jsonify({"message": f"{escalated} obligation(s) escalated", "escalated": escalated})
+
+@app.route("/api/obligations/auto-escalate", methods=["POST"])
+@auth
+@role_required("admin")
+@need_db
+def auto_escalate_obligations():
+    """Auto-escalate obligations overdue by more than X days"""
+    d = request.json or {}
+    threshold_days = int(d.get("threshold_days", 3))
+    escalate_to = d.get("escalate_to", "manager")
+    cutoff = (datetime.now() - timedelta(days=threshold_days)).strftime("%Y-%m-%d")
+    rows = sb.table("contract_obligations").select("*").eq("status", "pending").lt("deadline", cutoff).execute().data or []
+    # Filter out already escalated
+    to_escalate = [o for o in rows if not o.get("escalated")]
+    escalated = 0
+    for o in to_escalate:
+        sb.table("contract_obligations").update({
+            "escalated": True, "escalated_to": escalate_to,
+            "escalated_at": datetime.now().isoformat()
+        }).eq("id", o["id"]).execute()
+        cname = ""
+        if o.get("contract_id"):
+            cn = sb.table("contracts").select("name").eq("id", o["contract_id"]).execute()
+            cname = cn.data[0]["name"] if cn.data else ""
+        create_notification(
+            f"Auto-Escalated: {o['title']}",
+            f"Obligation on '{cname}' is {threshold_days}+ days overdue. Deadline: {o.get('deadline', 'N/A')}",
+            "escalation", o.get("contract_id"), escalate_to
+        )
+        escalated += 1
+    return jsonify({"message": f"{escalated} obligation(s) auto-escalated", "escalated": escalated, "total_overdue": len(rows)})
 
 # ─── Collaborators ─────────────────────────────────────────────────────────
 @app.route("/api/contracts/<int:cid>/collaborators", methods=["GET"])
@@ -586,6 +766,7 @@ def list_approvals(cid):
 
 @app.route("/api/contracts/<int:cid>/approvals", methods=["POST"])
 @auth
+@role_required("editor")
 @need_db
 def request_approval(cid):
     d = request.json or {}
@@ -593,14 +774,21 @@ def request_approval(cid):
     row = {"contract_id": cid, "approver_name": d["approver_name"],
            "status": "pending", "comments": d.get("comments", ""),
            "created_at": datetime.now().isoformat(), "updated_at": datetime.now().isoformat()}
+    # Check contract exists and validate status transition
+    contract = sb.table("contracts").select("id,status").eq("id", cid).execute()
+    if not contract.data: return jsonify({"error": "Contract not found"}), 404
+    cur_status = contract.data[0].get("status", "draft")
+    if cur_status not in ("draft", "in_review"):
+        return jsonify({"error": f"Cannot request approval when contract is '{cur_status}'"}), 400
     r = sb.table("contract_approvals").insert(row).execute()
-    log_activity(cid, "approval_requested", "User", f"Approval requested from {d['approver_name']}")
+    log_activity(cid, "approval_requested", request.user_email, f"Approval requested from {d['approver_name']}")
     create_notification(f"Approval Requested", f"{d['approver_name']} needs to review Contract #{cid}", "approval", cid)
     sb.table("contracts").update({"status": "pending"}).eq("id", cid).execute()
     return jsonify(r.data[0]), 201
 
 @app.route("/api/approvals/<int:aid>", methods=["PUT"])
 @auth
+@role_required("manager")
 @need_db
 def respond_approval(aid):
     d = request.json or {}
@@ -638,6 +826,12 @@ def sign_contract(cid):
     d = request.json or {}
     if not d.get("signer_name") or not d.get("signature_data"):
         return jsonify({"error": "Signer name and signature required"}), 400
+    # Validate contract status — only pending/in_review can be signed
+    contract = sb.table("contracts").select("id,status").eq("id", cid).execute()
+    if not contract.data: return jsonify({"error": "Contract not found"}), 404
+    cur_status = contract.data[0].get("status", "draft")
+    if cur_status not in ("pending", "in_review", "executed"):
+        return jsonify({"error": f"Cannot sign a contract in '{cur_status}' status. Submit for approval first."}), 400
     row = {"contract_id": cid, "signer_name": d["signer_name"],
            "signer_email": d.get("signer_email", ""), "signer_designation": d.get("signer_designation", ""),
            "signature_data": d["signature_data"], "ip_address": request.remote_addr,
@@ -762,7 +956,7 @@ def leegality_webhook():
         expected = hmac.new(LEEGALITY_SALT.encode(), J.dumps(verify_data, separators=(',', ':'), sort_keys=True).encode(), hashlib.sha256).hexdigest()
         if mac and not hmac.compare_digest(mac, expected):
             log.warning("Leegality webhook MAC verification failed")
-            # Still process -- some webhook formats may differ, log the warning
+            return jsonify({"error": "MAC verification failed"}), 403
     doc_id = d.get("documentId", "")
     event = d.get("event", "")
     signer_info = d.get("signer", {})
@@ -1114,6 +1308,7 @@ def create_webhook():
 
 @app.route("/api/webhooks/<int:wid>", methods=["DELETE"])
 @auth
+@role_required("admin")
 @need_db
 def delete_webhook(wid):
     sb.table("webhook_configs").delete().eq("id", wid).execute()
@@ -1343,7 +1538,24 @@ def create_user():
         "is_active": True, "created_at": datetime.now().isoformat(), "updated_at": datetime.now().isoformat()
     }
     r = sb.table("clm_users").insert(row).execute()
-    return jsonify({"id": r.data[0]["id"], "message": f"User {email} created"}), 201
+    # Send welcome email invite if Resend is configured
+    if RESEND_API_KEY:
+        try:
+            invite_html = f"""<div style="font-family:Arial,sans-serif;max-width:520px;margin:auto;padding:2rem">
+            <h2 style="color:#1e3a8a">Welcome to EMB CLM</h2>
+            <p>Hi <strong>{_sanitize(d['name'], 100)}</strong>,</p>
+            <p>You've been invited to EMB CLM — Contract Lifecycle Management platform.</p>
+            <p><strong>Your login details:</strong></p>
+            <ul><li>Email: <code>{email}</code></li><li>Role: <code>{role}</code></li></ul>
+            <p>Please log in and change your password after first sign-in.</p>
+            <p style="color:#64748b;font-size:12px;margin-top:2rem">— EMB CLM Team</p></div>"""
+            http.post("https://api.resend.com/emails",
+                headers={"Authorization": f"Bearer {RESEND_API_KEY}", "Content-Type": "application/json"},
+                json={"from": EMAIL_FROM, "to": [email], "subject": "Welcome to EMB CLM — You've been invited",
+                      "html": invite_html}, timeout=10)
+        except Exception as e:
+            log.warning(f"Failed to send invite email to {email}: {e}")
+    return jsonify({"id": r.data[0]["id"], "message": f"User {email} created", "email_sent": bool(RESEND_API_KEY)}), 201
 
 @app.route("/api/users/<int:uid>", methods=["PUT"])
 @auth
@@ -1461,6 +1673,116 @@ def reports():
             d["total_value"] = f"INR {d['total_value']:,.0f}" if d["total_value"] else "—"
         return jsonify({"departments": dept_list})
 
+    elif rtype == "health":
+        # Contract health score: based on completeness, obligations, expiry
+        obligations = sb.table("contract_obligations").select("contract_id,status,deadline").execute().data or []
+        ob_map = {}
+        for o in obligations:
+            cid = o.get("contract_id")
+            if cid not in ob_map: ob_map[cid] = {"total": 0, "overdue": 0, "completed": 0}
+            ob_map[cid]["total"] += 1
+            if o.get("status") == "completed": ob_map[cid]["completed"] += 1
+            elif o.get("deadline") and o["deadline"] < today.strftime("%Y-%m-%d"): ob_map[cid]["overdue"] += 1
+        results = []
+        for c in contracts:
+            score = 100
+            risks = []
+            # Deduct for missing fields
+            if not c.get("end_date"): score -= 10; risks.append("No end date")
+            if not c.get("start_date"): score -= 5; risks.append("No start date")
+            if not c.get("value"): score -= 5; risks.append("No value specified")
+            if not c.get("department"): score -= 5; risks.append("No department")
+            # Deduct for expiry proximity
+            if c.get("end_date"):
+                try:
+                    days = (datetime.strptime(c["end_date"], "%Y-%m-%d") - today).days
+                    if days < 0: score -= 25; risks.append(f"Expired {abs(days)}d ago")
+                    elif days <= 30: score -= 15; risks.append(f"Expires in {days}d")
+                    elif days <= 60: score -= 5; risks.append(f"Expires in {days}d")
+                except: pass
+            # Deduct for overdue obligations
+            obs = ob_map.get(c["id"], {"total": 0, "overdue": 0, "completed": 0})
+            if obs["overdue"] > 0: score -= min(obs["overdue"] * 10, 30); risks.append(f"{obs['overdue']} overdue obligations")
+            # Status penalties
+            if c.get("status") == "rejected": score -= 20; risks.append("Rejected")
+            elif c.get("status") == "draft": score -= 5
+            score = max(0, min(100, score))
+            health = "healthy" if score >= 80 else "warning" if score >= 50 else "critical"
+            results.append({**c, "health_score": score, "health": health, "risks": risks,
+                           "obligations": obs})
+        results.sort(key=lambda x: x["health_score"])
+        # Summary
+        healthy = sum(1 for r in results if r["health"] == "healthy")
+        warning = sum(1 for r in results if r["health"] == "warning")
+        critical = sum(1 for r in results if r["health"] == "critical")
+        avg_score = round(sum(r["health_score"] for r in results) / max(len(results), 1))
+        return jsonify({"contracts": results, "summary": {
+            "healthy": healthy, "warning": warning, "critical": critical,
+            "avg_score": avg_score, "total": len(results)}})
+
+    elif rtype == "at_risk":
+        # At-risk contracts: expired, expiring soon, overdue obligations
+        obligations = sb.table("contract_obligations").select("contract_id,status,deadline,title").execute().data or []
+        overdue_map = {}
+        for o in obligations:
+            if o.get("status") == "pending" and o.get("deadline") and o["deadline"] < today.strftime("%Y-%m-%d"):
+                cid = o.get("contract_id")
+                if cid not in overdue_map: overdue_map[cid] = []
+                overdue_map[cid].append(o["title"])
+        at_risk = []
+        for c in contracts:
+            risk_reasons = []
+            risk_level = 0
+            if c.get("end_date"):
+                try:
+                    days = (datetime.strptime(c["end_date"], "%Y-%m-%d") - today).days
+                    if days < 0: risk_reasons.append(f"Expired {abs(days)} days ago"); risk_level += 3
+                    elif days <= 30: risk_reasons.append(f"Expiring in {days} days"); risk_level += 2
+                    elif days <= 60: risk_reasons.append(f"Expiring in {days} days"); risk_level += 1
+                except: pass
+            if c["id"] in overdue_map:
+                risk_reasons.append(f"{len(overdue_map[c['id']])} overdue obligations")
+                risk_level += 2
+            if c.get("status") == "rejected": risk_reasons.append("Rejected"); risk_level += 1
+            if risk_reasons:
+                at_risk.append({**c, "risk_reasons": risk_reasons, "risk_level": risk_level})
+        at_risk.sort(key=lambda x: -x["risk_level"])
+        return jsonify({"contracts": at_risk, "total_at_risk": len(at_risk), "total_contracts": len(contracts)})
+
+    elif rtype == "dept_spend":
+        # Department-wise spend vs revenue analysis
+        links = sb.table("contract_links").select("client_contract_id,vendor_contract_id").execute().data or []
+        link_map = {}
+        for l in links:
+            cid = l["client_contract_id"]
+            if cid not in link_map: link_map[cid] = []
+            link_map[cid].append(l["vendor_contract_id"])
+        vendor_map = {c["id"]: c for c in contracts if c.get("contract_type") == "vendor"}
+        depts = {}
+        for c in contracts:
+            dept = c.get("department", "Unassigned") or "Unassigned"
+            if dept not in depts: depts[dept] = {"department": dept, "revenue": 0, "cost": 0, "client_count": 0, "vendor_count": 0, "contracts": 0}
+            depts[dept]["contracts"] += 1
+            cv = _parse_currency(c.get("value", ""))
+            if c.get("contract_type") == "client":
+                depts[dept]["revenue"] += cv
+                depts[dept]["client_count"] += 1
+            else:
+                depts[dept]["cost"] += cv
+                depts[dept]["vendor_count"] += 1
+        dept_list = []
+        for d in sorted(depts.values(), key=lambda x: -x["revenue"]):
+            d["margin"] = d["revenue"] - d["cost"]
+            d["margin_pct"] = round((d["margin"] / d["revenue"] * 100), 1) if d["revenue"] > 0 else 0
+            dept_list.append(d)
+        total_rev = sum(d["revenue"] for d in dept_list)
+        total_cost = sum(d["cost"] for d in dept_list)
+        return jsonify({"departments": dept_list, "summary": {
+            "total_revenue": total_rev, "total_cost": total_cost,
+            "total_margin": total_rev - total_cost,
+            "margin_pct": round(((total_rev - total_cost) / total_rev * 100), 1) if total_rev > 0 else 0
+        }})
+
     return jsonify({"error": "Unknown report type"}), 400
 
 # ─── Audit Log Export ────────────────────────────────────────────────────
@@ -1506,6 +1828,7 @@ def audit_log():
 # ─── Bulk Import ──────────────────────────────────────────────────────────
 @app.route("/api/bulk-import", methods=["POST"])
 @auth
+@role_required("editor")
 @need_db
 def bulk_import():
     """Bulk import contracts from CSV."""
@@ -1869,8 +2192,8 @@ def clear_notifications():
     email = getattr(request, 'user_email', '')
     if email:
         sb.table("notifications").delete().eq("user_email", email).execute()
-    # Also clear broadcast notifications (user_email is null)
-    sb.table("notifications").delete().is_("user_email", "null").execute()
+    # Note: broadcast notifications (user_email is null) are NOT deleted here
+    # They are shared across all users and should expire naturally
     return jsonify({"message": "Cleared"})
 
 # ─── Email Preferences API ──────────────────────────────────────────────
@@ -2084,6 +2407,477 @@ def get_linkable_contracts():
         q = q.not_.in_("id", linked_ids)
     available = q.execute().data or []
     return jsonify({"contract_type": opposite, "contracts": available})
+
+# ─── Contract Parties (Multi-vendor) ──────────────────────────────────────
+@app.route("/api/contracts/<int:cid>/parties", methods=["GET"])
+@auth
+@need_db
+def get_contract_parties(cid):
+    rows = sb.table("contract_parties").select("*").eq("contract_id", cid).order("created_at").execute().data or []
+    return jsonify(rows)
+
+@app.route("/api/contracts/<int:cid>/parties", methods=["POST"])
+@auth
+@role_required("editor")
+@need_db
+def add_contract_party(cid):
+    chk = sb.table("contracts").select("id").eq("id", cid).execute()
+    if not chk.data: return jsonify({"error": "Contract not found"}), 404
+    d = _sanitize_dict(request.json or {})
+    if not d.get("party_name", "").strip(): return jsonify({"error": "party_name required"}), 400
+    if d.get("party_type") not in ("client", "vendor", "subcontractor"):
+        return jsonify({"error": "party_type must be client, vendor, or subcontractor"}), 400
+    row = {
+        "contract_id": cid,
+        "party_name": d["party_name"][:500],
+        "party_type": d["party_type"],
+        "role": str(d.get("role", "") or "")[:200],
+        "party_value": str(d.get("party_value", "") or "")[:100],
+        "scope": str(d.get("scope", "") or "")[:1000],
+        "status": d.get("status", "active"),
+        "contact_name": str(d.get("contact_name", "") or "")[:200],
+        "contact_email": str(d.get("contact_email", "") or "")[:200],
+        "notes": str(d.get("notes", "") or "")[:1000],
+        "created_at": datetime.now().isoformat(),
+        "updated_at": datetime.now().isoformat(),
+    }
+    r = sb.table("contract_parties").insert(row).execute()
+    log_activity(cid, "party_added", request.user_email, f"Party '{row['party_name']}' ({row['party_type']}) added")
+    return jsonify(r.data[0] if r.data else {"message": "Added"}), 201
+
+@app.route("/api/contract-parties/<int:pid>", methods=["PUT"])
+@auth
+@role_required("editor")
+@need_db
+def update_contract_party(pid):
+    chk = sb.table("contract_parties").select("*").eq("id", pid).execute()
+    if not chk.data: return jsonify({"error": "Party not found"}), 404
+    d = _sanitize_dict(request.json or {})
+    u = {}
+    for f in ["party_name","party_type","role","party_value","scope","status","contact_name","contact_email","notes"]:
+        if f in d: u[f] = d[f]
+    if not u: return jsonify({"error": "Nothing to update"}), 400
+    if "party_type" in u and u["party_type"] not in ("client", "vendor", "subcontractor"):
+        return jsonify({"error": "party_type must be client, vendor, or subcontractor"}), 400
+    u["updated_at"] = datetime.now().isoformat()
+    sb.table("contract_parties").update(u).eq("id", pid).execute()
+    cid = chk.data[0]["contract_id"]
+    log_activity(cid, "party_updated", request.user_email, f"Party '{chk.data[0]['party_name']}' updated")
+    return jsonify({"message": "Updated"})
+
+@app.route("/api/contract-parties/<int:pid>", methods=["DELETE"])
+@auth
+@role_required("editor")
+@need_db
+def delete_contract_party(pid):
+    chk = sb.table("contract_parties").select("*").eq("id", pid).execute()
+    if not chk.data: return jsonify({"error": "Party not found"}), 404
+    cid = chk.data[0]["contract_id"]
+    sb.table("contract_parties").delete().eq("id", pid).execute()
+    log_activity(cid, "party_removed", request.user_email, f"Party '{chk.data[0]['party_name']}' removed")
+    return jsonify({"message": "Deleted"})
+
+# ─── Margin Tracking ─────────────────────────────────────────────────────
+@app.route("/api/contracts/<int:cid>/margin", methods=["GET"])
+@auth
+@need_db
+def get_contract_margin(cid):
+    """Get margin data for a client contract — its value vs total linked vendor costs"""
+    c = sb.table("contracts").select("id,name,party_name,contract_type,value").eq("id", cid).execute()
+    if not c.data: return jsonify({"error": "Not found"}), 404
+    contract = c.data[0]
+    if contract["contract_type"] != "client":
+        return jsonify({"error": "Margin tracking is only for client contracts"}), 400
+    # Get linked vendor contracts
+    links = sb.table("contract_links").select("vendor_contract_id").eq("client_contract_id", cid).execute().data or []
+    vendor_ids = [l["vendor_contract_id"] for l in links]
+    vendors = []
+    total_vendor_cost = 0
+    if vendor_ids:
+        vdata = sb.table("contracts").select("id,name,party_name,value,status").in_("id", vendor_ids).execute().data or []
+        for v in vdata:
+            parsed = _parse_currency(v.get("value", ""))
+            vendors.append({**v, "parsed_value": parsed})
+            total_vendor_cost += parsed
+    # Also include party-level values from contract_parties
+    parties = sb.table("contract_parties").select("*").eq("contract_id", cid).execute().data or []
+    client_value = _parse_currency(contract.get("value", ""))
+    margin = client_value - total_vendor_cost
+    margin_pct = round((margin / client_value * 100), 1) if client_value > 0 else 0
+    return jsonify({
+        "contract": contract, "client_value": client_value,
+        "vendors": vendors, "total_vendor_cost": total_vendor_cost,
+        "margin": margin, "margin_pct": margin_pct, "parties": parties
+    })
+
+@app.route("/api/margins", methods=["GET"])
+@auth
+@need_db
+def get_all_margins():
+    """Get margin overview across all client contracts with linked vendors"""
+    clients = sb.table("contracts").select("id,name,party_name,value,status,department").eq("contract_type", "client").execute().data or []
+    links = sb.table("contract_links").select("client_contract_id,vendor_contract_id").execute().data or []
+    vendor_ids = list(set(l["vendor_contract_id"] for l in links))
+    vendor_map = {}
+    if vendor_ids:
+        vdata = sb.table("contracts").select("id,name,party_name,value").in_("id", vendor_ids).execute().data or []
+        vendor_map = {v["id"]: v for v in vdata}
+    # Build link map: client_id -> [vendor contracts]
+    link_map = {}
+    for l in links:
+        cid = l["client_contract_id"]
+        vid = l["vendor_contract_id"]
+        if cid not in link_map: link_map[cid] = []
+        if vid in vendor_map: link_map[cid].append(vendor_map[vid])
+    results = []
+    total_revenue = 0
+    total_cost = 0
+    for c in clients:
+        cv = _parse_currency(c.get("value", ""))
+        vendors = link_map.get(c["id"], [])
+        vcost = sum(_parse_currency(v.get("value", "")) for v in vendors)
+        margin = cv - vcost
+        margin_pct = round((margin / cv * 100), 1) if cv > 0 else 0
+        total_revenue += cv
+        total_cost += vcost
+        results.append({
+            "id": c["id"], "name": c["name"], "party_name": c["party_name"],
+            "status": c["status"], "department": c.get("department", ""),
+            "client_value": cv, "vendor_cost": vcost,
+            "margin": margin, "margin_pct": margin_pct,
+            "vendor_count": len(vendors)
+        })
+    total_margin = total_revenue - total_cost
+    total_margin_pct = round((total_margin / total_revenue * 100), 1) if total_revenue > 0 else 0
+    return jsonify({
+        "contracts": results, "summary": {
+            "total_revenue": total_revenue, "total_cost": total_cost,
+            "total_margin": total_margin, "total_margin_pct": total_margin_pct,
+            "contract_count": len(results)
+        }
+    })
+
+def _parse_currency(val):
+    """Parse currency string like '₹25,00,000' or '$48,000' to float"""
+    if not val: return 0
+    try: return float(re.sub(r'[^\d.]', '', str(val)))
+    except: return 0
+
+# ─── AI Clause Suggestions ───────────────────────────────────────────────
+@app.route("/api/ai/suggest-clauses", methods=["POST"])
+@auth
+@need_db
+def suggest_clauses():
+    """Suggest relevant clauses while drafting a contract"""
+    if not oai_h(): return jsonify({"error": "OpenAI not configured"}), 400
+    d = request.json or {}
+    contract_type = d.get("contract_type", "client")
+    context = d.get("context", "")[:2000]
+    department = d.get("department", "")
+    # Get existing clauses from library
+    clauses = sb.table("clause_library").select("title,content,category").limit(50).execute().data or []
+    clause_list = "\n".join(f"- {c['title']} ({c.get('category','general')}): {c['content'][:100]}" for c in clauses[:20])
+    prompt = f"""You are a legal contract expert. Suggest 3-5 relevant clauses for a {contract_type} contract.
+Context: {context or 'General contract'}
+Department: {department or 'Not specified'}
+
+Existing clause library for reference:
+{clause_list or 'No existing clauses'}
+
+For each suggestion, provide:
+1. Title - short clause title
+2. Content - the full clause text (2-4 sentences)
+3. Reason - why this clause is important for this contract type
+
+Return as JSON array: [{{"title":"...","content":"...","reason":"..."}}]"""
+    try:
+        r = http.post(f"{OAI_URL}/chat/completions", headers=oai_h(),
+            json={"model": "gpt-4o-mini", "max_tokens": 2000,
+                  "messages": [{"role": "system", "content": "You are a legal contract clause expert. Always return valid JSON."},
+                               {"role": "user", "content": prompt}],
+                  "response_format": {"type": "json_object"}}, timeout=30)
+        data = r.json()["choices"][0]["message"]["content"]
+        parsed = J.loads(data)
+        suggestions = parsed.get("suggestions", parsed.get("clauses", parsed if isinstance(parsed, list) else []))
+        return jsonify({"suggestions": suggestions})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# ─── Renewal Autopilot ───────────────────────────────────────────────────
+@app.route("/api/contracts/<int:cid>/auto-renew", methods=["POST"])
+@auth
+@role_required("editor")
+@need_db
+def auto_renew_contract(cid):
+    """Auto-draft a renewal from an expiring contract"""
+    c = sb.table("contracts").select("*").eq("id", cid).execute()
+    if not c.data: return jsonify({"error": "Not found"}), 404
+    orig = c.data[0]
+    # Calculate new dates
+    duration_days = 365
+    if orig.get("start_date") and orig.get("end_date"):
+        try:
+            sd = datetime.strptime(orig["start_date"], "%Y-%m-%d")
+            ed = datetime.strptime(orig["end_date"], "%Y-%m-%d")
+            duration_days = (ed - sd).days
+        except: pass
+    new_start = orig.get("end_date") or datetime.now().strftime("%Y-%m-%d")
+    try:
+        ns = datetime.strptime(new_start, "%Y-%m-%d")
+        new_end = (ns + timedelta(days=duration_days)).strftime("%Y-%m-%d")
+    except:
+        new_end = (datetime.now() + timedelta(days=365)).strftime("%Y-%m-%d")
+    row = {
+        "name": f"{orig['name']} — Renewal",
+        "party_name": orig["party_name"], "contract_type": orig["contract_type"],
+        "content": orig.get("content", ""), "content_html": orig.get("content_html", ""),
+        "start_date": new_start, "end_date": new_end,
+        "value": orig.get("value"), "notes": f"Auto-renewed from contract #{cid}",
+        "department": orig.get("department", ""), "jurisdiction": orig.get("jurisdiction", ""),
+        "governing_law": orig.get("governing_law", ""), "status": "draft",
+        "created_by": request.user_email, "added_on": datetime.now().isoformat()
+    }
+    r = sb.table("contracts").insert(row).execute()
+    new_id = r.data[0]["id"]
+    log_activity(new_id, "created", request.user_email, f"Auto-renewed from contract #{cid}")
+    log_activity(cid, "renewed", request.user_email, f"Renewal created as contract #{new_id}")
+    # Copy obligations
+    obs = sb.table("contract_obligations").select("title,description,assigned_to").eq("contract_id", cid).execute().data or []
+    for o in obs:
+        sb.table("contract_obligations").insert({
+            "contract_id": new_id, "title": o["title"],
+            "description": o.get("description", ""), "assigned_to": o.get("assigned_to", ""),
+            "status": "pending", "created_at": datetime.now().isoformat()
+        }).execute()
+    create_notification(f"Contract renewed: {orig['name']}", f"Renewal draft created from contract #{cid}", "renewal", new_id)
+    return jsonify({"id": new_id, "message": f"Renewal draft created (#{new_id})"}), 201
+
+# ─── Approval SLA Tracking ──────────────────────────────────────────────
+@app.route("/api/approvals/sla", methods=["GET"])
+@auth
+@need_db
+def approval_sla():
+    """Get approval SLA data — flag approvals stuck beyond threshold"""
+    threshold_days = int(request.args.get("threshold", 3))
+    approvals = sb.table("contract_approvals").select("*").eq("status", "pending").execute().data or []
+    today = datetime.now()
+    results = []
+    overdue_count = 0
+    # Batch-fetch contract names to avoid N+1 queries
+    cids = list({a["contract_id"] for a in approvals if a.get("contract_id")})
+    contracts_map = {}
+    if cids:
+        contracts_data = sb.table("contracts").select("id,name,party_name").in_("id", cids).execute().data or []
+        contracts_map = {c["id"]: c for c in contracts_data}
+    for a in approvals:
+        created = a.get("created_at", "")
+        days_pending = 0
+        if created:
+            try:
+                ct = datetime.fromisoformat(created.replace("Z", "+00:00")).replace(tzinfo=None)
+                days_pending = (today - ct).days
+            except: pass
+        a["days_pending"] = days_pending
+        a["is_overdue"] = days_pending > threshold_days
+        if a["is_overdue"]: overdue_count += 1
+        # Get contract name from batch lookup
+        cn = contracts_map.get(a.get("contract_id"))
+        if cn:
+            a["contract_name"] = cn["name"]
+            a["party_name"] = cn.get("party_name", "")
+        results.append(a)
+    results.sort(key=lambda x: -x["days_pending"])
+    return jsonify({"approvals": results, "total": len(results), "overdue": overdue_count, "threshold_days": threshold_days})
+
+# ─── Contract PO/Invoice Linkage ─────────────────────────────────────────
+@app.route("/api/contracts/<int:cid>/invoices", methods=["GET"])
+@auth
+@need_db
+def get_contract_invoices(cid):
+    rows = sb.table("contract_invoices").select("*").eq("contract_id", cid).order("invoice_date", desc=True).execute().data or []
+    return jsonify(rows)
+
+@app.route("/api/contracts/<int:cid>/invoices", methods=["POST"])
+@auth
+@role_required("editor")
+@need_db
+def add_contract_invoice(cid):
+    chk = sb.table("contracts").select("id").eq("id", cid).execute()
+    if not chk.data: return jsonify({"error": "Contract not found"}), 404
+    d = _sanitize_dict(request.json or {})
+    if not d.get("invoice_number", "").strip(): return jsonify({"error": "Invoice number required"}), 400
+    row = {
+        "contract_id": cid,
+        "invoice_number": str(d["invoice_number"])[:100],
+        "po_number": str(d.get("po_number", "") or "")[:100],
+        "amount": str(d.get("amount", "") or "")[:100],
+        "invoice_date": d.get("invoice_date") or None,
+        "due_date": d.get("due_date") or None,
+        "status": d.get("status", "pending") if d.get("status") in ("pending", "paid", "overdue", "cancelled") else "pending",
+        "notes": str(d.get("notes", "") or "")[:500],
+        "created_by": request.user_email,
+        "created_at": datetime.now().isoformat()
+    }
+    r = sb.table("contract_invoices").insert(row).execute()
+    log_activity(cid, "invoice_added", request.user_email, f"Invoice {row['invoice_number']} added")
+    return jsonify(r.data[0] if r.data else {"message": "Added"}), 201
+
+@app.route("/api/contract-invoices/<int:iid>", methods=["PUT"])
+@auth
+@role_required("editor")
+@need_db
+def update_contract_invoice(iid):
+    chk = sb.table("contract_invoices").select("*").eq("id", iid).execute()
+    if not chk.data: return jsonify({"error": "Not found"}), 404
+    d = _sanitize_dict(request.json or {})
+    u = {}
+    for f in ["invoice_number","po_number","amount","invoice_date","due_date","status","notes"]:
+        if f in d: u[f] = d[f]
+    if not u: return jsonify({"error": "Nothing to update"}), 400
+    u["updated_at"] = datetime.now().isoformat()
+    sb.table("contract_invoices").update(u).eq("id", iid).execute()
+    return jsonify({"message": "Updated"})
+
+@app.route("/api/contract-invoices/<int:iid>", methods=["DELETE"])
+@auth
+@role_required("editor")
+@need_db
+def delete_contract_invoice(iid):
+    chk = sb.table("contract_invoices").select("*").eq("id", iid).execute()
+    if not chk.data: return jsonify({"error": "Not found"}), 404
+    sb.table("contract_invoices").delete().eq("id", iid).execute()
+    return jsonify({"message": "Deleted"})
+
+# ─── Slack/Teams Webhook Notifications ───────────────────────────────────
+@app.route("/api/settings/slack-webhook", methods=["GET"])
+@auth
+@role_required("admin")
+@need_db
+def get_slack_webhook():
+    r = sb.table("app_settings").select("*").eq("key", "slack_webhook_url").execute()
+    url = r.data[0]["value"] if r.data else ""
+    return jsonify({"url": url})
+
+@app.route("/api/settings/slack-webhook", methods=["POST"])
+@auth
+@role_required("admin")
+@need_db
+def set_slack_webhook():
+    d = request.json or {}
+    url = str(d.get("url", ""))[:500]
+    existing = sb.table("app_settings").select("id").eq("key", "slack_webhook_url").execute()
+    if existing.data:
+        sb.table("app_settings").update({"value": url}).eq("key", "slack_webhook_url").execute()
+    else:
+        sb.table("app_settings").insert({"key": "slack_webhook_url", "value": url}).execute()
+    return jsonify({"message": "Slack webhook saved"})
+
+@app.route("/api/settings/slack-test", methods=["POST"])
+@auth
+@role_required("admin")
+@need_db
+def test_slack_webhook():
+    r = sb.table("app_settings").select("*").eq("key", "slack_webhook_url").execute()
+    if not r.data or not r.data[0].get("value"):
+        return jsonify({"error": "No Slack webhook URL configured"}), 400
+    url = r.data[0]["value"]
+    try:
+        resp = http.post(url, json={"text": "EMB CLM test notification — Slack integration is working!"}, timeout=10)
+        if resp.status_code == 200:
+            return jsonify({"message": "Test message sent successfully"})
+        return jsonify({"error": f"Slack returned {resp.status_code}"}), 400
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# ─── Shareable Review Links ──────────────────────────────────────────────
+@app.route("/api/contracts/<int:cid>/share-links", methods=["GET"])
+@auth
+@need_db
+def get_share_links(cid):
+    rows = sb.table("contract_share_links").select("*").eq("contract_id", cid).order("created_at", desc=True).execute().data or []
+    return jsonify(rows)
+
+@app.route("/api/contracts/<int:cid>/share-links", methods=["POST"])
+@auth
+@role_required("editor")
+@need_db
+def create_share_link(cid):
+    chk = sb.table("contracts").select("id").eq("id", cid).execute()
+    if not chk.data: return jsonify({"error": "Contract not found"}), 404
+    d = request.json or {}
+    expires_hours = min(int(d.get("expires_hours", 72)), 720)  # max 30 days
+    token = secrets.token_urlsafe(32)
+    row = {
+        "contract_id": cid, "token": token, "created_by": request.user_email,
+        "recipient_name": str(d.get("recipient_name", "") or "")[:200],
+        "recipient_email": str(d.get("recipient_email", "") or "")[:200],
+        "permissions": d.get("permissions", "view") if d.get("permissions") in ("view", "comment") else "view",
+        "expires_at": (datetime.now() + timedelta(hours=expires_hours)).isoformat(),
+        "is_active": True, "created_at": datetime.now().isoformat()
+    }
+    r = sb.table("contract_share_links").insert(row).execute()
+    log_activity(cid, "share_link_created", request.user_email,
+                 f"Share link created for {row['recipient_name'] or 'external user'} ({row['permissions']}, {expires_hours}h)")
+    return jsonify({"token": token, "link": r.data[0] if r.data else row, "expires_hours": expires_hours}), 201
+
+@app.route("/api/share-links/<int:lid>/revoke", methods=["POST"])
+@auth
+@role_required("editor")
+@need_db
+def revoke_share_link(lid):
+    chk = sb.table("contract_share_links").select("*").eq("id", lid).execute()
+    if not chk.data: return jsonify({"error": "Not found"}), 404
+    sb.table("contract_share_links").update({"is_active": False}).eq("id", lid).execute()
+    log_activity(chk.data[0]["contract_id"], "share_link_revoked", request.user_email, "Share link revoked")
+    return jsonify({"message": "Link revoked"})
+
+@app.route("/api/shared/<token>", methods=["GET"])
+def view_shared_contract(token):
+    """Public endpoint — no auth required. View a shared contract via token."""
+    if not sb: return jsonify({"error": "Service unavailable"}), 503
+    link = sb.table("contract_share_links").select("*").eq("token", token).eq("is_active", True).execute()
+    if not link.data: return jsonify({"error": "Invalid or expired link"}), 404
+    sl = link.data[0]
+    if datetime.fromisoformat(sl["expires_at"].replace("Z", "+00:00")).replace(tzinfo=None) < datetime.now():
+        return jsonify({"error": "This link has expired"}), 410
+    # Update access count
+    sb.table("contract_share_links").update({
+        "accessed_count": (sl.get("accessed_count", 0) or 0) + 1,
+        "last_accessed_at": datetime.now().isoformat()
+    }).eq("id", sl["id"]).execute()
+    # Get contract (limited fields for security)
+    c = sb.table("contracts").select("id,name,party_name,contract_type,status,content,content_html,start_date,end_date,value,department,jurisdiction").eq("id", sl["contract_id"]).execute()
+    if not c.data: return jsonify({"error": "Contract not found"}), 404
+    return jsonify({
+        "contract": c.data[0], "permissions": sl["permissions"],
+        "recipient_name": sl.get("recipient_name", ""),
+        "expires_at": sl["expires_at"]
+    })
+
+@app.route("/api/shared/<token>/comments", methods=["POST"])
+def add_shared_comment(token):
+    """Public endpoint — add comment on a shared contract (if permission allows)"""
+    if not sb: return jsonify({"error": "Service unavailable"}), 503
+    link = sb.table("contract_share_links").select("*").eq("token", token).eq("is_active", True).execute()
+    if not link.data: return jsonify({"error": "Invalid or expired link"}), 404
+    sl = link.data[0]
+    if sl["permissions"] != "comment": return jsonify({"error": "View-only access"}), 403
+    if datetime.fromisoformat(sl["expires_at"].replace("Z", "+00:00")).replace(tzinfo=None) < datetime.now():
+        return jsonify({"error": "This link has expired"}), 410
+    d = request.json or {}
+    if not d.get("text", "").strip(): return jsonify({"error": "Comment text required"}), 400
+    commenter = sl.get("recipient_name") or "External Reviewer"
+    row = {
+        "contract_id": sl["contract_id"], "user_name": commenter,
+        "content": _sanitize(str(d["text"]), 2000), "created_at": datetime.now().isoformat()
+    }
+    sb.table("contract_comments").insert(row).execute()
+    create_notification(
+        f"External comment on contract",
+        f"{commenter} commented via shared link: {str(d['text'])[:100]}",
+        "comment", sl["contract_id"]
+    )
+    return jsonify({"message": "Comment added"}), 201
 
 # ─── Contract Comparison ──────────────────────────────────────────────────
 @app.route("/api/contracts/compare")
@@ -2362,14 +3156,14 @@ def generate_pdf(cid):
     # Get obligations
     obls = []
     try:
-        obr = sb.table("obligations").select("*").eq("contract_id", cid).execute()
+        obr = sb.table("contract_obligations").select("*").eq("contract_id", cid).execute()
         obls = obr.data or []
     except Exception as e: log.debug(f"generate_pdf: {e}")
 
     # Get signatures
     sigs = []
     try:
-        sgr = sb.table("signatures").select("*").eq("contract_id", cid).execute()
+        sgr = sb.table("contract_signatures").select("*").eq("contract_id", cid).execute()
         sigs = sgr.data or []
     except Exception as e: log.debug(f"generate_pdf: {e}")
 
@@ -2478,8 +3272,8 @@ def generate_pdf(cid):
 # ─── Backup / Restore ─────────────────────────────────────────────────────
 @app.route("/api/backup")
 @auth
-@need_db
 @role_required("admin")
+@need_db
 def backup_data():
     """Export all data as a single JSON document (admin only)."""
     tables = {}
@@ -2507,8 +3301,8 @@ def backup_data():
 
 @app.route("/api/restore", methods=["POST"])
 @auth
-@need_db
 @role_required("admin")
+@need_db
 def restore_data():
     """Restore data from a backup JSON (admin only)."""
     body = request.get_json(silent=True) or {}

@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Shared Contract — EMB CLM</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Inter',system-ui,sans-serif;background:#f1f5f9;color:#1e293b;font-size:14px;line-height:1.6}
+.header{background:linear-gradient(135deg,#0f172a,#1e3a8a);color:#fff;padding:1rem 2rem;display:flex;align-items:center;justify-content:space-between}
+.header h1{font-size:1rem;font-weight:600;display:flex;align-items:center;gap:.5rem}
+.header .badge{background:rgba(255,255,255,.15);padding:3px 10px;border-radius:12px;font-size:.72rem;font-weight:500}
+.container{max-width:900px;margin:2rem auto;padding:0 1.5rem}
+.card{background:#fff;border-radius:12px;border:1px solid #e2e8f0;box-shadow:0 1px 3px rgba(0,0,0,.06);margin-bottom:1.5rem;overflow:hidden}
+.card-header{padding:1rem 1.5rem;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;justify-content:space-between}
+.card-header h2{font-size:1.05rem;font-weight:700}
+.card-body{padding:1.5rem}
+.meta-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:1rem;margin-bottom:1.5rem}
+.meta-item label{font-size:.68rem;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:.2rem}
+.meta-item span{font-size:.88rem;font-weight:500}
+.contract-content{white-space:pre-wrap;font-size:.85rem;line-height:1.8;color:#334155;max-height:500px;overflow-y:auto;padding:1rem;background:#f8fafc;border-radius:8px;border:1px solid #e2e8f0}
+.comment-form{display:flex;gap:.5rem;margin-top:1rem}
+.comment-form input{flex:1;padding:.5rem .8rem;border:1px solid #e2e8f0;border-radius:6px;font-size:.85rem;outline:none}
+.comment-form input:focus{border-color:#3b82f6;box-shadow:0 0 0 3px rgba(59,130,246,.1)}
+.comment-form button{padding:.5rem 1.2rem;background:#3b82f6;color:#fff;border:none;border-radius:6px;font-size:.82rem;font-weight:600;cursor:pointer}
+.comment-form button:hover{background:#2563eb}
+.comment{padding:.6rem;border-bottom:1px solid #f1f5f9}
+.comment:last-child{border-bottom:none}
+.expired{text-align:center;padding:4rem 2rem}
+.expired h2{color:#ef4444;margin-bottom:.5rem}
+.status-badge{display:inline-block;padding:2px 10px;border-radius:12px;font-size:.72rem;font-weight:600}
+.status-executed{background:#dcfce7;color:#16a34a}
+.status-pending{background:#fef3c7;color:#d97706}
+.status-draft{background:#f1f5f9;color:#64748b}
+.status-in_review{background:#dbeafe;color:#2563eb}
+.status-rejected{background:#fee2e2;color:#ef4444}
+.footer{text-align:center;padding:2rem;color:#94a3b8;font-size:.75rem}
+@media(max-width:640px){.meta-grid{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+<div class="header">
+<h1><span style="background:linear-gradient(135deg,#3b82f6,#6366f1);width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:.7rem;font-weight:800">E</span> EMB CLM — Shared Contract</h1>
+<span class="badge" id="h-perm"></span>
+</div>
+<div class="container" id="main">
+<div style="text-align:center;padding:3rem;color:#94a3b8">Loading...</div>
+</div>
+<div class="footer">EMB CLM &mdash; Contract Lifecycle Management. This is a time-limited shared view.</div>
+
+<script>
+const params=new URLSearchParams(window.location.search);
+const token=params.get('token');
+const API_BASE=window.location.origin;
+
+async function load(){
+if(!token){document.getElementById('main').innerHTML='<div class="expired"><h2>Invalid Link</h2><p>No share token provided.</p></div>';return}
+try{
+const r=await fetch(API_BASE+'/api/shared/'+token);
+if(r.status===410){document.getElementById('main').innerHTML='<div class="expired"><h2>Link Expired</h2><p>This share link has expired. Please request a new one from the contract owner.</p></div>';return}
+if(!r.ok){document.getElementById('main').innerHTML='<div class="expired"><h2>Invalid Link</h2><p>This link is invalid or has been revoked.</p></div>';return}
+const d=await r.json();
+const c=d.contract;
+const exp=new Date(d.expires_at);
+document.getElementById('h-perm').textContent=d.permissions==='comment'?'View & Comment':'View Only';
+
+let html=`<div class="card"><div class="card-header"><h2>${esc(c.name)}</h2><span class="status-badge status-${c.status||'draft'}">${tc(c.status||'draft')}</span></div><div class="card-body">
+<div class="meta-grid">
+<div class="meta-item"><label>Party</label><span>${esc(c.party_name)}</span></div>
+<div class="meta-item"><label>Type</label><span>${tc(c.contract_type)}</span></div>
+<div class="meta-item"><label>Value</label><span>${c.value||'—'}</span></div>
+<div class="meta-item"><label>Start Date</label><span>${c.start_date||'—'}</span></div>
+<div class="meta-item"><label>End Date</label><span>${c.end_date||'—'}</span></div>
+<div class="meta-item"><label>Department</label><span>${c.department||'—'}</span></div>
+</div>
+<h3 style="font-size:.85rem;font-weight:600;margin-bottom:.5rem">Contract Content</h3>
+<div class="contract-content">${c.content_html||esc(c.content||'No content')}</div>
+</div></div>`;
+
+if(d.permissions==='comment'){
+html+=`<div class="card"><div class="card-header"><h2 style="font-size:.92rem">Comments</h2></div><div class="card-body">
+<div id="shared-comments"></div>
+<div class="comment-form"><input id="sc-text" placeholder="Add a comment or redline note..." maxlength="2000">
+<button onclick="addComment()">Comment</button></div></div></div>`}
+
+html+=`<div style="text-align:center;font-size:.75rem;color:#94a3b8;padding:.5rem">Shared with ${esc(d.recipient_name||'you')} &middot; Expires ${exp.toLocaleDateString()} ${exp.toLocaleTimeString()}</div>`;
+document.getElementById('main').innerHTML=html;
+}catch(e){document.getElementById('main').innerHTML='<div class="expired"><h2>Error</h2><p>Failed to load contract. Please try again.</p></div>'}}
+
+async function addComment(){
+const text=document.getElementById('sc-text').value.trim();
+if(!text)return;
+try{const r=await fetch(API_BASE+'/api/shared/'+token+'/comments',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text})});
+if(r.ok){document.getElementById('sc-text').value='';alert('Comment added successfully!')}
+else{const d=await r.json();alert(d.error||'Failed to add comment')}}catch(e){alert('Failed to add comment')}}
+
+function esc(s){if(!s)return '';const d=document.createElement('div');d.textContent=s;return d.innerHTML}
+function tc(s){if(!s)return '';return s.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase())}
+
+load();
+</script>
+</body>
+</html>

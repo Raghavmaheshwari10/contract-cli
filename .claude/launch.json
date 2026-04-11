@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "clm-app",
+      "runtimeExecutable": "/Users/shivamsoni/.local/opt/node/bin/npx",
+      "runtimeArgs": ["serve", "/Users/shivamsoni/Desktop/CLI Project/public", "-l", "8080", "--no-clipboard"],
+      "port": 8080
+    }
+  ]
+}
