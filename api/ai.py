@@ -56,19 +56,64 @@ def oai_emb(texts, retries=2):
 
 # ─── Chunking & RAG ─────────────────────────────────────────────────────
 def chunk_text(content):
-    sections = re.split(r'\n(?=\d{1,2}[\.\)]\s+[A-Z])', content)
+    """Smart chunking for legal contracts. Splits on major clause boundaries
+    while keeping sub-clauses together. Handles Annexures, Schedules, and
+    signature blocks as separate priority chunks."""
+
+    # Split on major section headers: "1. TITLE", "2. TITLE", "ANNEXURE", "SCHEDULE", "SIGNATURE"
+    # Also split on patterns like "Clause 1", "Article 1", and standalone headers in ALL CAPS
+    section_pattern = r'\n(?=(?:\d{1,2}[\.\)]\s+[A-Z]|ANNEXURE|SCHEDULE|SIGNATURE|Annexure|Schedule|Agreed and Accepted))'
+    sections = re.split(section_pattern, content)
+
     chunks = []
     for sec in sections:
         sec = sec.strip()
         if not sec: continue
-        title = sec.split('\n')[0].strip()[:100]
+
+        # Extract title from first line
+        first_line = sec.split('\n')[0].strip()[:120]
+        title = first_line
+
+        # Tag special sections for priority retrieval
+        lower = sec.lower()
+        if any(kw in lower for kw in ['annexure', 'schedule', 'appendix']):
+            title = f"ANNEXURE: {first_line}"
+        elif any(kw in lower for kw in ['agreed and accepted', 'signature', 'signed by', 'executed by']):
+            title = f"SIGNATURES: {first_line}"
+
         if len(sec) <= CHUNK_SZ:
             chunks.append({"text": sec, "section_title": title})
         else:
-            for i in range(0, len(sec), CHUNK_SZ - CHUNK_OV):
-                t = sec[i:i + CHUNK_SZ]
-                if len(t.strip()) < 50: continue
-                chunks.append({"text": t, "section_title": title if i == 0 else f"{title} (cont.)"})
+            # For large sections, split on sub-clause boundaries (e.g., 6.1, 6.2, 7.3)
+            sub_pattern = r'\n(?=\d{1,2}\.\d{1,2}\s)'
+            sub_sections = re.split(sub_pattern, sec)
+
+            if len(sub_sections) > 1:
+                # Group sub-sections into chunks that fit within CHUNK_SZ
+                current = ""
+                current_title = title
+                for j, sub in enumerate(sub_sections):
+                    sub = sub.strip()
+                    if not sub: continue
+                    sub_title = sub.split('\n')[0].strip()[:80]
+
+                    if len(current) + len(sub) + 2 <= CHUNK_SZ:
+                        current = (current + "\n\n" + sub).strip() if current else sub
+                    else:
+                        if current and len(current.strip()) >= 50:
+                            chunks.append({"text": current, "section_title": current_title})
+                        current = sub
+                        current_title = f"{title} > {sub_title}"
+
+                if current and len(current.strip()) >= 50:
+                    chunks.append({"text": current, "section_title": current_title})
+            else:
+                # No sub-clauses found, use sliding window
+                for i in range(0, len(sec), CHUNK_SZ - CHUNK_OV):
+                    t = sec[i:i + CHUNK_SZ]
+                    if len(t.strip()) < 50: continue
+                    chunks.append({"text": t, "section_title": title if i == 0 else f"{title} (cont.)"})
+
     return chunks
 
 def embed_contract(cid, content, name):
@@ -86,19 +131,37 @@ def embed_contract(cid, content, name):
         total += len(rows)
     return total
 
-def hybrid_search(query, cids=None, n=15):
+def hybrid_search(query, cids=None, n=30):
     sem, kw = [], []
+    # 1. Semantic search via embeddings
     try:
         emb = oai_emb([query])[0]
         p = {"query_embedding": emb, "match_count": n}
         if cids: p["filter_contract_ids"] = cids
         sem = sb.rpc("match_chunks", p).execute().data
-    except Exception as e: log.debug(f"hybrid_search: {e}")
+    except Exception as e: log.debug(f"hybrid_search semantic: {e}")
+
+    # 2. Keyword search — extract key terms and search
     try:
+        # Search with full query
         q = sb.table("contract_chunks").select("contract_id,chunk_text,section_title").ilike("chunk_text", f"%{query}%")
         if cids: q = q.in_("contract_id", cids)
-        kw = q.limit(5).execute().data
-    except Exception as e: log.debug(f"hybrid_search: {e}")
+        kw = q.limit(10).execute().data
+
+        # Also search individual important words (numbers, names, specific terms)
+        words = [w for w in re.split(r'\s+', query) if len(w) > 3 and w.lower() not in
+                 {'what', 'which', 'when', 'where', 'this', 'that', 'with', 'from', 'have', 'does',
+                  'about', 'many', 'much', 'there', 'their', 'they', 'been', 'will', 'would',
+                  'could', 'should', 'contract', 'agreement', 'mentioned', 'provide'}]
+        for w in words[:3]:
+            try:
+                q2 = sb.table("contract_chunks").select("contract_id,chunk_text,section_title").ilike("chunk_text", f"%{w}%")
+                if cids: q2 = q2.in_("contract_id", cids)
+                kw += q2.limit(5).execute().data
+            except: pass
+    except Exception as e: log.debug(f"hybrid_search keyword: {e}")
+
+    # 3. Deduplicate and merge results
     seen, out = set(), []
     for c in sem:
         k = hash(c.get("chunk_text","")[:200])

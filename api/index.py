@@ -1009,7 +1009,7 @@ def chat():
     if not msg: return jsonify({"error": "No message"}), 400
 
     chunks = []
-    try: chunks = hybrid_search(msg, cids, 15)
+    try: chunks = hybrid_search(msg, cids, 30)
     except Exception as e: log.debug(f"chat: {e}")
 
     ref_ids = list(set(c["contract_id"] for c in chunks)) if chunks else []
@@ -1020,6 +1020,16 @@ def chat():
         parts = [f"[{ml.get(c['contract_id'],{}).get('name','?')} | {c.get('section_title','?')} | Rel:{c.get('similarity','?')}]\n{c['chunk_text']}" for c in chunks]
         ctx = "\n---\n".join(parts)
         summ = "\n".join(f"- {c['name']} ({c['party_name']}, {c['contract_type']})" for c in meta)
+
+        # For single-contract queries: if RAG returned few chunks, supplement with full text
+        if cids and len(cids) == 1 and len(chunks) < 10:
+            try:
+                full = sb.table("contracts").select("content").eq("id", cids[0]).execute().data
+                if full and full[0].get("content"):
+                    content = full[0]["content"]
+                    # Add truncated full text as additional context (up to 12K chars)
+                    ctx += f"\n\n--- FULL CONTRACT TEXT (supplementary) ---\n{content[:12000]}"
+            except: pass
     else:
         q = sb.table("contracts").select("id,name,party_name,contract_type,content")
         if cids: q = q.in_("id", cids)
