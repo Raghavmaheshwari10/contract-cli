@@ -1,11 +1,40 @@
+# Python
 __pycache__/
 *.pyc
 *.pyo
+.pytest_cache/
+test-results.xml
+
+# Environment
 .env
+.env.*
+*.env
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# Project
 contracts.db
 contracts_store/
+
+# Vercel
 .vercel/
+
+# Node
 node_modules/
+
+# Build
 *.egg-info/
 dist/
 build/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Security - never commit these
+*.pem
+*.key
+credentials.json

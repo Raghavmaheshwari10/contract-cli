@@ -1,0 +1,2218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>EMB CLM — Business Requirements Document</title>
+<style>
+@page {
+    size: A4;
+    margin: 20mm 18mm 20mm 18mm;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+    font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif;
+    font-size: 11pt;
+    line-height: 1.6;
+    color: #1a1a2e;
+    background: #fff;
+    padding: 40px 60px;
+    max-width: 900px;
+    margin: 0 auto;
+}
+h1 {
+    font-size: 26pt;
+    font-weight: 700;
+    color: #0f172a;
+    border-bottom: 3px solid #2563eb;
+    padding-bottom: 12px;
+    margin: 0 0 20px 0;
+}
+h2 {
+    font-size: 16pt;
+    font-weight: 700;
+    color: #1e3a5f;
+    margin: 36px 0 14px 0;
+    padding-bottom: 6px;
+    border-bottom: 2px solid #e2e8f0;
+    page-break-after: avoid;
+}
+h3 {
+    font-size: 13pt;
+    font-weight: 600;
+    color: #334155;
+    margin: 24px 0 10px 0;
+    page-break-after: avoid;
+}
+h4 {
+    font-size: 11pt;
+    font-weight: 600;
+    color: #475569;
+    margin: 16px 0 8px 0;
+}
+p {
+    margin: 0 0 10px 0;
+    text-align: justify;
+}
+strong { color: #0f172a; }
+ul, ol {
+    margin: 6px 0 14px 24px;
+}
+li {
+    margin-bottom: 4px;
+}
+hr {
+    border: none;
+    border-top: 1px solid #cbd5e1;
+    margin: 28px 0;
+}
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0 20px 0;
+    font-size: 10pt;
+    page-break-inside: avoid;
+}
+thead { background: #0f172a; }
+th {
+    background: #0f172a;
+    color: #fff;
+    font-weight: 600;
+    padding: 8px 10px;
+    text-align: left;
+    font-size: 9.5pt;
+    letter-spacing: 0.3px;
+}
+td {
+    padding: 7px 10px;
+    border-bottom: 1px solid #e2e8f0;
+    vertical-align: top;
+}
+tr:nth-child(even) { background: #f8fafc; }
+tr:hover { background: #f1f5f9; }
+code {
+    font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+    font-size: 9.5pt;
+    background: #f1f5f9;
+    padding: 1px 5px;
+    border-radius: 3px;
+    color: #e11d48;
+}
+pre {
+    background: #0f172a;
+    color: #e2e8f0;
+    padding: 16px 20px;
+    border-radius: 8px;
+    overflow-x: auto;
+    margin: 12px 0 20px 0;
+    font-size: 9pt;
+    line-height: 1.5;
+    page-break-inside: avoid;
+}
+pre code {
+    background: none;
+    color: #e2e8f0;
+    padding: 0;
+}
+a {
+    color: #2563eb;
+    text-decoration: none;
+}
+/* Cover page styling */
+body > h1:first-child {
+    font-size: 30pt;
+    text-align: center;
+    border-bottom: 4px solid #2563eb;
+    padding: 20px 0 16px;
+    margin-bottom: 8px;
+}
+body > h1:first-child + h2 {
+    text-align: center;
+    font-size: 18pt;
+    color: #2563eb;
+    border-bottom: none;
+    margin-bottom: 24px;
+}
+/* Print styles */
+@media print {
+    body {
+        padding: 0;
+        font-size: 10pt;
+    }
+    h2 { page-break-before: auto; }
+    table, pre, img { page-break-inside: avoid; }
+    a { color: #2563eb; }
+    a[href]:after { content: none; }
+}
+/* Emoji-like symbols for section headers */
+em:last-child {
+    display: block;
+    text-align: center;
+    color: #94a3b8;
+    font-size: 9pt;
+    margin-top: 40px;
+    padding-top: 20px;
+    border-top: 1px solid #e2e8f0;
+}
+</style>
+</head>
+<body>
+<h1 id="business-requirements-document-brd">Business Requirements Document (BRD)</h1>
+<h2 id="emb-clm-contract-lifecycle-management-platform">EMB CLM — Contract Lifecycle Management Platform</h2>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Detail</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Document Version</strong></td>
+<td>1.0</td>
+</tr>
+<tr>
+<td><strong>Date</strong></td>
+<td>April 11, 2026</td>
+</tr>
+<tr>
+<td><strong>Organization</strong></td>
+<td>EMB (Expand My Business) / Mantarav Private Limited</td>
+</tr>
+<tr>
+<td><strong>Project</strong></td>
+<td>EMB CLM — Contract Lifecycle Management</td>
+</tr>
+<tr>
+<td><strong>Platform URL</strong></td>
+<td>https://contract-cli-six.vercel.app</td>
+</tr>
+<tr>
+<td><strong>Status</strong></td>
+<td>Production</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="table-of-contents">Table of Contents</h2>
+<ol>
+<li><a href="#1-executive-summary">Executive Summary</a></li>
+<li><a href="#2-business-objectives">Business Objectives</a></li>
+<li><a href="#3-scope">Scope</a></li>
+<li><a href="#4-system-architecture">System Architecture</a></li>
+<li><a href="#5-user-roles--access-control">User Roles &amp; Access Control</a></li>
+<li><a href="#6-functional-requirements">Functional Requirements</a></li>
+<li><a href="#7-non-functional-requirements">Non-Functional Requirements</a></li>
+<li><a href="#8-database-schema">Database Schema</a></li>
+<li><a href="#9-api-specification">API Specification</a></li>
+<li><a href="#10-integration-points">Integration Points</a></li>
+<li><a href="#11-security-requirements">Security Requirements</a></li>
+<li><a href="#12-deployment--infrastructure">Deployment &amp; Infrastructure</a></li>
+<li><a href="#13-glossary">Glossary</a></li>
+</ol>
+<hr />
+<h2 id="1-executive-summary">1. Executive Summary</h2>
+<p>EMB CLM is a full-featured Contract Lifecycle Management platform built for EMB (Expand My Business / Mantarav Private Limited), a technology services broker operating across Cloud Resell (AWS/Azure/GCP), Resource Augmentation, and AI/Software Development verticals.</p>
+<p>The platform manages the entire contract lifecycle — from creation and negotiation through review, approval, execution, and renewal — with AI-powered analysis, automated workflows, real-time collaboration, and comprehensive audit trails. It serves as the central system of record for all client and vendor contracts, enabling margin tracking, risk assessment, compliance monitoring, and operational efficiency.</p>
+<p><strong>Key Capabilities:</strong>
+- End-to-end contract lifecycle management with enforced state machine
+- AI-powered contract review and risk analysis (GPT-4o)
+- RAG-based intelligent chatbot for contract Q&amp;A
+- Multi-party collaboration with role-based access
+- Automated workflow engine with configurable triggers
+- E-signature integration (Leegality)
+- Email notification system with user preferences
+- Redline/track changes with version history
+- Kanban board, calendar view, and analytics dashboards
+- Bulk import/export and backup/restore</p>
+<hr />
+<h2 id="2-business-objectives">2. Business Objectives</h2>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Objective</th>
+<th>Success Metric</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>Centralize all contract data in a single platform</td>
+<td>100% of active contracts digitized and searchable</td>
+</tr>
+<tr>
+<td>2</td>
+<td>Reduce contract review cycle time</td>
+<td>AI-assisted review available for all contracts</td>
+</tr>
+<tr>
+<td>3</td>
+<td>Enforce approval workflows before execution</td>
+<td>Zero contracts executed without completed approvals</td>
+</tr>
+<tr>
+<td>4</td>
+<td>Provide real-time visibility into contract status</td>
+<td>Dashboard with live status, value, and renewal tracking</td>
+</tr>
+<tr>
+<td>5</td>
+<td>Enable margin analysis (client value vs vendor cost)</td>
+<td>All contracts tagged with financial data for reporting</td>
+</tr>
+<tr>
+<td>6</td>
+<td>Ensure compliance through audit trails</td>
+<td>Complete activity log for every contract action</td>
+</tr>
+<tr>
+<td>7</td>
+<td>Reduce manual effort through automation</td>
+<td>Workflow rules auto-trigger on contract events</td>
+</tr>
+<tr>
+<td>8</td>
+<td>Enable secure digital signatures</td>
+<td>E-sign integration for paperless execution</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="3-scope">3. Scope</h2>
+<h3 id="31-in-scope">3.1 In Scope</h3>
+<ul>
+<li>Contract CRUD (create, read, update, delete)</li>
+<li>Contract templates and clause library</li>
+<li>AI-powered review, risk scoring, and recommendations</li>
+<li>RAG chatbot with contract-scoped and global Q&amp;A</li>
+<li>Version control with redline/diff comparison</li>
+<li>Multi-level approval workflows</li>
+<li>Contract collaboration (viewer, editor, reviewer roles)</li>
+<li>Obligation tracking and deadline management</li>
+<li>Tag management with presets and color coding</li>
+<li>Custom fields per contract</li>
+<li>E-signature via Leegality</li>
+<li>Email notifications with per-user preferences</li>
+<li>Webhook integrations for external systems</li>
+<li>Calendar view for deadlines and renewals</li>
+<li>Kanban board for visual pipeline management</li>
+<li>Reports and analytics dashboard</li>
+<li>Counterparty management and history</li>
+<li>Bulk import/export (CSV)</li>
+<li>System backup and restore</li>
+<li>User management with RBAC (4-tier)</li>
+<li>Full audit trail per contract and system-wide</li>
+</ul>
+<h3 id="32-out-of-scope">3.2 Out of Scope</h3>
+<ul>
+<li>Native mobile application</li>
+<li>Multi-tenant / multi-organization support</li>
+<li>Offline mode</li>
+<li>OCR for scanned paper contracts</li>
+<li>Built-in document editor (WYSIWYG)</li>
+<li>Payment processing or invoicing</li>
+<li>Third-party CRM integration (Salesforce, HubSpot)</li>
+</ul>
+<hr />
+<h2 id="4-system-architecture">4. System Architecture</h2>
+<h3 id="41-technology-stack">4.1 Technology Stack</h3>
+<table>
+<thead>
+<tr>
+<th>Component</th>
+<th>Technology</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Frontend</strong></td>
+<td>HTML5 / CSS3 / Vanilla JavaScript</td>
+<td>Single-page application (SPA)</td>
+</tr>
+<tr>
+<td><strong>Backend</strong></td>
+<td>Python 3.x / Flask</td>
+<td>REST API (serverless functions)</td>
+</tr>
+<tr>
+<td><strong>Database</strong></td>
+<td>Supabase PostgreSQL + pgvector</td>
+<td>Primary data store with vector search</td>
+</tr>
+<tr>
+<td><strong>Hosting</strong></td>
+<td>Vercel</td>
+<td>Serverless deployment (API + static)</td>
+</tr>
+<tr>
+<td><strong>AI/ML</strong></td>
+<td>OpenAI GPT-4o + text-embedding-3-small</td>
+<td>Contract review, chat, embeddings</td>
+</tr>
+<tr>
+<td><strong>Email</strong></td>
+<td>Resend API</td>
+<td>Transactional email notifications</td>
+</tr>
+<tr>
+<td><strong>E-Sign</strong></td>
+<td>Leegality API</td>
+<td>Digital signature workflows</td>
+</tr>
+<tr>
+<td><strong>Auth</strong></td>
+<td>JWT (HS256) + HMAC</td>
+<td>Token-based authentication</td>
+</tr>
+</tbody>
+</table>
+<h3 id="42-architecture-diagram">4.2 Architecture Diagram</h3>
+<pre><code>┌─────────────────────────────────────────────────────────┐
+│                    FRONTEND (SPA)                        │
+│              public/index.html (~2,700 lines)            │
+│     19 pages · Modal tabs · Kanban · Calendar · Chat     │
+└──────────────────────┬──────────────────────────────────┘
+                       │ HTTPS / REST API
+                       ▼
+┌─────────────────────────────────────────────────────────┐
+│                 BACKEND (Flask on Vercel)                 │
+│                                                          │
+│  ┌──────────┐ ┌──────────┐ ┌────────┐ ┌───────────┐     │
+│  │ index.py │ │ auth.py  │ │ ai.py  │ │ helpers.py│     │
+│  │ (routes) │ │ (RBAC)   │ │ (RAG)  │ │ (workflow)│     │
+│  └──────────┘ └──────────┘ └────────┘ └───────────┘     │
+│                  config.py (shared state)                 │
+│                  ~2,300 lines · 99 endpoints              │
+└───┬──────────┬──────────────┬──────────────┬────────────┘
+    │          │              │              │
+    ▼          ▼              ▼              ▼
+┌────────┐ ┌────────┐  ┌──────────┐  ┌───────────┐
+│Supabase│ │OpenAI  │  │ Resend   │  │ Leegality │
+│  (DB)  │ │(GPT-4o)│  │ (Email)  │  │ (E-Sign)  │
+└────────┘ └────────┘  └──────────┘  └───────────┘
+</code></pre>
+<h3 id="43-module-structure">4.3 Module Structure</h3>
+<table>
+<thead>
+<tr>
+<th>Module</th>
+<th>Lines</th>
+<th>Responsibility</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>api/index.py</code></td>
+<td>~2,300</td>
+<td>All route definitions (99 endpoints)</td>
+</tr>
+<tr>
+<td><code>api/config.py</code></td>
+<td>~86</td>
+<td>Configuration, DB init, constants</td>
+</tr>
+<tr>
+<td><code>api/auth.py</code></td>
+<td>~157</td>
+<td>JWT auth, RBAC decorators, input sanitization</td>
+</tr>
+<tr>
+<td><code>api/ai.py</code></td>
+<td>~130</td>
+<td>OpenAI integration, RAG, chunking, embeddings</td>
+</tr>
+<tr>
+<td><code>api/helpers.py</code></td>
+<td>~258</td>
+<td>Activity logging, webhooks, notifications, workflows</td>
+</tr>
+<tr>
+<td><code>public/index.html</code></td>
+<td>~2,700</td>
+<td>Complete frontend (HTML + CSS + JS)</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="5-user-roles-access-control">5. User Roles &amp; Access Control</h2>
+<h3 id="51-role-hierarchy">5.1 Role Hierarchy</h3>
+<table>
+<thead>
+<tr>
+<th>Role</th>
+<th>Level</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Viewer</strong></td>
+<td>0</td>
+<td>Read-only access to contracts and dashboards</td>
+</tr>
+<tr>
+<td><strong>Editor</strong></td>
+<td>1</td>
+<td>Create/edit contracts, add comments, manage tags</td>
+</tr>
+<tr>
+<td><strong>Manager</strong></td>
+<td>2</td>
+<td>Approve contracts, manage workflows, calendar access</td>
+</tr>
+<tr>
+<td><strong>Admin</strong></td>
+<td>3</td>
+<td>Full system access: user management, webhooks, backup/restore</td>
+</tr>
+</tbody>
+</table>
+<h3 id="52-permission-matrix">5.2 Permission Matrix</h3>
+<table>
+<thead>
+<tr>
+<th>Action</th>
+<th>Viewer</th>
+<th>Editor</th>
+<th>Manager</th>
+<th>Admin</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>View contracts &amp; dashboard</td>
+<td>Yes</td>
+<td>Yes</td>
+<td>Yes</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td>Search &amp; chat with AI</td>
+<td>Yes</td>
+<td>Yes</td>
+<td>Yes</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td>Create/edit contracts</td>
+<td>No</td>
+<td>Yes</td>
+<td>Yes</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td>Add comments &amp; tags</td>
+<td>No</td>
+<td>Yes</td>
+<td>Yes</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td>Manage custom fields</td>
+<td>No</td>
+<td>Yes</td>
+<td>Yes</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td>Upload PDFs</td>
+<td>No</td>
+<td>Yes</td>
+<td>Yes</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td>Manage approvals</td>
+<td>No</td>
+<td>No</td>
+<td>Yes</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td>Manage workflows</td>
+<td>No</td>
+<td>No</td>
+<td>Yes</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td>View calendar</td>
+<td>No</td>
+<td>No</td>
+<td>Yes</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td>Delete templates</td>
+<td>No</td>
+<td>No</td>
+<td>Yes</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td>Manage users</td>
+<td>No</td>
+<td>No</td>
+<td>No</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td>Configure webhooks</td>
+<td>No</td>
+<td>No</td>
+<td>No</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td>Backup/restore system</td>
+<td>No</td>
+<td>No</td>
+<td>No</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td>Delete contracts</td>
+<td>No</td>
+<td>No</td>
+<td>No</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td>Bulk import</td>
+<td>No</td>
+<td>No</td>
+<td>No</td>
+<td>Yes</td>
+</tr>
+</tbody>
+</table>
+<h3 id="53-contract-collaborator-roles">5.3 Contract Collaborator Roles</h3>
+<p>Collaborators can be assigned per contract with specific roles:</p>
+<table>
+<thead>
+<tr>
+<th>Role</th>
+<th>Capabilities</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Viewer</strong></td>
+<td>Read contract details and activity</td>
+</tr>
+<tr>
+<td><strong>Editor</strong></td>
+<td>Edit contract content and metadata</td>
+</tr>
+<tr>
+<td><strong>Reviewer</strong></td>
+<td>Review and provide feedback on contract</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="6-functional-requirements">6. Functional Requirements</h2>
+<h3 id="61-contract-management-fr-100">6.1 Contract Management (FR-100)</h3>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Requirement</th>
+<th>Priority</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>FR-101</td>
+<td>Create contracts with name, party, type (client/vendor), status, value, dates, department, description, and content</td>
+<td>Must Have</td>
+</tr>
+<tr>
+<td>FR-102</td>
+<td>Edit all contract fields with version tracking</td>
+<td>Must Have</td>
+</tr>
+<tr>
+<td>FR-103</td>
+<td>Delete contracts (admin only, with cascade)</td>
+<td>Must Have</td>
+</tr>
+<tr>
+<td>FR-104</td>
+<td>Clone existing contracts to create new ones</td>
+<td>Should Have</td>
+</tr>
+<tr>
+<td>FR-105</td>
+<td>Search contracts by keyword across all fields</td>
+<td>Must Have</td>
+</tr>
+<tr>
+<td>FR-106</td>
+<td>Filter contracts by status, type, department</td>
+<td>Must Have</td>
+</tr>
+<tr>
+<td>FR-107</td>
+<td>Bulk import contracts via CSV upload</td>
+<td>Should Have</td>
+</tr>
+<tr>
+<td>FR-108</td>
+<td>Export contracts to CSV</td>
+<td>Should Have</td>
+</tr>
+<tr>
+<td>FR-109</td>
+<td>PDF generation and download per contract</td>
+<td>Should Have</td>
+</tr>
+</tbody>
+</table>
+<h3 id="62-contract-status-lifecycle-fr-200">6.2 Contract Status Lifecycle (FR-200)</h3>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Requirement</th>
+<th>Priority</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>FR-201</td>
+<td>Enforce state machine transitions between statuses</td>
+<td>Must Have</td>
+</tr>
+<tr>
+<td>FR-202</td>
+<td>Block execution if pending approvals exist</td>
+<td>Must Have</td>
+</tr>
+<tr>
+<td>FR-203</td>
+<td>Log all status changes in activity trail</td>
+<td>Must Have</td>
+</tr>
+<tr>
+<td>FR-204</td>
+<td>Trigger notifications on status changes</td>
+<td>Must Have</td>
+</tr>
+<tr>
+<td>FR-205</td>
+<td>Execute workflow rules on status transitions</td>
+<td>Should Have</td>
+</tr>
+</tbody>
+</table>
+<p><strong>State Machine:</strong></p>
+<pre><code>                    ┌──────────┐
+           ┌───────│  DRAFT   │◄──────────────┐
+           │       └──┬───┬───┘               │
+           │          │   │                    │
+           ▼          ▼   ▼                    │
+     ┌─────────┐  ┌───────────┐         ┌──────────┐
+     │ PENDING │──│ IN_REVIEW │────────►│ REJECTED │
+     └────┬────┘  └─────┬─────┘         └──────────┘
+          │             │                      ▲
+          │             ▼                      │
+          │       ┌──────────┐                 │
+          └──────►│ EXECUTED │─────────────────┘
+                  └──────────┘
+</code></pre>
+<p><strong>Valid Transitions:</strong>
+- Draft → Pending, In Review
+- Pending → In Review, Rejected, Draft
+- In Review → Executed, Rejected, Pending
+- Executed → Rejected
+- Rejected → Draft</p>
+<h3 id="63-ai-powered-features-fr-300">6.3 AI-Powered Features (FR-300)</h3>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Requirement</th>
+<th>Priority</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>FR-301</td>
+<td>AI contract review with risk scoring (1-10 scale)</td>
+<td>Must Have</td>
+</tr>
+<tr>
+<td>FR-302</td>
+<td>Identify key clauses, obligations, and deadlines from content</td>
+<td>Must Have</td>
+</tr>
+<tr>
+<td>FR-303</td>
+<td>Generate improvement recommendations</td>
+<td>Should Have</td>
+</tr>
+<tr>
+<td>FR-304</td>
+<td>RAG-based chatbot with contract-scoped queries</td>
+<td>Must Have</td>
+</tr>
+<tr>
+<td>FR-305</td>
+<td>Hybrid search (semantic + keyword) across contract chunks</td>
+<td>Must Have</td>
+</tr>
+<tr>
+<td>FR-306</td>
+<td>Auto-embed contract content into vector store on creation</td>
+<td>Should Have</td>
+</tr>
+<tr>
+<td>FR-307</td>
+<td>Contract comparison with AI-generated analysis</td>
+<td>Should Have</td>
+</tr>
+<tr>
+<td>FR-308</td>
+<td>Parse uploaded PDF content into structured contract data</td>
+<td>Should Have</td>
+</tr>
+</tbody>
+</table>
+<h3 id="64-templates-clause-library-fr-400">6.4 Templates &amp; Clause Library (FR-400)</h3>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Requirement</th>
+<th>Priority</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>FR-401</td>
+<td>Create, edit, delete contract templates</td>
+<td>Must Have</td>
+</tr>
+<tr>
+<td>FR-402</td>
+<td>Templates include name, category, type, description, content</td>
+<td>Must Have</td>
+</tr>
+<tr>
+<td>FR-403</td>
+<td>Create contracts from templates (pre-filled content)</td>
+<td>Must Have</td>
+</tr>
+<tr>
+<td>FR-404</td>
+<td>Maintain reusable clause library</td>
+<td>Should Have</td>
+</tr>
+<tr>
+<td>FR-405</td>
+<td>Track clause usage count</td>
+<td>Nice to Have</td>
+</tr>
+</tbody>
+</table>
+<h3 id="65-version-control-redline-fr-500">6.5 Version Control &amp; Redline (FR-500)</h3>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Requirement</th>
+<th>Priority</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>FR-501</td>
+<td>Auto-save contract versions on every edit</td>
+<td>Must Have</td>
+</tr>
+<tr>
+<td>FR-502</td>
+<td>View version history with timestamps and authors</td>
+<td>Must Have</td>
+</tr>
+<tr>
+<td>FR-503</td>
+<td>Restore any previous version</td>
+<td>Must Have</td>
+</tr>
+<tr>
+<td>FR-504</td>
+<td>Word-level diff (redline) between versions</td>
+<td>Must Have</td>
+</tr>
+<tr>
+<td>FR-505</td>
+<td>Line-level unified diff view</td>
+<td>Should Have</td>
+</tr>
+<tr>
+<td>FR-506</td>
+<td>Visual markup: red strikethrough (deletions), green highlight (additions)</td>
+<td>Must Have</td>
+</tr>
+</tbody>
+</table>
+<h3 id="66-approvals-fr-600">6.6 Approvals (FR-600)</h3>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Requirement</th>
+<th>Priority</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>FR-601</td>
+<td>Request approval from named approvers</td>
+<td>Must Have</td>
+</tr>
+<tr>
+<td>FR-602</td>
+<td>Approve or reject with comments</td>
+<td>Must Have</td>
+</tr>
+<tr>
+<td>FR-603</td>
+<td>Block contract execution until all approvals complete</td>
+<td>Must Have</td>
+</tr>
+<tr>
+<td>FR-604</td>
+<td>Track approval history with timestamps</td>
+<td>Must Have</td>
+</tr>
+<tr>
+<td>FR-605</td>
+<td>Notify approvers via email and in-app notification</td>
+<td>Should Have</td>
+</tr>
+</tbody>
+</table>
+<h3 id="67-collaboration-fr-700">6.7 Collaboration (FR-700)</h3>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Requirement</th>
+<th>Priority</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>FR-701</td>
+<td>Add collaborators to contracts with roles (viewer/editor/reviewer)</td>
+<td>Must Have</td>
+</tr>
+<tr>
+<td>FR-702</td>
+<td>Change collaborator roles inline</td>
+<td>Must Have</td>
+</tr>
+<tr>
+<td>FR-703</td>
+<td>Remove collaborators from contracts</td>
+<td>Must Have</td>
+</tr>
+<tr>
+<td>FR-704</td>
+<td>Add threaded comments on contracts</td>
+<td>Must Have</td>
+</tr>
+<tr>
+<td>FR-705</td>
+<td>Track all collaboration activity in audit trail</td>
+<td>Must Have</td>
+</tr>
+</tbody>
+</table>
+<h3 id="68-obligations-compliance-fr-800">6.8 Obligations &amp; Compliance (FR-800)</h3>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Requirement</th>
+<th>Priority</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>FR-801</td>
+<td>Create obligations with title, description, deadline, assignee</td>
+<td>Must Have</td>
+</tr>
+<tr>
+<td>FR-802</td>
+<td>Track obligation status (pending, in_progress, completed, overdue)</td>
+<td>Must Have</td>
+</tr>
+<tr>
+<td>FR-803</td>
+<td>Calendar view showing all deadlines and renewals</td>
+<td>Should Have</td>
+</tr>
+<tr>
+<td>FR-804</td>
+<td>Renewal tracking with auto-identification</td>
+<td>Should Have</td>
+</tr>
+</tbody>
+</table>
+<h3 id="69-e-signature-fr-900">6.9 E-Signature (FR-900)</h3>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Requirement</th>
+<th>Priority</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>FR-901</td>
+<td>Internal signature capture (name + timestamp)</td>
+<td>Must Have</td>
+</tr>
+<tr>
+<td>FR-902</td>
+<td>External e-signature via Leegality integration</td>
+<td>Should Have</td>
+</tr>
+<tr>
+<td>FR-903</td>
+<td>Webhook-based signature status updates</td>
+<td>Should Have</td>
+</tr>
+<tr>
+<td>FR-904</td>
+<td>HMAC verification for webhook security</td>
+<td>Must Have</td>
+</tr>
+</tbody>
+</table>
+<h3 id="610-notifications-email-fr-1000">6.10 Notifications &amp; Email (FR-1000)</h3>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Requirement</th>
+<th>Priority</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>FR-1001</td>
+<td>In-app notification center with unread count</td>
+<td>Must Have</td>
+</tr>
+<tr>
+<td>FR-1002</td>
+<td>Mark notifications as read / clear all</td>
+<td>Must Have</td>
+</tr>
+<tr>
+<td>FR-1003</td>
+<td>Email notifications via Resend API</td>
+<td>Should Have</td>
+</tr>
+<tr>
+<td>FR-1004</td>
+<td>Per-user email preferences (enable/disable by event type)</td>
+<td>Should Have</td>
+</tr>
+<tr>
+<td>FR-1005</td>
+<td>Event types: status change, approval, comment, expiry, workflow</td>
+<td>Must Have</td>
+</tr>
+</tbody>
+</table>
+<h3 id="611-workflows-automation-fr-1100">6.11 Workflows &amp; Automation (FR-1100)</h3>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Requirement</th>
+<th>Priority</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>FR-1101</td>
+<td>Create workflow rules with trigger events and conditions</td>
+<td>Should Have</td>
+</tr>
+<tr>
+<td>FR-1102</td>
+<td>Supported triggers: status_change, contract_created</td>
+<td>Should Have</td>
+</tr>
+<tr>
+<td>FR-1103</td>
+<td>Actions: add_tag, auto_approve, change_status, create_obligation, notify_webhook</td>
+<td>Should Have</td>
+</tr>
+<tr>
+<td>FR-1104</td>
+<td>Conditional execution based on status, value, contract type</td>
+<td>Should Have</td>
+</tr>
+<tr>
+<td>FR-1105</td>
+<td>Workflow execution log with details</td>
+<td>Should Have</td>
+</tr>
+<tr>
+<td>FR-1106</td>
+<td>Priority-based rule ordering</td>
+<td>Nice to Have</td>
+</tr>
+</tbody>
+</table>
+<h3 id="612-reporting-analytics-fr-1200">6.12 Reporting &amp; Analytics (FR-1200)</h3>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Requirement</th>
+<th>Priority</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>FR-1201</td>
+<td>Dashboard with contract counts by status</td>
+<td>Must Have</td>
+</tr>
+<tr>
+<td>FR-1202</td>
+<td>Total and average contract value metrics</td>
+<td>Must Have</td>
+</tr>
+<tr>
+<td>FR-1203</td>
+<td>Status distribution charts</td>
+<td>Should Have</td>
+</tr>
+<tr>
+<td>FR-1204</td>
+<td>Type breakdown (client vs vendor)</td>
+<td>Should Have</td>
+</tr>
+<tr>
+<td>FR-1205</td>
+<td>Department-wise contract distribution</td>
+<td>Should Have</td>
+</tr>
+<tr>
+<td>FR-1206</td>
+<td>Monthly contract creation trends</td>
+<td>Should Have</td>
+</tr>
+<tr>
+<td>FR-1207</td>
+<td>Upcoming renewal alerts</td>
+<td>Should Have</td>
+</tr>
+<tr>
+<td>FR-1208</td>
+<td>Counterparty history and analytics</td>
+<td>Should Have</td>
+</tr>
+</tbody>
+</table>
+<h3 id="613-kanban-board-fr-1300">6.13 Kanban Board (FR-1300)</h3>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Requirement</th>
+<th>Priority</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>FR-1301</td>
+<td>Visual kanban board with columns per contract status</td>
+<td>Should Have</td>
+</tr>
+<tr>
+<td>FR-1302</td>
+<td>Contract cards showing key metadata</td>
+<td>Should Have</td>
+</tr>
+<tr>
+<td>FR-1303</td>
+<td>Click-through to contract detail from kanban card</td>
+<td>Should Have</td>
+</tr>
+</tbody>
+</table>
+<h3 id="614-audit-trail-fr-1400">6.14 Audit Trail (FR-1400)</h3>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Requirement</th>
+<th>Priority</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>FR-1401</td>
+<td>Log every contract action with user, timestamp, details</td>
+<td>Must Have</td>
+</tr>
+<tr>
+<td>FR-1402</td>
+<td>System-wide audit log with filtering</td>
+<td>Must Have</td>
+</tr>
+<tr>
+<td>FR-1403</td>
+<td>Per-contract audit trail page with summary cards</td>
+<td>Must Have</td>
+</tr>
+<tr>
+<td>FR-1404</td>
+<td>Color-coded timeline with action-type icons</td>
+<td>Should Have</td>
+</tr>
+<tr>
+<td>FR-1405</td>
+<td>Export audit trail data</td>
+<td>Should Have</td>
+</tr>
+</tbody>
+</table>
+<h3 id="615-tags-custom-fields-fr-1500">6.15 Tags &amp; Custom Fields (FR-1500)</h3>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Requirement</th>
+<th>Priority</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>FR-1501</td>
+<td>Add/remove tags with custom colors per contract</td>
+<td>Should Have</td>
+</tr>
+<tr>
+<td>FR-1502</td>
+<td>Tag presets for quick application</td>
+<td>Nice to Have</td>
+</tr>
+<tr>
+<td>FR-1503</td>
+<td>Define custom fields (text, number, date, select types)</td>
+<td>Should Have</td>
+</tr>
+<tr>
+<td>FR-1504</td>
+<td>Set custom field values per contract</td>
+<td>Should Have</td>
+</tr>
+</tbody>
+</table>
+<h3 id="616-data-management-fr-1600">6.16 Data Management (FR-1600)</h3>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Requirement</th>
+<th>Priority</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>FR-1601</td>
+<td>Full system backup (JSON export of all tables)</td>
+<td>Must Have</td>
+</tr>
+<tr>
+<td>FR-1602</td>
+<td>System restore from backup file</td>
+<td>Must Have</td>
+</tr>
+<tr>
+<td>FR-1603</td>
+<td>Bulk CSV import with validation and preview</td>
+<td>Should Have</td>
+</tr>
+<tr>
+<td>FR-1604</td>
+<td>CSV export with configurable fields</td>
+<td>Should Have</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="7-non-functional-requirements">7. Non-Functional Requirements</h2>
+<h3 id="71-performance">7.1 Performance</h3>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Requirement</th>
+<th>Target</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>NFR-01</td>
+<td>API response time (non-AI endpoints)</td>
+<td>&lt; 500ms (p95)</td>
+</tr>
+<tr>
+<td>NFR-02</td>
+<td>AI review response time</td>
+<td>&lt; 60 seconds</td>
+</tr>
+<tr>
+<td>NFR-03</td>
+<td>Chat response time (streaming)</td>
+<td>First token &lt; 3s</td>
+</tr>
+<tr>
+<td>NFR-04</td>
+<td>Dashboard load time</td>
+<td>&lt; 2 seconds</td>
+</tr>
+<tr>
+<td>NFR-05</td>
+<td>Contract list pagination</td>
+<td>Default 50, max 200 per page</td>
+</tr>
+<tr>
+<td>NFR-06</td>
+<td>Concurrent users</td>
+<td>Support 50+ simultaneous users</td>
+</tr>
+</tbody>
+</table>
+<h3 id="72-security">7.2 Security</h3>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Requirement</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>NFR-07</td>
+<td>JWT-based authentication with HS256 signing</td>
+</tr>
+<tr>
+<td>NFR-08</td>
+<td>Token expiry: 24-hour access tokens, 30-day refresh tokens</td>
+</tr>
+<tr>
+<td>NFR-09</td>
+<td>Token revocation on logout</td>
+</tr>
+<tr>
+<td>NFR-10</td>
+<td>Input sanitization on all user-provided fields</td>
+</tr>
+<tr>
+<td>NFR-11</td>
+<td>Email validation for user and collaborator fields</td>
+</tr>
+<tr>
+<td>NFR-12</td>
+<td>HMAC verification for webhook payloads</td>
+</tr>
+<tr>
+<td>NFR-13</td>
+<td>Row-level security (RLS) on all database tables</td>
+</tr>
+<tr>
+<td>NFR-14</td>
+<td>CORS headers configured for allowed origins</td>
+</tr>
+<tr>
+<td>NFR-15</td>
+<td>API keys stored as environment variables, never in code</td>
+</tr>
+<tr>
+<td>NFR-16</td>
+<td>Rate limiting on authentication endpoints</td>
+</tr>
+</tbody>
+</table>
+<h3 id="73-reliability-availability">7.3 Reliability &amp; Availability</h3>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Requirement</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>NFR-17</td>
+<td>Health check endpoint for monitoring</td>
+</tr>
+<tr>
+<td>NFR-18</td>
+<td>Retry logic on OpenAI and email API calls (2 retries)</td>
+</tr>
+<tr>
+<td>NFR-19</td>
+<td>Graceful degradation when external APIs unavailable</td>
+</tr>
+<tr>
+<td>NFR-20</td>
+<td>Database connection validation on startup</td>
+</tr>
+</tbody>
+</table>
+<h3 id="74-scalability">7.4 Scalability</h3>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Requirement</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>NFR-21</td>
+<td>Serverless deployment (auto-scales with Vercel)</td>
+</tr>
+<tr>
+<td>NFR-22</td>
+<td>Database indexes on frequently queried columns</td>
+</tr>
+<tr>
+<td>NFR-23</td>
+<td>Chunked embedding processing (batches of 20)</td>
+</tr>
+<tr>
+<td>NFR-24</td>
+<td>Email recipient cap (max 10 per event)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="75-maintainability">7.5 Maintainability</h3>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Requirement</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>NFR-25</td>
+<td>Modular backend architecture (5 Python modules)</td>
+</tr>
+<tr>
+<td>NFR-26</td>
+<td>Automated test suite (82+ test cases)</td>
+</tr>
+<tr>
+<td>NFR-27</td>
+<td>Sequential database migrations</td>
+</tr>
+<tr>
+<td>NFR-28</td>
+<td>Environment-based configuration</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="8-database-schema">8. Database Schema</h2>
+<h3 id="81-tables-overview">8.1 Tables Overview</h3>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Table</th>
+<th>Purpose</th>
+<th>Key Fields</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td><code>contracts</code></td>
+<td>Core contract records</td>
+<td>id, name, party, type, status, value, start_date, end_date, department, content</td>
+</tr>
+<tr>
+<td>2</td>
+<td><code>contract_templates</code></td>
+<td>Reusable contract templates</td>
+<td>id, name, category, type, description, content</td>
+</tr>
+<tr>
+<td>3</td>
+<td><code>contract_versions</code></td>
+<td>Version history per contract</td>
+<td>id, contract_id, version_number, content, changed_by</td>
+</tr>
+<tr>
+<td>4</td>
+<td><code>contract_chunks</code></td>
+<td>RAG vector chunks</td>
+<td>id, contract_id, chunk_index, chunk_text, section_title, embedding (vector)</td>
+</tr>
+<tr>
+<td>5</td>
+<td><code>contract_tags</code></td>
+<td>Tags applied to contracts</td>
+<td>id, contract_id, tag_name, tag_color, created_by</td>
+</tr>
+<tr>
+<td>6</td>
+<td><code>tag_presets</code></td>
+<td>Predefined tag options</td>
+<td>id, name, color</td>
+</tr>
+<tr>
+<td>7</td>
+<td><code>contract_collaborators</code></td>
+<td>Per-contract team members</td>
+<td>id, contract_id, user_email, user_name, role, added_by</td>
+</tr>
+<tr>
+<td>8</td>
+<td><code>contract_activity</code></td>
+<td>Audit trail events</td>
+<td>id, contract_id, action, user_name, details, created_at</td>
+</tr>
+<tr>
+<td>9</td>
+<td><code>contract_comments</code></td>
+<td>Discussion threads</td>
+<td>id, contract_id, user_name, comment, created_at</td>
+</tr>
+<tr>
+<td>10</td>
+<td><code>contract_obligations</code></td>
+<td>Tracked obligations/deadlines</td>
+<td>id, contract_id, title, description, deadline, assigned_to, status</td>
+</tr>
+<tr>
+<td>11</td>
+<td><code>contract_approvals</code></td>
+<td>Approval workflow records</td>
+<td>id, contract_id, approver_name, status, comments</td>
+</tr>
+<tr>
+<td>12</td>
+<td><code>contract_signatures</code></td>
+<td>Signature records</td>
+<td>id, contract_id, signer_name, signed_at</td>
+</tr>
+<tr>
+<td>13</td>
+<td><code>clause_library</code></td>
+<td>Reusable clause bank</td>
+<td>id, title, content, category, usage_count</td>
+</tr>
+<tr>
+<td>14</td>
+<td><code>workflow_rules</code></td>
+<td>Automation rule definitions</td>
+<td>id, name, trigger_event, trigger_condition, action_type, action_config, priority, is_active</td>
+</tr>
+<tr>
+<td>15</td>
+<td><code>workflow_log</code></td>
+<td>Workflow execution history</td>
+<td>id, rule_id, rule_name, contract_id, trigger_event, action_taken, details</td>
+</tr>
+<tr>
+<td>16</td>
+<td><code>clm_users</code></td>
+<td>User accounts</td>
+<td>id, name, email, role, is_active</td>
+</tr>
+<tr>
+<td>17</td>
+<td><code>custom_field_defs</code></td>
+<td>Custom field definitions</td>
+<td>id, field_name, field_type, options</td>
+</tr>
+<tr>
+<td>18</td>
+<td><code>custom_field_values</code></td>
+<td>Custom field values per contract</td>
+<td>id, contract_id, field_id, value</td>
+</tr>
+<tr>
+<td>19</td>
+<td><code>email_preferences</code></td>
+<td>Per-user email settings</td>
+<td>id, user_email, enabled, on_status_change, on_approval, on_comment, on_expiry, on_workflow</td>
+</tr>
+<tr>
+<td>20</td>
+<td><code>notifications</code></td>
+<td>In-app notifications</td>
+<td>id, title, message, type, contract_id, user_email, is_read, link</td>
+</tr>
+<tr>
+<td>21</td>
+<td><code>webhook_configs</code></td>
+<td>External webhook URLs</td>
+<td>id, url, event_type, active</td>
+</tr>
+<tr>
+<td>22</td>
+<td><code>revoked_tokens</code></td>
+<td>Invalidated JWT tokens</td>
+<td>id, token, revoked_at</td>
+</tr>
+</tbody>
+</table>
+<h3 id="82-migration-history">8.2 Migration History</h3>
+<table>
+<thead>
+<tr>
+<th>Order</th>
+<th>File</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td><code>migration_v2.sql</code></td>
+<td>Core schema (contracts, templates, versions, chunks, activity)</td>
+</tr>
+<tr>
+<td>2</td>
+<td><code>migration_v3_users.sql</code></td>
+<td>User management (clm_users, revoked_tokens)</td>
+</tr>
+<tr>
+<td>3</td>
+<td><code>migration_v4_features.sql</code></td>
+<td>Extended features (comments, obligations, approvals, signatures, clauses)</td>
+</tr>
+<tr>
+<td>4</td>
+<td><code>migration_v5_tags_workflow.sql</code></td>
+<td>Tags, presets, workflow rules and log</td>
+</tr>
+<tr>
+<td>5</td>
+<td><code>migration_v6_customfields_notifications.sql</code></td>
+<td>Custom fields, notifications, webhooks</td>
+</tr>
+<tr>
+<td>6</td>
+<td><code>migration_v7_email_preferences.sql</code></td>
+<td>Email notification preferences</td>
+</tr>
+<tr>
+<td>7</td>
+<td><code>migration_v8_production.sql</code></td>
+<td>Production constraints and indexes</td>
+</tr>
+<tr>
+<td>8</td>
+<td><code>migration_v9_collaborators.sql</code></td>
+<td>Contract collaborators</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="9-api-specification">9. API Specification</h2>
+<h3 id="91-api-summary">9.1 API Summary</h3>
+<ul>
+<li><strong>Base URL:</strong> <code>https://contract-cli-six.vercel.app/api</code></li>
+<li><strong>Authentication:</strong> Bearer token (JWT) in <code>Authorization</code> header</li>
+<li><strong>Content Type:</strong> <code>application/json</code></li>
+<li><strong>Total Endpoints:</strong> 99</li>
+</ul>
+<h3 id="92-endpoint-groups">9.2 Endpoint Groups</h3>
+<table>
+<thead>
+<tr>
+<th>Group</th>
+<th>Endpoints</th>
+<th>Auth Required</th>
+<th>Min Role</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Auth</strong></td>
+<td>5</td>
+<td>Partial</td>
+<td>—</td>
+</tr>
+<tr>
+<td><strong>Contracts CRUD</strong></td>
+<td>8</td>
+<td>Yes</td>
+<td>Editor (create/edit), Admin (delete)</td>
+</tr>
+<tr>
+<td><strong>Contract Status</strong></td>
+<td>1</td>
+<td>Yes</td>
+<td>Editor</td>
+</tr>
+<tr>
+<td><strong>AI Review &amp; Chat</strong></td>
+<td>3</td>
+<td>Yes</td>
+<td>Viewer</td>
+</tr>
+<tr>
+<td><strong>Comments</strong></td>
+<td>2</td>
+<td>Yes</td>
+<td>Editor</td>
+</tr>
+<tr>
+<td><strong>Obligations</strong></td>
+<td>3</td>
+<td>Yes</td>
+<td>Editor</td>
+</tr>
+<tr>
+<td><strong>Approvals</strong></td>
+<td>3</td>
+<td>Yes</td>
+<td>Manager</td>
+</tr>
+<tr>
+<td><strong>Collaborators</strong></td>
+<td>4</td>
+<td>Yes</td>
+<td>Editor</td>
+</tr>
+<tr>
+<td><strong>Signatures &amp; E-Sign</strong></td>
+<td>3</td>
+<td>Yes</td>
+<td>Editor</td>
+</tr>
+<tr>
+<td><strong>Versions &amp; Redline</strong></td>
+<td>5</td>
+<td>Yes</td>
+<td>Editor</td>
+</tr>
+<tr>
+<td><strong>Tags</strong></td>
+<td>5</td>
+<td>Yes</td>
+<td>Editor</td>
+</tr>
+<tr>
+<td><strong>Templates</strong></td>
+<td>5</td>
+<td>Yes</td>
+<td>Editor (CRUD), Manager (delete)</td>
+</tr>
+<tr>
+<td><strong>Clauses</strong></td>
+<td>4</td>
+<td>Yes</td>
+<td>Editor</td>
+</tr>
+<tr>
+<td><strong>Custom Fields</strong></td>
+<td>5</td>
+<td>Yes</td>
+<td>Editor</td>
+</tr>
+<tr>
+<td><strong>Workflows</strong></td>
+<td>5</td>
+<td>Yes</td>
+<td>Manager</td>
+</tr>
+<tr>
+<td><strong>Users</strong></td>
+<td>4</td>
+<td>Yes</td>
+<td>Admin</td>
+</tr>
+<tr>
+<td><strong>Webhooks</strong></td>
+<td>3</td>
+<td>Yes</td>
+<td>Admin</td>
+</tr>
+<tr>
+<td><strong>Notifications</strong></td>
+<td>3</td>
+<td>Yes</td>
+<td>Viewer</td>
+</tr>
+<tr>
+<td><strong>Email</strong></td>
+<td>4</td>
+<td>Yes</td>
+<td>Viewer</td>
+</tr>
+<tr>
+<td><strong>Reports &amp; Analytics</strong></td>
+<td>1</td>
+<td>Yes</td>
+<td>Viewer</td>
+</tr>
+<tr>
+<td><strong>Calendar</strong></td>
+<td>1</td>
+<td>Yes</td>
+<td>Manager</td>
+</tr>
+<tr>
+<td><strong>Data Management</strong></td>
+<td>7</td>
+<td>Yes</td>
+<td>Various</td>
+</tr>
+<tr>
+<td><strong>Health</strong></td>
+<td>2</td>
+<td>No</td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<h3 id="93-key-endpoints-detail">9.3 Key Endpoints Detail</h3>
+<h4 id="authentication">Authentication</h4>
+<pre><code>POST /api/auth/login          — Login with password, returns JWT
+GET  /api/auth/verify         — Verify current token
+POST /api/auth/refresh        — Refresh access token
+POST /api/auth/logout         — Revoke current token
+POST /api/auth/reset-password — Reset password (admin)
+</code></pre>
+<h4 id="contract-lifecycle">Contract Lifecycle</h4>
+<pre><code>GET    /api/contracts              — List all contracts (paginated, filterable)
+POST   /api/contracts              — Create new contract
+GET    /api/contracts/&lt;id&gt;         — Get contract details
+PUT    /api/contracts/&lt;id&gt;         — Update contract
+DELETE /api/contracts/&lt;id&gt;         — Delete contract (admin only)
+POST   /api/contracts/&lt;id&gt;/status  — Change status (enforced state machine)
+POST   /api/contracts/&lt;id&gt;/clone   — Clone contract
+POST   /api/contracts/&lt;id&gt;/review  — AI-powered review
+</code></pre>
+<h4 id="ai-intelligence">AI &amp; Intelligence</h4>
+<pre><code>POST /api/chat                     — RAG chatbot (streaming response)
+POST /api/contracts/compare        — AI contract comparison
+POST /api/parse                    — Parse PDF into structured data
+POST /api/contracts/&lt;id&gt;/embed     — Generate vector embeddings
+</code></pre>
+<hr />
+<h2 id="10-integration-points">10. Integration Points</h2>
+<h3 id="101-openai-ai-engine">10.1 OpenAI (AI Engine)</h3>
+<table>
+<thead>
+<tr>
+<th>Aspect</th>
+<th>Detail</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Purpose</strong></td>
+<td>Contract review, risk analysis, chatbot, embeddings</td>
+</tr>
+<tr>
+<td><strong>Models</strong></td>
+<td>GPT-4o (chat), text-embedding-3-small (embeddings)</td>
+</tr>
+<tr>
+<td><strong>API</strong></td>
+<td><code>https://api.openai.com/v1</code></td>
+</tr>
+<tr>
+<td><strong>Features</strong></td>
+<td>Streaming responses, retry logic, batch embedding</td>
+</tr>
+<tr>
+<td><strong>Config</strong></td>
+<td><code>OPENAI_API_KEY</code> environment variable</td>
+</tr>
+</tbody>
+</table>
+<h3 id="102-supabase-database">10.2 Supabase (Database)</h3>
+<table>
+<thead>
+<tr>
+<th>Aspect</th>
+<th>Detail</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Purpose</strong></td>
+<td>Primary data store, vector search, RLS</td>
+</tr>
+<tr>
+<td><strong>Type</strong></td>
+<td>PostgreSQL with pgvector extension</td>
+</tr>
+<tr>
+<td><strong>Features</strong></td>
+<td>Row-level security, real-time subscriptions, RPC functions</td>
+</tr>
+<tr>
+<td><strong>Config</strong></td>
+<td><code>SUPABASE_URL</code>, <code>SUPABASE_KEY</code> environment variables</td>
+</tr>
+<tr>
+<td><strong>RPC</strong></td>
+<td><code>match_chunks</code> — cosine similarity vector search</td>
+</tr>
+</tbody>
+</table>
+<h3 id="103-resend-email">10.3 Resend (Email)</h3>
+<table>
+<thead>
+<tr>
+<th>Aspect</th>
+<th>Detail</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Purpose</strong></td>
+<td>Transactional email notifications</td>
+</tr>
+<tr>
+<td><strong>API</strong></td>
+<td><code>https://api.resend.com/emails</code></td>
+</tr>
+<tr>
+<td><strong>Features</strong></td>
+<td>HTML email templates, per-user preferences, retry logic</td>
+</tr>
+<tr>
+<td><strong>Config</strong></td>
+<td><code>RESEND_API_KEY</code>, <code>EMAIL_FROM</code> environment variables</td>
+</tr>
+<tr>
+<td><strong>Limit</strong></td>
+<td>Max 10 recipients per event</td>
+</tr>
+</tbody>
+</table>
+<h3 id="104-leegality-e-signature">10.4 Leegality (E-Signature)</h3>
+<table>
+<thead>
+<tr>
+<th>Aspect</th>
+<th>Detail</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Purpose</strong></td>
+<td>Legally binding digital signatures</td>
+</tr>
+<tr>
+<td><strong>Features</strong></td>
+<td>Document signing, webhook status updates, HMAC verification</td>
+</tr>
+<tr>
+<td><strong>Config</strong></td>
+<td><code>LEEGALITY_API_KEY</code> environment variable</td>
+</tr>
+<tr>
+<td><strong>Webhook</strong></td>
+<td><code>POST /api/leegality/webhook</code> (MAC-verified)</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="11-security-requirements">11. Security Requirements</h2>
+<h3 id="111-authentication">11.1 Authentication</h3>
+<ul>
+<li>JWT tokens with HS256 signing using <code>APP_SECRET</code></li>
+<li>Access token validity: 24 hours</li>
+<li>Refresh token validity: 30 days</li>
+<li>Token revocation stored in <code>revoked_tokens</code> table</li>
+<li>Password-based login with configurable <code>APP_PASSWORD</code></li>
+</ul>
+<h3 id="112-authorization">11.2 Authorization</h3>
+<ul>
+<li>4-tier RBAC: viewer → editor → manager → admin</li>
+<li>Role enforcement via <code>@role_required()</code> decorator on all protected endpoints</li>
+<li>Per-contract collaborator roles for granular access</li>
+</ul>
+<h3 id="113-input-security">11.3 Input Security</h3>
+<ul>
+<li><code>_sanitize()</code> function strips dangerous characters from all user inputs</li>
+<li><code>_valid_email()</code> validates email format</li>
+<li>Parameterized queries via Supabase client (no raw SQL injection)</li>
+<li>Content length validation on contract fields</li>
+</ul>
+<h3 id="114-api-security">11.4 API Security</h3>
+<ul>
+<li>CORS configuration for allowed origins</li>
+<li>HMAC signature verification on webhook payloads</li>
+<li>API keys stored as environment variables</li>
+<li>Health endpoint for monitoring without auth</li>
+</ul>
+<h3 id="115-data-security">11.5 Data Security</h3>
+<ul>
+<li>Row-Level Security (RLS) enabled on all Supabase tables</li>
+<li>Database access only via Supabase client with anon key</li>
+<li>Backup/restore restricted to admin role</li>
+<li>Audit trail is append-only (no deletion of activity records)</li>
+</ul>
+<hr />
+<h2 id="12-deployment-infrastructure">12. Deployment &amp; Infrastructure</h2>
+<h3 id="121-deployment-pipeline">12.1 Deployment Pipeline</h3>
+<pre><code>Development → Staging → Production
+    │            │           │
+    │   deploy-staging.sh    │
+    │   (tests first)        │
+    │                  deploy-production.sh
+    │                  (tests + confirmation)
+    └── Local development with Flask dev server
+</code></pre>
+<h3 id="122-environment-configuration">12.2 Environment Configuration</h3>
+<table>
+<thead>
+<tr>
+<th>Environment</th>
+<th>Variable</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>All</td>
+<td><code>SUPABASE_URL</code></td>
+<td>Supabase project URL</td>
+</tr>
+<tr>
+<td>All</td>
+<td><code>SUPABASE_KEY</code></td>
+<td>Supabase anonymous key</td>
+</tr>
+<tr>
+<td>All</td>
+<td><code>OPENAI_API_KEY</code></td>
+<td>OpenAI API key</td>
+</tr>
+<tr>
+<td>All</td>
+<td><code>APP_SECRET</code></td>
+<td>JWT/HMAC signing secret</td>
+</tr>
+<tr>
+<td>All</td>
+<td><code>APP_PASSWORD</code></td>
+<td>Admin login password</td>
+</tr>
+<tr>
+<td>Optional</td>
+<td><code>RESEND_API_KEY</code></td>
+<td>Email notification API key</td>
+</tr>
+<tr>
+<td>Optional</td>
+<td><code>LEEGALITY_API_KEY</code></td>
+<td>E-signature API key</td>
+</tr>
+<tr>
+<td>Optional</td>
+<td><code>EMAIL_FROM</code></td>
+<td>Sender email address</td>
+</tr>
+</tbody>
+</table>
+<h3 id="123-testing">12.3 Testing</h3>
+<ul>
+<li><strong>Framework:</strong> pytest</li>
+<li><strong>Test Count:</strong> 82+ test cases</li>
+<li><strong>Coverage:</strong> API endpoints, auth, validation, state machine</li>
+<li><strong>Run:</strong> <code>python -m pytest tests/ -v</code></li>
+</ul>
+<h3 id="124-frontend-pages">12.4 Frontend Pages</h3>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Page</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>Dashboard</td>
+<td>Overview metrics, status cards, quick actions</td>
+</tr>
+<tr>
+<td>2</td>
+<td>Contracts</td>
+<td>Searchable/filterable table with audit buttons</td>
+</tr>
+<tr>
+<td>3</td>
+<td>Create Contract</td>
+<td>Full-page form for new contracts</td>
+</tr>
+<tr>
+<td>4</td>
+<td>Templates</td>
+<td>Template library with CRUD</td>
+</tr>
+<tr>
+<td>5</td>
+<td>Template Form</td>
+<td>Full-page template editor</td>
+</tr>
+<tr>
+<td>6</td>
+<td>Clauses</td>
+<td>Reusable clause library</td>
+</tr>
+<tr>
+<td>7</td>
+<td>AI Chat</td>
+<td>RAG-powered contract Q&amp;A</td>
+</tr>
+<tr>
+<td>8</td>
+<td>Users</td>
+<td>User management (admin)</td>
+</tr>
+<tr>
+<td>9</td>
+<td>Webhooks</td>
+<td>Webhook configuration (admin)</td>
+</tr>
+<tr>
+<td>10</td>
+<td>Email Settings</td>
+<td>Per-user notification preferences</td>
+</tr>
+<tr>
+<td>11</td>
+<td>Compare</td>
+<td>Side-by-side contract comparison</td>
+</tr>
+<tr>
+<td>12</td>
+<td>Calendar</td>
+<td>Deadline and renewal calendar</td>
+</tr>
+<tr>
+<td>13</td>
+<td>Workflows</td>
+<td>Automation rule builder</td>
+</tr>
+<tr>
+<td>14</td>
+<td>Reports</td>
+<td>Analytics and charts</td>
+</tr>
+<tr>
+<td>15</td>
+<td>Kanban</td>
+<td>Visual pipeline board</td>
+</tr>
+<tr>
+<td>16</td>
+<td>Counterparty</td>
+<td>Party-specific contract history</td>
+</tr>
+<tr>
+<td>17</td>
+<td>Renewals</td>
+<td>Upcoming renewal tracker</td>
+</tr>
+<tr>
+<td>18</td>
+<td>Audit Log</td>
+<td>System-wide audit trail</td>
+</tr>
+<tr>
+<td>19</td>
+<td>Contract Audit</td>
+<td>Per-contract detailed audit page</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="13-glossary">13. Glossary</h2>
+<table>
+<thead>
+<tr>
+<th>Term</th>
+<th>Definition</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>CLM</strong></td>
+<td>Contract Lifecycle Management</td>
+</tr>
+<tr>
+<td><strong>EMB</strong></td>
+<td>Expand My Business (brand name)</td>
+</tr>
+<tr>
+<td><strong>RAG</strong></td>
+<td>Retrieval-Augmented Generation — AI technique combining search with LLM</td>
+</tr>
+<tr>
+<td><strong>RLS</strong></td>
+<td>Row-Level Security — database-level access control</td>
+</tr>
+<tr>
+<td><strong>RBAC</strong></td>
+<td>Role-Based Access Control</td>
+</tr>
+<tr>
+<td><strong>SPA</strong></td>
+<td>Single Page Application</td>
+</tr>
+<tr>
+<td><strong>JWT</strong></td>
+<td>JSON Web Token — authentication standard</td>
+</tr>
+<tr>
+<td><strong>HMAC</strong></td>
+<td>Hash-based Message Authentication Code</td>
+</tr>
+<tr>
+<td><strong>pgvector</strong></td>
+<td>PostgreSQL extension for vector similarity search</td>
+</tr>
+<tr>
+<td><strong>Redline</strong></td>
+<td>Track changes showing additions and deletions between versions</td>
+</tr>
+<tr>
+<td><strong>Obligation</strong></td>
+<td>Contractual duty with a deadline and assignee</td>
+</tr>
+<tr>
+<td><strong>Counterparty</strong></td>
+<td>The other party in a contract</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<p><em>Document generated for EMB CLM — Contract Lifecycle Management Platform</em>
+<em>Version 1.0 | April 2026</em></p>
+</body>
+</html>

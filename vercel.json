@@ -5,7 +5,8 @@
       "src": "api/index.py",
       "use": "@vercel/python",
       "config": {
-        "maxDuration": 60
+        "maxDuration": 300,
+        "maxBodyLength": 52428800
       }
     },
     {

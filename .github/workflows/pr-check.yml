@@ -1,0 +1,37 @@
+name: PR Validation
+
+on:
+  pull_request:
+    branches: [main, staging]
+
+jobs:
+  validate:
+    name: Validate PR
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install -r api/requirements.txt
+
+      - name: Run tests
+        env:
+          APP_SECRET: test-secret
+          APP_PASSWORD: test-password
+        run: python -m pytest tests/ -v --tb=short
+
+      - name: Syntax check
+        run: python -m py_compile api/index.py
+
+      - name: Check for hardcoded secrets
+        run: |
+          echo "Checking for potential hardcoded secrets..."
+          ! grep -rn "RESEND_API_KEY\s*=\s*\"re_" api/ || (echo "WARNING: Hardcoded API key found" && exit 1)
+          ! grep -rn "sk-[a-zA-Z0-9]" api/ || (echo "WARNING: Hardcoded OpenAI key found" && exit 1)
+          echo "No hardcoded secrets found"

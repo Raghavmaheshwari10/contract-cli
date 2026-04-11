@@ -2,3 +2,8 @@ flask>=3.0.0
 requests>=2.31.0
 supabase>=2.0.0
 pymupdf>=1.24.0
+bcrypt>=4.0.0
+
+# Testing
+pytest>=8.0.0
+pytest-mock>=3.12.0
