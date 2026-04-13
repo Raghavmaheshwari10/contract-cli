@@ -21,7 +21,9 @@ def mock_chain(final_response=None):
     chain = MagicMock()
     chain.execute.return_value = final_response
     # Make all intermediate methods return the same chain
-    for method in ['select', 'eq', 'neq', 'in_', 'ilike', 'like', 'gte', 'lte',
-                   'order', 'limit', 'range', 'or_', 'insert', 'update', 'delete']:
+    for method in ['select', 'eq', 'neq', 'in_', 'ilike', 'like', 'gte', 'lte', 'lt',
+                   'order', 'limit', 'range', 'or_', 'insert', 'update', 'delete', 'is_']:
         getattr(chain, method).return_value = chain
+    # Support chained not_.in_() pattern
+    chain.not_ = chain
     return chain

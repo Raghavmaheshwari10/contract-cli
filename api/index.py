@@ -62,6 +62,10 @@ def _security_headers(resp):
 def too_large(e):
     return jsonify({"error": {"message": "Request too large. Max 16MB.", "code": 413}}), 413
 
+@app.errorhandler(415)
+def unsupported_media(e):
+    return jsonify({"error": {"message": "Content-Type must be application/json", "code": 415}}), 415
+
 @app.errorhandler(404)
 def not_found(e):
     return jsonify({"error": {"message": "Not found", "code": 404}}), 404
@@ -399,7 +403,7 @@ def list_contracts():
 def create_contract():
     d = _sanitize_dict(request.json or {})
     for f in ["name", "party_name", "contract_type", "content"]:
-        if not d.get(f, "").strip(): return jsonify({"error": f"Missing: {f}"}), 400
+        if not str(d.get(f) or "").strip(): return jsonify({"error": f"Missing: {f}"}), 400
     if d["contract_type"] not in ("client", "vendor"):
         return jsonify({"error": "Type must be client or vendor"}), 400
     row = {
