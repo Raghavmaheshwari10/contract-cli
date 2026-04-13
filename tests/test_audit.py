@@ -445,7 +445,7 @@ class TestBackupRestore:
             'tables': {'contracts': []}
         })
         assert resp.status_code == 400
-        assert 'confirm' in resp.get_json()['error'].lower()
+        assert 'confirm' in resp.get_json()['error']['message'].lower()
 
     def test_restore_invalid_format(self, client, auth_headers, mock_sb):
         resp = client.post('/api/restore', headers=auth_headers, json={

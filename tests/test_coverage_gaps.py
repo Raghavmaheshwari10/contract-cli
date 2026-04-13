@@ -34,7 +34,7 @@ class TestRateLimiter:
                 client.get("/api/templates", headers=auth_headers)
             resp = client.get("/api/templates", headers=auth_headers)
             assert resp.status_code == 429
-            assert "rate limit" in resp.get_json()["error"].lower()
+            assert "rate limit" in resp.get_json()["error"]["message"].lower()
         finally:
             config.RATE_LIMIT = old_limit
 
@@ -1324,3 +1324,60 @@ class TestContractEdgeCases:
         mock_sb.table.return_value = chain
         resp = client.get("/api/contracts?page=1&per_page=5", headers=auth_headers)
         assert resp.status_code == 200
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 31. AUDIT LOG RETENTION / CLEANUP
+# ═══════════════════════════════════════════════════════════════════════════
+class TestAuditLogCleanup:
+
+    def test_cleanup_requires_confirm(self, client, auth_headers, mock_sb):
+        mock_sb.table.return_value = mock_chain(make_mock_response([]))
+        resp = client.post("/api/audit-log/cleanup", headers=auth_headers,
+                           json={"retention_days": 90})
+        assert resp.status_code == 400
+        assert "confirm" in resp.get_json()["error"]["message"].lower()
+
+    def test_cleanup_no_old_records(self, client, auth_headers, mock_sb):
+        chain = mock_chain(make_mock_response([]))
+        chain.count = 0
+        mock_sb.table.return_value = chain
+        resp = client.post("/api/audit-log/cleanup", headers=auth_headers,
+                           json={"confirm": True, "retention_days": 365})
+        assert resp.status_code == 200
+        assert resp.get_json()["deleted"] == 0
+
+    def test_cleanup_deletes_old_records(self, client, auth_headers, mock_sb):
+        chain = mock_chain(make_mock_response([{"id": 1}, {"id": 2}, {"id": 3}]))
+        chain.count = 3
+        mock_sb.table.return_value = chain
+        resp = client.post("/api/audit-log/cleanup", headers=auth_headers,
+                           json={"confirm": True, "retention_days": 90})
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data["deleted"] == 3
+        assert data["retention_days"] == 90
+
+    def test_cleanup_minimum_30_days(self, client, auth_headers, mock_sb):
+        """Should enforce minimum 30 day retention."""
+        chain = mock_chain(make_mock_response([]))
+        chain.count = 0
+        mock_sb.table.return_value = chain
+        resp = client.post("/api/audit-log/cleanup", headers=auth_headers,
+                           json={"confirm": True, "retention_days": 5})
+        assert resp.status_code == 200
+        assert resp.get_json()["retention_days"] == 30
+
+    def test_cleanup_requires_admin(self, client, mock_sb):
+        """Editors should not be able to clean up audit logs."""
+        from index import mk_token
+        token = mk_token("editor@test.com")
+        headers = {'Authorization': f'Bearer {token}', 'Content-Type': 'application/json'}
+        chain = mock_chain(make_mock_response([{
+            "email": "editor@test.com", "role": "editor",
+            "name": "Editor", "is_active": True
+        }]))
+        mock_sb.table.return_value = chain
+        resp = client.post("/api/audit-log/cleanup", headers=headers,
+                           json={"confirm": True, "retention_days": 90})
+        assert resp.status_code == 403

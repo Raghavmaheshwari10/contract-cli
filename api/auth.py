@@ -112,19 +112,19 @@ def auth(f):
     def w(*a, **k):
         # Rate limit check
         if not _check_rate_limit():
-            return jsonify({"error": "Rate limit exceeded. Try again later."}), 429
+            return err("Rate limit exceeded. Try again later.", 429)
         if not _check_origin():
-            return jsonify({"error": "Invalid request origin"}), 403
+            return err("Invalid request origin", 403)
         if not PASSWORD:
             request.user_email = ""
             request.user_role = "admin"
             return f(*a, **k)
         h = request.headers.get("Authorization", "")
         if not h.startswith("Bearer "):
-            return jsonify({"error": "Auth required"}), 401
+            return err("Auth required", 401)
         valid, email = chk_token(h[7:])
         if not valid:
-            return jsonify({"error": "Auth required"}), 401
+            return err("Auth required", 401)
         # Look up user role
         request.user_email = email
         request.user_role = "admin"  # default for password-only login
@@ -133,7 +133,7 @@ def auth(f):
                 u = sb.table("clm_users").select("role,name,is_active").eq("email", email).execute()
                 if u.data:
                     if not u.data[0].get("is_active", True):
-                        return jsonify({"error": "Account deactivated"}), 403
+                        return err("Account deactivated", 403)
                     request.user_role = u.data[0].get("role", "viewer")
                     request.user_name = u.data[0].get("name", email)
             except Exception as e: log.warning(f"User lookup failed for {email}: {e}")
@@ -148,7 +148,7 @@ def role_required(min_role):
             user_level = ROLE_HIERARCHY.get(getattr(request, 'user_role', 'viewer'), 0)
             required_level = ROLE_HIERARCHY.get(min_role, 0)
             if user_level < required_level:
-                return jsonify({"error": f"Requires {min_role} role or higher"}), 403
+                return err(f"Requires {min_role} role or higher", 403)
             return f(*a, **k)
         return w
     return decorator
@@ -156,6 +156,6 @@ def role_required(min_role):
 def need_db(f):
     @wraps(f)
     def w(*a, **k):
-        if not sb: return jsonify({"error": "DB not configured"}), 503
+        if not sb: return err("DB not configured", 503)
         return f(*a, **k)
     return w

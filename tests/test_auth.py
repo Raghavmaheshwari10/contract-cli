@@ -75,7 +75,7 @@ class TestLogin:
         })
         assert resp.status_code == 400
         data = resp.get_json()
-        assert 'email' in data.get('error', '').lower()
+        assert 'email' in data.get('error', {}).get('message', '').lower()
 
 
 class TestVerify:

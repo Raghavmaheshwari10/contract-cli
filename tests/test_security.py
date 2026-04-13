@@ -91,7 +91,7 @@ class TestFileUpload:
             'Authorization': auth_headers['Authorization']
         }, data=data, content_type='multipart/form-data')
         assert resp.status_code == 400
-        assert 'pdf' in resp.get_json()['error'].lower()
+        assert 'pdf' in resp.get_json()['error']['message'].lower()
 
     def test_upload_pdf_without_magic_bytes(self, client, auth_headers):
         """File with .pdf extension but wrong magic bytes is rejected."""
@@ -101,7 +101,7 @@ class TestFileUpload:
             'Authorization': auth_headers['Authorization']
         }, data=data, content_type='multipart/form-data')
         assert resp.status_code == 400
-        assert 'invalid' in resp.get_json()['error'].lower()
+        assert 'invalid' in resp.get_json()['error']['message'].lower()
 
     def test_upload_no_file(self, client, auth_headers):
         """Upload request with no file returns 400."""
@@ -139,7 +139,7 @@ class TestCSRFOriginCheck:
             'content': 'content'
         })
         assert resp.status_code == 403
-        assert 'origin' in resp.get_json()['error'].lower()
+        assert 'origin' in resp.get_json()['error']['message'].lower()
 
     def test_mutating_request_with_allowed_origin_accepted(self, client, auth_token, mock_sb):
         """POST request with allowed Origin header is accepted."""
@@ -228,7 +228,7 @@ class TestEmailValidation:
             'password': 'password123'
         })
         assert resp.status_code == 400
-        assert 'email' in resp.get_json()['error'].lower()
+        assert 'email' in resp.get_json()['error']['message'].lower()
 
     def test_valid_email_accepted(self):
         """Valid email passes validation."""
@@ -259,7 +259,7 @@ class TestPasswordValidation:
             'name': 'Test User'
         })
         assert resp.status_code == 400
-        assert 'password' in resp.get_json()['error'].lower()
+        assert 'password' in resp.get_json()['error']['message'].lower()
 
     def test_create_user_empty_password(self, client, auth_headers, mock_sb):
         """Creating a user with empty password returns 400."""

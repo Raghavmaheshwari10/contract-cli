@@ -93,7 +93,7 @@ def login():
     email = d.get("email", "").strip().lower()
     password = d.get("password", "")
     if email and not _valid_email(email):
-        return jsonify({"error": "Invalid email format"}), 400
+        return err("Invalid email format", 400)
     # Multi-user login: try user table first
     if sb and email:
         try:
@@ -109,14 +109,14 @@ def login():
                     sb.table("clm_users").update(upd).eq("id", user["id"]).execute()
                     return jsonify({"token": mk_token(email), "user": {"id": user["id"], "name": user["name"], "email": user["email"], "role": user["role"], "department": user.get("department","")}})
                 else:
-                    return jsonify({"error": "Invalid password"}), 401
+                    return err("Invalid password", 401)
         except Exception as e:
             log.error(f"Login error: {e}")
     # Fallback: simple password auth (admin)
     if not PASSWORD:
-        return jsonify({"error": "APP_PASSWORD not configured. Set it in environment variables."}), 503
+        return err("APP_PASSWORD not configured. Set it in environment variables.", 503)
     if not hmac.compare_digest(password, PASSWORD):
-        return jsonify({"error": "Invalid password"}), 401
+        return err("Invalid password", 401)
     return jsonify({"token": mk_token("raghav.maheshwari@emb.global"), "user": {"name": "Raghav Maheshwari", "email": "raghav.maheshwari@emb.global", "role": "admin"}})
 
 @app.route("/api/auth/verify")
@@ -133,10 +133,10 @@ def verify():
 def refresh_token():
     h = request.headers.get("Authorization", "")
     if not h.startswith("Bearer "):
-        return jsonify({"error": "Auth required"}), 401
+        return err("Auth required", 401)
     valid, email = chk_token(h[7:])
     if not valid:
-        return jsonify({"error": "Invalid or expired token"}), 401
+        return err("Invalid or expired token", 401)
     return jsonify({"token": mk_token(email)})
 
 @app.route("/api/auth/logout", methods=["POST"])
@@ -303,7 +303,7 @@ def list_templates():
 @need_db
 def get_template(tid):
     r = sb.table("contract_templates").select("*").eq("id", tid).execute()
-    if not r.data: return jsonify({"error": "Not found"}), 404
+    if not r.data: return err("Not found", 404)
     return jsonify(r.data[0])
 
 @app.route("/api/templates", methods=["POST"])
@@ -339,7 +339,7 @@ def create_template():
 def update_template(tid):
     chk = sb.table("contract_templates").select("id").eq("id", tid).execute()
     if not chk.data:
-        return jsonify({"error": "Not found"}), 404
+        return err("Not found", 404)
     d = request.json or {}
     upd = {}
     if "name" in d:
@@ -370,7 +370,7 @@ def update_template(tid):
 def delete_template(tid):
     chk = sb.table("contract_templates").select("id").eq("id", tid).execute()
     if not chk.data:
-        return jsonify({"error": "Not found"}), 404
+        return err("Not found", 404)
     sb.table("contract_templates").delete().eq("id", tid).execute()
     return jsonify({"message": "Template deleted"})
 
@@ -403,9 +403,9 @@ def list_contracts():
 def create_contract():
     d = _sanitize_dict(request.json or {})
     for f in ["name", "party_name", "contract_type", "content"]:
-        if not str(d.get(f) or "").strip(): return jsonify({"error": f"Missing: {f}"}), 400
+        if not str(d.get(f) or "").strip(): return err(f"Missing: {f}", 400)
     if d["contract_type"] not in ("client", "vendor"):
-        return jsonify({"error": "Type must be client or vendor"}), 400
+        return err("Type must be client or vendor", 400)
     row = {
         "name": d["name"][:500], "party_name": d["party_name"][:500],
         "contract_type": d["contract_type"], "content": d["content"][:500000],
@@ -418,7 +418,7 @@ def create_contract():
         "added_on": datetime.now().isoformat(),
     }
     r = sb.table("contracts").insert(row).execute()
-    if not r.data: return jsonify({"error": "Failed to create contract"}), 500
+    if not r.data: return err("Failed to create contract", 500)
     cid = r.data[0]["id"]
     log_activity(cid, "created", row["created_by"], f"Contract '{row['name']}' created")
     fire_webhooks("contract.created", {"contract_id": cid, "name": row["name"]})
@@ -436,7 +436,7 @@ def create_contract():
 @need_db
 def get_contract(cid):
     r = sb.table("contracts").select("*").eq("id", cid).execute()
-    if not r.data: return jsonify({"error": "Not found"}), 404
+    if not r.data: return err("Not found", 404)
     return jsonify(r.data[0])
 
 @app.route("/api/contracts/<int:cid>", methods=["PUT"])
@@ -445,9 +445,9 @@ def get_contract(cid):
 @need_db
 def update_contract(cid):
     chk = sb.table("contracts").select("id,content,content_html,name,status,updated_at").eq("id", cid).execute()
-    if not chk.data: return jsonify({"error": "Not found"}), 404
+    if not chk.data: return err("Not found", 404)
     if chk.data[0].get("status") == "executed":
-        return jsonify({"error": "Executed contracts cannot be modified. Create an amendment instead."}), 400
+        return err("Executed contracts cannot be modified. Create an amendment instead.", 400)
     d = _sanitize_dict(request.json or {})
     # Optimistic locking
     if d.get("updated_at"):
@@ -458,7 +458,7 @@ def update_contract(cid):
     for f in ["name","party_name","contract_type","start_date","end_date","value","notes","content",
               "content_html","department","jurisdiction","governing_law"]:
         if f in d: u[f] = d[f]
-    if not u: return jsonify({"error": "Nothing to update"}), 400
+    if not u: return err("Nothing to update", 400)
     # Save version snapshot if content changed
     if "content" in u:
         try:
@@ -487,7 +487,7 @@ def update_contract(cid):
 @need_db
 def delete_contract(cid):
     chk = sb.table("contracts").select("id").eq("id", cid).execute()
-    if not chk.data: return jsonify({"error": "Not found"}), 404
+    if not chk.data: return err("Not found", 404)
     sb.table("contracts").delete().eq("id", cid).execute()
     return jsonify({"message": "Deleted"})
 
@@ -506,9 +506,9 @@ def update_status(cid):
 @auth
 @need_db
 def ai_review(cid):
-    if not oai_h(): return jsonify({"error": "AI not configured"}), 500
+    if not oai_h(): return err("AI not configured", 500)
     r = sb.table("contracts").select("content,name,contract_type").eq("id", cid).execute()
-    if not r.data: return jsonify({"error": "Not found"}), 404
+    if not r.data: return err("Not found", 404)
     c = r.data[0]
     try:
         reply = oai_chat([
@@ -548,7 +548,7 @@ Return ONLY valid JSON array, no markdown."""},
         log_activity(cid, "ai_review", "AI", f"Review: {aligned} aligned, {partial} partial, {not_aligned} issues")
         return jsonify({"review": review, "summary": {"aligned": aligned, "partial": partial, "issues": not_aligned}})
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return err(str(e), 500)
 
 # ─── Comments ──────────────────────────────────────────────────────────────
 @app.route("/api/contracts/<int:cid>/comments", methods=["GET"])
@@ -563,7 +563,7 @@ def list_comments(cid):
 @need_db
 def add_comment(cid):
     d = request.json or {}
-    if not d.get("content"): return jsonify({"error": "Content required"}), 400
+    if not d.get("content"): return err("Content required", 400)
     row = {"contract_id": cid, "user_name": str(d.get("user_name") or "User")[:200],
            "content": str(d["content"])[:2000], "clause_ref": str(d.get("clause_ref") or "")[:200],
            "created_at": datetime.now().isoformat()}
@@ -586,7 +586,7 @@ def list_obligations(cid):
 @need_db
 def add_obligation(cid):
     d = request.json or {}
-    if not d.get("title"): return jsonify({"error": "Title required"}), 400
+    if not d.get("title"): return err("Title required", 400)
     row = {"contract_id": cid, "title": str(d["title"])[:500], "description": str(d.get("description") or "")[:2000],
            "deadline": d.get("deadline") or None, "status": "pending",
            "assigned_to": str(d.get("assigned_to") or "")[:200], "created_at": datetime.now().isoformat()}
@@ -607,7 +607,7 @@ def update_obligation(oid):
     if "description" in d: u["description"] = d["description"]
     if "escalated" in d: u["escalated"] = d["escalated"]
     if "escalated_to" in d: u["escalated_to"] = d["escalated_to"]
-    if not u: return jsonify({"error": "Nothing to update"}), 400
+    if not u: return err("Nothing to update", 400)
     sb.table("contract_obligations").update(u).eq("id", oid).execute()
     return jsonify({"message": "Updated"})
 
@@ -642,7 +642,7 @@ def escalate_obligations():
     d = request.json or {}
     escalate_to = d.get("escalate_to", "").strip()
     obligation_ids = d.get("obligation_ids", [])
-    if not obligation_ids: return jsonify({"error": "No obligations selected"}), 400
+    if not obligation_ids: return err("No obligations selected", 400)
     escalated = 0
     for oid in obligation_ids:
         ob = sb.table("contract_obligations").select("*").eq("id", oid).execute()
@@ -722,7 +722,7 @@ def add_collaborator(cid):
     # Check contract exists
     chk = sb.table("contracts").select("id,name").eq("id", cid).execute()
     if not chk.data:
-        return jsonify({"error": "Contract not found"}), 404
+        return err("Contract not found", 404)
     # Check if user exists in clm_users
     user = sb.table("clm_users").select("name,email").eq("email", email).execute()
     user_name = user.data[0]["name"] if user.data else d.get("user_name", email)
@@ -758,7 +758,7 @@ def update_collaborator(cid, collab_id):
 def remove_collaborator(cid, collab_id):
     collab = sb.table("contract_collaborators").select("user_name").eq("id", collab_id).eq("contract_id", cid).execute()
     if not collab.data:
-        return jsonify({"error": "Not found"}), 404
+        return err("Not found", 404)
     sb.table("contract_collaborators").delete().eq("id", collab_id).eq("contract_id", cid).execute()
     log_activity(cid, "collaborator_removed", getattr(request, 'user_email', 'User'), collab.data[0].get("user_name", ""))
     return jsonify({"message": "Removed"})
@@ -777,20 +777,20 @@ def list_approvals(cid):
 @need_db
 def request_approval(cid):
     d = request.json or {}
-    if not d.get("approver_name"): return jsonify({"error": "Approver name required"}), 400
+    if not d.get("approver_name"): return err("Approver name required", 400)
     row = {"contract_id": cid, "approver_name": d["approver_name"],
            "status": "pending", "comments": d.get("comments", ""),
            "created_at": datetime.now().isoformat(), "updated_at": datetime.now().isoformat()}
     # Check contract exists and validate status transition
     contract = sb.table("contracts").select("id,status").eq("id", cid).execute()
-    if not contract.data: return jsonify({"error": "Contract not found"}), 404
+    if not contract.data: return err("Contract not found", 404)
     cur_status = contract.data[0].get("status", "draft")
     if cur_status not in ("draft", "in_review"):
-        return jsonify({"error": f"Cannot request approval when contract is '{cur_status}'"}), 400
+        return err(f"Cannot request approval when contract is '{cur_status}'", 400)
     # Prevent duplicate pending approval from same approver
     existing = sb.table("contract_approvals").select("id").eq("contract_id", cid).eq("approver_name", d["approver_name"]).eq("status", "pending").execute()
     if existing.data:
-        return jsonify({"error": f"Pending approval from {d['approver_name']} already exists"}), 409
+        return err(f"Pending approval from {d['approver_name']} already exists", 409)
     r = sb.table("contract_approvals").insert(row).execute()
     log_activity(cid, "approval_requested", request.user_email, f"Approval requested from {d['approver_name']}")
     create_notification(f"Approval Requested", f"{d['approver_name']} needs to review Contract #{cid}", "approval", cid)
@@ -804,9 +804,9 @@ def request_approval(cid):
 def respond_approval(aid):
     d = request.json or {}
     action = d.get("action")
-    if action not in ("approved", "rejected"): return jsonify({"error": "Action must be approved or rejected"}), 400
+    if action not in ("approved", "rejected"): return err("Action must be approved or rejected", 400)
     appr = sb.table("contract_approvals").select("*").eq("id", aid).execute()
-    if not appr.data: return jsonify({"error": "Not found"}), 404
+    if not appr.data: return err("Not found", 404)
     sb.table("contract_approvals").update({
         "status": action, "comments": d.get("comments", ""), "updated_at": datetime.now().isoformat()
     }).eq("id", aid).execute()
@@ -836,13 +836,13 @@ def list_signatures(cid):
 def sign_contract(cid):
     d = request.json or {}
     if not d.get("signer_name") or not d.get("signature_data"):
-        return jsonify({"error": "Signer name and signature required"}), 400
+        return err("Signer name and signature required", 400)
     # Validate contract status — only pending/in_review can be signed
     contract = sb.table("contracts").select("id,status").eq("id", cid).execute()
-    if not contract.data: return jsonify({"error": "Contract not found"}), 404
+    if not contract.data: return err("Contract not found", 404)
     cur_status = contract.data[0].get("status", "draft")
     if cur_status not in ("pending", "in_review", "executed"):
-        return jsonify({"error": f"Cannot sign a contract in '{cur_status}' status. Submit for approval first."}), 400
+        return err(f"Cannot sign a contract in '{cur_status}' status. Submit for approval first.", 400)
     row = {"contract_id": cid, "signer_name": d["signer_name"],
            "signer_email": d.get("signer_email", ""), "signer_designation": d.get("signer_designation", ""),
            "signature_data": d["signature_data"], "ip_address": request.remote_addr,
@@ -861,14 +861,14 @@ def sign_contract(cid):
 def leegality_esign(cid):
     """Send contract for e-signature via Leegality API"""
     if not LEEGALITY_KEY:
-        return jsonify({"error": "Leegality API not configured. Set LEEGALITY_API_KEY env var."}), 503
+        return err("Leegality API not configured. Set LEEGALITY_API_KEY env var.", 503)
     c = sb.table("contracts").select("id,name,content,content_html,party_name").eq("id", cid).execute()
-    if not c.data: return jsonify({"error": "Not found"}), 404
+    if not c.data: return err("Not found", 404)
     contract = c.data[0]
     d = request.json or {}
     signers = d.get("signers", [])
     if not signers or not all(s.get("name") and s.get("email") for s in signers):
-        return jsonify({"error": "Signers required — each needs name and email"}), 400
+        return err("Signers required — each needs name and email", 400)
     try:
         # Build Leegality document signing request
         leeg_headers = {
@@ -917,7 +917,7 @@ def leegality_esign(cid):
 
         if r.status_code >= 400:
             err_resp = r.json() if r.headers.get("content-type","").startswith("application/json") else {"message": r.text}
-            return jsonify({"error": f"Leegality error: {err_resp.get('message', r.text)}"}), r.status_code
+            return err(f"Leegality error: {err_resp.get('message', r.text)}", r.status_code)
 
         result = r.json()
         doc_id = result.get("data", {}).get("documentId") or result.get("documentId", "")
@@ -948,10 +948,10 @@ def leegality_esign(cid):
         }), 201
 
     except http.exceptions.Timeout:
-        return jsonify({"error": "Leegality API timeout"}), 504
+        return err("Leegality API timeout", 504)
     except Exception as e:
         log.error(f"Leegality error: {e}")
-        return jsonify({"error": str(e)}), 500
+        return err(str(e), 500)
 
 @app.route("/api/leegality/webhook", methods=["POST"])
 def leegality_webhook():
@@ -967,7 +967,7 @@ def leegality_webhook():
         expected = hmac.new(LEEGALITY_SALT.encode(), J.dumps(verify_data, separators=(',', ':'), sort_keys=True).encode(), hashlib.sha256).hexdigest()
         if mac and not hmac.compare_digest(mac, expected):
             log.warning("Leegality webhook MAC verification failed")
-            return jsonify({"error": "MAC verification failed"}), 403
+            return err("MAC verification failed", 403)
     doc_id = d.get("documentId", "")
     event = d.get("event", "")
     signer_info = d.get("signer", {})
@@ -1038,14 +1038,14 @@ def get_activity(cid):
 @app.route("/api/upload-pdf", methods=["POST"])
 @auth
 def upload_pdf():
-    if "file" not in request.files: return jsonify({"error": "No file"}), 400
+    if "file" not in request.files: return err("No file", 400)
     f = request.files["file"]
-    if not f.filename.lower().endswith(".pdf"): return jsonify({"error": "PDF only"}), 400
+    if not f.filename.lower().endswith(".pdf"): return err("PDF only", 400)
     try:
         b = f.read()
-        if len(b) > 50*1024*1024: return jsonify({"error": "Max 50MB per file"}), 400
+        if len(b) > 50*1024*1024: return err("Max 50MB per file", 400)
         if not b[:4] == b'%PDF':
-            return jsonify({"error": "Invalid PDF file"}), 400
+            return err("Invalid PDF file", 400)
         doc = fitz.open(stream=b, filetype="pdf")
         pc = len(doc)
         txt = "".join(p.get_text() + "\n" for p in doc)
@@ -1057,17 +1057,17 @@ def upload_pdf():
 
         # Scanned/image PDF — use GPT-4o Vision OCR
         if not oai_h():
-            return jsonify({"error": "Scanned PDF detected but AI (OpenAI) is not configured for OCR"}), 400
+            return err("Scanned PDF detected but AI (OpenAI) is not configured for OCR", 400)
         log.info(f"Scanned PDF detected ({pc} pages), running OCR via GPT-4o Vision...")
         ocr_text, total_pages, ocr_pages = ocr_pdf_pages(b, max_pages=50)
         if not ocr_text.strip():
-            return jsonify({"error": "OCR could not extract text from this scanned PDF"}), 400
+            return err("OCR could not extract text from this scanned PDF", 400)
         result = {"content": ocr_text.strip(), "pages": total_pages, "method": "ocr", "ocr_pages": ocr_pages}
         if total_pages > ocr_pages:
             result["warning"] = f"Only first {ocr_pages} of {total_pages} pages were OCR'd"
         return jsonify(result)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return err(str(e), 500)
 
 # ─── Bulk PDF Upload (multiple files → multiple contracts) ────────────────
 @app.route("/api/upload-pdfs-bulk", methods=["POST"])
@@ -1078,9 +1078,9 @@ def upload_pdfs_bulk():
     """Process multiple PDFs at once. Each PDF becomes a separate contract via AI parse."""
     files = request.files.getlist("files")
     if not files or len(files) == 0:
-        return jsonify({"error": "No files uploaded"}), 400
+        return err("No files uploaded", 400)
     if len(files) > 10:
-        return jsonify({"error": "Max 10 PDFs at a time"}), 400
+        return err("Max 10 PDFs at a time", 400)
 
     results = []
     for f in files:
@@ -1190,10 +1190,10 @@ def search():
 @app.route("/api/parse", methods=["POST"])
 @auth
 def parse():
-    if not oai_h(): return jsonify({"error": "AI not configured"}), 500
+    if not oai_h(): return err("AI not configured", 500)
     d = request.json or {}
     content = d.get("content", "")
-    if not content: return jsonify({"error": "No content"}), 400
+    if not content: return err("No content", 400)
     try:
         reply = oai_chat([
             {"role": "system", "content": """Extract contract metadata. Return ONLY JSON:
@@ -1203,20 +1203,20 @@ def parse():
         if reply.startswith("```"): reply = reply.split("\n",1)[1].rsplit("```",1)[0].strip()
         return jsonify(J.loads(reply))
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return err(str(e), 500)
 
 # ─── Chat (RAG + Streaming) ───────────────────────────────────────────────
 @app.route("/api/chat", methods=["POST"])
 @auth
 @need_db
 def chat():
-    if not oai_h(): return jsonify({"error": "AI not configured"}), 500
+    if not oai_h(): return err("AI not configured", 500)
     d = request.json or {}
     msg = d.get("message", "").strip()
     history = d.get("history", [])[-20:]
     cids = d.get("contract_ids")
     stream = d.get("stream", False)
-    if not msg: return jsonify({"error": "No message"}), 400
+    if not msg: return err("No message", 400)
 
     chunks = []
     try: chunks = hybrid_search(msg, cids, 30)
@@ -1272,7 +1272,7 @@ def chat():
         reply = oai_chat(msgs)
         return jsonify({"reply": reply, "sources": sources, "chunks_used": n_chunks})
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return err(str(e), 500)
 
 # ─── Export ────────────────────────────────────────────────────────────────
 @app.route("/api/export")
@@ -1310,7 +1310,7 @@ def list_webhooks():
 def create_webhook():
     d = request.json or {}
     if not d.get("url") or not d.get("event_type"):
-        return jsonify({"error": "URL and event_type required"}), 400
+        return err("URL and event_type required", 400)
     r = sb.table("webhook_configs").insert({
         "event_type": d["event_type"], "url": d["url"], "active": True,
         "created_at": datetime.now().isoformat()
@@ -1338,7 +1338,7 @@ def list_versions(cid):
 @need_db
 def get_version(cid, vid):
     r = sb.table("contract_versions").select("*").eq("id", vid).eq("contract_id", cid).execute()
-    if not r.data: return jsonify({"error": "Not found"}), 404
+    if not r.data: return err("Not found", 404)
     return jsonify(r.data[0])
 
 @app.route("/api/contracts/<int:cid>/versions/<int:vid>/restore", methods=["POST"])
@@ -1346,7 +1346,7 @@ def get_version(cid, vid):
 @need_db
 def restore_version(cid, vid):
     v = sb.table("contract_versions").select("*").eq("id", vid).eq("contract_id", cid).execute()
-    if not v.data: return jsonify({"error": "Not found"}), 404
+    if not v.data: return err("Not found", 404)
     ver = v.data[0]
     # Snapshot current before restoring
     cur = sb.table("contracts").select("content,content_html").eq("id", cid).execute()
@@ -1371,20 +1371,20 @@ def contract_redline(cid):
     vid = request.args.get("version_id")
     # Get current contract
     cur = sb.table("contracts").select("id,name,content").eq("id", cid).execute()
-    if not cur.data: return jsonify({"error": "Not found"}), 404
+    if not cur.data: return err("Not found", 404)
     current_text = cur.data[0].get("content", "")
 
     # Get comparison text
     if vid:
         ver = sb.table("contract_versions").select("*").eq("id", int(vid)).eq("contract_id", cid).execute()
-        if not ver.data: return jsonify({"error": "Version not found"}), 404
+        if not ver.data: return err("Version not found", 404)
         old_text = ver.data[0].get("content", "")
         old_label = f"Version {ver.data[0]['version_number']}"
     else:
         # Get latest version (previous content)
         vers = sb.table("contract_versions").select("*").eq("contract_id", cid).order("version_number", desc=True).limit(1).execute()
         if not vers.data:
-            return jsonify({"error": "No previous version available. Edit the contract at least once to see redline."}), 404
+            return err("No previous version available. Edit the contract at least once to see redline.", 404)
         old_text = vers.data[0].get("content", "")
         old_label = f"Version {vers.data[0]['version_number']}"
 
@@ -1431,15 +1431,15 @@ def contract_diff(cid):
     v1 = request.args.get("v1")
     v2 = request.args.get("v2")
     if not v1 or not v2:
-        return jsonify({"error": "v1 and v2 version IDs required"}), 400
+        return err("v1 and v2 version IDs required", 400)
     try: v1, v2 = int(v1), int(v2)
-    except (ValueError, TypeError): return jsonify({"error": "v1 and v2 must be integers"}), 400
+    except (ValueError, TypeError): return err("v1 and v2 must be integers", 400)
 
     ver1 = sb.table("contract_versions").select("*").eq("id", v1).eq("contract_id", cid).execute()
     ver2 = sb.table("contract_versions").select("*").eq("id", int(v2)).eq("contract_id", cid).execute()
 
     if not ver1.data or not ver2.data:
-        return jsonify({"error": "Version not found"}), 404
+        return err("Version not found", 404)
 
     text1 = ver1.data[0].get("content", "")
     text2 = ver2.data[0].get("content", "")
@@ -1483,7 +1483,7 @@ def list_clauses():
 def create_clause():
     d = request.json or {}
     if not d.get("title") or not d.get("content") or not d.get("category"):
-        return jsonify({"error": "Title, category, and content required"}), 400
+        return err("Title, category, and content required", 400)
     row = {"title": d["title"][:300], "category": d["category"][:100], "content": d["content"][:10000],
            "tags": d.get("tags", ""), "created_by": d.get("created_by", "User"), "created_at": datetime.now().isoformat()}
     r = sb.table("clause_library").insert(row).execute()
@@ -1497,7 +1497,7 @@ def update_clause(cid):
     u = {}
     for f in ["title", "category", "content", "tags"]:
         if f in d: u[f] = d[f]
-    if not u: return jsonify({"error": "Nothing to update"}), 400
+    if not u: return err("Nothing to update", 400)
     sb.table("clause_library").update(u).eq("id", cid).execute()
     return jsonify({"message": "Updated"})
 
@@ -1514,7 +1514,7 @@ def delete_clause(cid):
 def use_clause(cid):
     """Increment usage count when a clause is inserted into a contract"""
     c = sb.table("clause_library").select("usage_count").eq("id", cid).execute()
-    if not c.data: return jsonify({"error": "Clause not found"}), 404
+    if not c.data: return err("Clause not found", 404)
     sb.table("clause_library").update({"usage_count": (c.data[0].get("usage_count") or 0) + 1}).eq("id", cid).execute()
     return jsonify({"message": "Usage tracked"})
 
@@ -1534,13 +1534,13 @@ def list_users():
 def create_user():
     d = request.json or {}
     for f in ["email", "name", "password"]:
-        if not d.get(f, "").strip(): return jsonify({"error": f"Missing: {f}"}), 400
+        if not d.get(f, "").strip(): return err(f"Missing: {f}", 400)
     email = d["email"].strip().lower()
     if not _valid_email(email):
-        return jsonify({"error": "Invalid email format"}), 400
+        return err("Invalid email format", 400)
     # Check duplicate
     existing = sb.table("clm_users").select("id").eq("email", email).execute()
-    if existing.data: return jsonify({"error": "Email already exists"}), 409
+    if existing.data: return err("Email already exists", 409)
     pw_hash = _hash_password(d["password"])
     role = d.get("role", "viewer")
     if role not in ("admin", "manager", "editor", "viewer"): role = "viewer"
@@ -1581,7 +1581,7 @@ def update_user(uid):
         if f in d: u[f] = d[f]
     if "password" in d and d["password"]:
         u["password_hash"] = _hash_password(d["password"])
-    if not u: return jsonify({"error": "Nothing to update"}), 400
+    if not u: return err("Nothing to update", 400)
     u["updated_at"] = datetime.now().isoformat()
     sb.table("clm_users").update(u).eq("id", uid).execute()
     return jsonify({"message": "User updated"})
@@ -1796,7 +1796,7 @@ def reports():
             "margin_pct": round(((total_rev - total_cost) / total_rev * 100), 1) if total_rev > 0 else 0
         }})
 
-    return jsonify({"error": "Unknown report type"}), 400
+    return err("Unknown report type", 400)
 
 # ─── Audit Log Export ────────────────────────────────────────────────────
 @app.route("/api/audit-log")
@@ -1838,6 +1838,27 @@ def audit_log():
 
     return jsonify(r.data)
 
+@app.route("/api/audit-log/cleanup", methods=["POST"])
+@auth
+@role_required("admin")
+@need_db
+def audit_log_cleanup():
+    """Delete audit log entries older than specified days (default 365)."""
+    d = request.json or {}
+    if not d.get("confirm"):
+        return err("Include '\"confirm\": true' to proceed with cleanup.", 400)
+    try: days = max(int(d.get("retention_days", 365)), 30)  # minimum 30 days
+    except (ValueError, TypeError): days = 365
+    cutoff = (datetime.now() - timedelta(days=days)).isoformat()
+    # Count before delete
+    count_q = sb.table("contract_activity").select("id", count="exact").lt("created_at", cutoff).execute()
+    count = count_q.count if hasattr(count_q, 'count') and count_q.count else len(count_q.data or [])
+    if count == 0:
+        return jsonify({"message": "No records older than the retention period", "deleted": 0, "retention_days": days})
+    sb.table("contract_activity").delete().lt("created_at", cutoff).execute()
+    log_activity(None, "audit_log_cleanup", request.user_email, f"Deleted {count} records older than {days} days")
+    return jsonify({"message": f"Deleted {count} audit log entries older than {days} days", "deleted": count, "retention_days": days, "cutoff_date": cutoff[:10]})
+
 # ─── Bulk Import ──────────────────────────────────────────────────────────
 @app.route("/api/bulk-import", methods=["POST"])
 @auth
@@ -1846,10 +1867,10 @@ def audit_log():
 def bulk_import():
     """Bulk import contracts from CSV."""
     if "file" not in request.files:
-        return jsonify({"error": "No file uploaded"}), 400
+        return err("No file uploaded", 400)
     f = request.files["file"]
     if not f.filename.lower().endswith(".csv"):
-        return jsonify({"error": "CSV file required"}), 400
+        return err("CSV file required", 400)
     try:
         raw = f.read().decode("utf-8-sig")
         reader = csv.DictReader(io.StringIO(raw))
@@ -1883,7 +1904,7 @@ def bulk_import():
         return jsonify({"imported": imported, "skipped": skipped, "total_rows": imported + skipped,
             "errors": errors[:20], "message": f"Successfully imported {imported} contracts"})
     except Exception as e:
-        return jsonify({"error": f"Import failed: {str(e)}"}), 500
+        return err(f"Import failed: {str(e)}", 500)
 
 @app.route("/api/bulk-import/template")
 @auth
@@ -1913,10 +1934,10 @@ def add_contract_tag(cid):
     d = request.json or {}
     tag = _sanitize(d.get("tag_name", "")).strip()
     color = d.get("tag_color", "#2563eb")
-    if not tag: return jsonify({"error": "Tag name required"}), 400
+    if not tag: return err("Tag name required", 400)
     # Check if already tagged
     existing = sb.table("contract_tags").select("id").eq("contract_id", cid).eq("tag_name", tag).execute()
-    if existing.data: return jsonify({"error": "Tag already exists on this contract"}), 400
+    if existing.data: return err("Tag already exists on this contract", 400)
     r = sb.table("contract_tags").insert({
         "contract_id": cid, "tag_name": tag, "tag_color": color,
         "created_by": getattr(request, 'user_email', 'User')
@@ -1951,12 +1972,12 @@ def create_tag_preset():
     d = request.json or {}
     name = _sanitize(d.get("name", "")).strip()
     color = d.get("color", "#2563eb")
-    if not name: return jsonify({"error": "Name required"}), 400
+    if not name: return err("Name required", 400)
     try:
         r = sb.table("tag_presets").insert({"name": name, "color": color, "description": d.get("description", "")}).execute()
         return jsonify(r.data[0]), 201
     except Exception as e:
-        return jsonify({"error": "Tag preset already exists"}), 400
+        return err("Tag preset already exists", 400)
 
 @app.route("/api/tag-presets/<int:tid>", methods=["DELETE"])
 @auth
@@ -2050,9 +2071,9 @@ def create_workflow():
     action = d.get("action_type", "")
     valid_triggers = ["status_change", "contract_created", "expiry_approaching", "approval_completed"]
     valid_actions = ["auto_approve", "add_tag", "change_status", "create_obligation", "notify_webhook"]
-    if not name: return jsonify({"error": "Name required"}), 400
-    if trigger not in valid_triggers: return jsonify({"error": f"Trigger must be one of: {', '.join(valid_triggers)}"}), 400
-    if action not in valid_actions: return jsonify({"error": f"Action must be one of: {', '.join(valid_actions)}"}), 400
+    if not name: return err("Name required", 400)
+    if trigger not in valid_triggers: return err(f"Trigger must be one of: {', '.join(valid_triggers)}", 400)
+    if action not in valid_actions: return err(f"Action must be one of: {', '.join(valid_actions)}", 400)
     r = sb.table("workflow_rules").insert({
         "name": name, "trigger_event": trigger,
         "trigger_condition": d.get("trigger_condition", {}),
@@ -2071,7 +2092,7 @@ def update_workflow(wid):
     u = {}
     for f in ["name", "trigger_event", "trigger_condition", "action_type", "action_config", "is_active", "priority"]:
         if f in d: u[f] = d[f]
-    if not u: return jsonify({"error": "Nothing to update"}), 400
+    if not u: return err("Nothing to update", 400)
     u["updated_at"] = datetime.now().isoformat()
     sb.table("workflow_rules").update(u).eq("id", wid).execute()
     return jsonify({"message": "Updated"})
@@ -2108,9 +2129,9 @@ def create_custom_field():
     d = request.json or {}
     name = _sanitize(d.get("field_name", "")).strip()
     ftype = d.get("field_type", "text")
-    if not name: return jsonify({"error": "Field name required"}), 400
+    if not name: return err("Field name required", 400)
     if ftype not in ("text", "number", "date", "select", "url", "email"):
-        return jsonify({"error": "Invalid field type"}), 400
+        return err("Invalid field type", 400)
     r = sb.table("custom_field_defs").insert({
         "field_name": name, "field_type": ftype,
         "field_options": d.get("field_options", ""),
@@ -2233,7 +2254,7 @@ def get_email_prefs():
 def save_email_prefs():
     email = getattr(request, 'user_email', '')
     if not email:
-        return jsonify({"error": "Email required — login with email to set preferences"}), 400
+        return err("Email required — login with email to set preferences", 400)
     d = request.json or {}
     row = {
         "user_email": email,
@@ -2252,7 +2273,7 @@ def save_email_prefs():
             sb.table("email_preferences").insert(row).execute()
         return jsonify({"message": "Preferences saved", **row})
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return err(str(e), 500)
 
 @app.route("/api/email-preferences/test", methods=["POST"])
 @auth
@@ -2261,9 +2282,9 @@ def test_email():
     """Send a test email to verify configuration"""
     email = getattr(request, 'user_email', '')
     if not email:
-        return jsonify({"error": "Login with email to test"}), 400
+        return err("Login with email to test", 400)
     if not RESEND_API_KEY:
-        return jsonify({"error": "RESEND_API_KEY not configured. Add it to Vercel environment variables."}), 400
+        return err("RESEND_API_KEY not configured. Add it to Vercel environment variables.", 400)
     try:
         r = http.post("https://api.resend.com/emails",
             headers={"Authorization": f"Bearer {RESEND_API_KEY}", "Content-Type": "application/json"},
@@ -2286,9 +2307,9 @@ def test_email():
         if r.status_code in (200, 201):
             return jsonify({"message": f"Test email sent to {email}"})
         else:
-            return jsonify({"error": f"Resend API error: {r.text}"}), 400
+            return err(f"Resend API error: {r.text}", 400)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return err(str(e), 500)
 
 @app.route("/api/email-status")
 @auth
@@ -2307,7 +2328,7 @@ def email_status():
 def get_contract_links(cid):
     """Get all contracts linked to this contract"""
     c = sb.table("contracts").select("id,contract_type").eq("id", cid).execute()
-    if not c.data: return jsonify({"error": "Not found"}), 404
+    if not c.data: return err("Not found", 404)
     ctype = c.data[0]["contract_type"]
 
     links = []
@@ -2335,19 +2356,19 @@ def add_contract_link(cid):
     """Link a client contract to a vendor contract (or vice versa)"""
     d = request.json or {}
     target_id = d.get("linked_contract_id")
-    if not target_id: return jsonify({"error": "Missing linked_contract_id"}), 400
+    if not target_id: return err("Missing linked_contract_id", 400)
 
     # Get both contracts
     contracts = sb.table("contracts").select("id,contract_type,name").in_("id", [cid, int(target_id)]).execute().data or []
-    if len(contracts) < 2: return jsonify({"error": "One or both contracts not found"}), 404
+    if len(contracts) < 2: return err("One or both contracts not found", 404)
 
     by_id = {c["id"]: c for c in contracts}
     c1, c2 = by_id.get(cid), by_id.get(int(target_id))
-    if not c1 or not c2: return jsonify({"error": "Contract not found"}), 404
+    if not c1 or not c2: return err("Contract not found", 404)
 
     # Determine which is client and which is vendor
     if c1["contract_type"] == c2["contract_type"]:
-        return jsonify({"error": "Can only link a client contract to a vendor contract"}), 400
+        return err("Can only link a client contract to a vendor contract", 400)
 
     client_id = cid if c1["contract_type"] == "client" else int(target_id)
     vendor_id = int(target_id) if c1["contract_type"] == "client" else cid
@@ -2361,7 +2382,7 @@ def add_contract_link(cid):
         return jsonify({"message": "Linked", "link_id": r.data[0]["id"]}), 201
     except Exception as e:
         if "duplicate" in str(e).lower() or "unique" in str(e).lower():
-            return jsonify({"error": "These contracts are already linked"}), 409
+            return err("These contracts are already linked", 409)
         raise
 
 @app.route("/api/contract-links/<int:link_id>", methods=["DELETE"])
@@ -2371,7 +2392,7 @@ def add_contract_link(cid):
 def delete_contract_link(link_id):
     """Remove a contract link"""
     link = sb.table("contract_links").select("*").eq("id", link_id).execute()
-    if not link.data: return jsonify({"error": "Link not found"}), 404
+    if not link.data: return err("Link not found", 404)
     sb.table("contract_links").delete().eq("id", link_id).execute()
     log_activity(link.data[0]["client_contract_id"], "unlinked", getattr(request, 'user_email', 'User'),
                  f"Unlinked from contract #{link.data[0]['vendor_contract_id']}")
@@ -2402,9 +2423,9 @@ def list_all_links():
 def get_linkable_contracts():
     """Get contracts that can be linked to a given contract (opposite type, not already linked)"""
     cid = request.args.get("contract_id")
-    if not cid: return jsonify({"error": "Provide contract_id"}), 400
+    if not cid: return err("Provide contract_id", 400)
     c = sb.table("contracts").select("id,contract_type").eq("id", int(cid)).execute()
-    if not c.data: return jsonify({"error": "Not found"}), 404
+    if not c.data: return err("Not found", 404)
 
     opposite = "vendor" if c.data[0]["contract_type"] == "client" else "client"
     # Get already linked IDs
@@ -2435,11 +2456,11 @@ def get_contract_parties(cid):
 @need_db
 def add_contract_party(cid):
     chk = sb.table("contracts").select("id").eq("id", cid).execute()
-    if not chk.data: return jsonify({"error": "Contract not found"}), 404
+    if not chk.data: return err("Contract not found", 404)
     d = _sanitize_dict(request.json or {})
-    if not d.get("party_name", "").strip(): return jsonify({"error": "party_name required"}), 400
+    if not d.get("party_name", "").strip(): return err("party_name required", 400)
     if d.get("party_type") not in ("client", "vendor", "subcontractor"):
-        return jsonify({"error": "party_type must be client, vendor, or subcontractor"}), 400
+        return err("party_type must be client, vendor, or subcontractor", 400)
     row = {
         "contract_id": cid,
         "party_name": d["party_name"][:500],
@@ -2464,14 +2485,14 @@ def add_contract_party(cid):
 @need_db
 def update_contract_party(pid):
     chk = sb.table("contract_parties").select("*").eq("id", pid).execute()
-    if not chk.data: return jsonify({"error": "Party not found"}), 404
+    if not chk.data: return err("Party not found", 404)
     d = _sanitize_dict(request.json or {})
     u = {}
     for f in ["party_name","party_type","role","party_value","scope","status","contact_name","contact_email","notes"]:
         if f in d: u[f] = d[f]
-    if not u: return jsonify({"error": "Nothing to update"}), 400
+    if not u: return err("Nothing to update", 400)
     if "party_type" in u and u["party_type"] not in ("client", "vendor", "subcontractor"):
-        return jsonify({"error": "party_type must be client, vendor, or subcontractor"}), 400
+        return err("party_type must be client, vendor, or subcontractor", 400)
     u["updated_at"] = datetime.now().isoformat()
     sb.table("contract_parties").update(u).eq("id", pid).execute()
     cid = chk.data[0]["contract_id"]
@@ -2484,7 +2505,7 @@ def update_contract_party(pid):
 @need_db
 def delete_contract_party(pid):
     chk = sb.table("contract_parties").select("*").eq("id", pid).execute()
-    if not chk.data: return jsonify({"error": "Party not found"}), 404
+    if not chk.data: return err("Party not found", 404)
     cid = chk.data[0]["contract_id"]
     sb.table("contract_parties").delete().eq("id", pid).execute()
     log_activity(cid, "party_removed", request.user_email, f"Party '{chk.data[0]['party_name']}' removed")
@@ -2497,10 +2518,10 @@ def delete_contract_party(pid):
 def get_contract_margin(cid):
     """Get margin data for a client contract — its value vs total linked vendor costs"""
     c = sb.table("contracts").select("id,name,party_name,contract_type,value").eq("id", cid).execute()
-    if not c.data: return jsonify({"error": "Not found"}), 404
+    if not c.data: return err("Not found", 404)
     contract = c.data[0]
     if contract["contract_type"] != "client":
-        return jsonify({"error": "Margin tracking is only for client contracts"}), 400
+        return err("Margin tracking is only for client contracts", 400)
     # Get linked vendor contracts
     links = sb.table("contract_links").select("vendor_contract_id").eq("client_contract_id", cid).execute().data or []
     vendor_ids = [l["vendor_contract_id"] for l in links]
@@ -2582,7 +2603,7 @@ def _parse_currency(val):
 @need_db
 def suggest_clauses():
     """Suggest relevant clauses while drafting a contract"""
-    if not oai_h(): return jsonify({"error": "OpenAI not configured"}), 400
+    if not oai_h(): return err("OpenAI not configured", 400)
     d = request.json or {}
     contract_type = d.get("contract_type", "client")
     context = d.get("context", "")[:2000]
@@ -2614,7 +2635,7 @@ Return as JSON array: [{{"title":"...","content":"...","reason":"..."}}]"""
         suggestions = parsed.get("suggestions", parsed.get("clauses", parsed if isinstance(parsed, list) else []))
         return jsonify({"suggestions": suggestions})
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return err(str(e), 500)
 
 # ─── Renewal Autopilot ───────────────────────────────────────────────────
 @app.route("/api/contracts/<int:cid>/auto-renew", methods=["POST"])
@@ -2624,12 +2645,12 @@ Return as JSON array: [{{"title":"...","content":"...","reason":"..."}}]"""
 def auto_renew_contract(cid):
     """Auto-draft a renewal from an expiring contract"""
     c = sb.table("contracts").select("*").eq("id", cid).execute()
-    if not c.data: return jsonify({"error": "Not found"}), 404
+    if not c.data: return err("Not found", 404)
     orig = c.data[0]
     # Idempotency: check if a renewal draft already exists for this contract
     existing_renewal = sb.table("contracts").select("id,name").ilike("name", f"%Renewal of {orig['name']}%").eq("status", "draft").execute()
     if existing_renewal.data:
-        return jsonify({"error": f"A renewal draft already exists (#{existing_renewal.data[0]['id']})", "id": existing_renewal.data[0]["id"]}), 409
+        return jsonify({"error": {"message": f"A renewal draft already exists (#{existing_renewal.data[0]['id']})", "code": 409}, "id": existing_renewal.data[0]["id"]}), 409
     # Calculate new dates
     duration_days = 365
     if orig.get("start_date") and orig.get("end_date"):
@@ -2721,9 +2742,9 @@ def get_contract_invoices(cid):
 @need_db
 def add_contract_invoice(cid):
     chk = sb.table("contracts").select("id").eq("id", cid).execute()
-    if not chk.data: return jsonify({"error": "Contract not found"}), 404
+    if not chk.data: return err("Contract not found", 404)
     d = _sanitize_dict(request.json or {})
-    if not d.get("invoice_number", "").strip(): return jsonify({"error": "Invoice number required"}), 400
+    if not d.get("invoice_number", "").strip(): return err("Invoice number required", 400)
     row = {
         "contract_id": cid,
         "invoice_number": str(d["invoice_number"])[:100],
@@ -2746,12 +2767,12 @@ def add_contract_invoice(cid):
 @need_db
 def update_contract_invoice(iid):
     chk = sb.table("contract_invoices").select("*").eq("id", iid).execute()
-    if not chk.data: return jsonify({"error": "Not found"}), 404
+    if not chk.data: return err("Not found", 404)
     d = _sanitize_dict(request.json or {})
     u = {}
     for f in ["invoice_number","po_number","amount","invoice_date","due_date","status","notes"]:
         if f in d: u[f] = d[f]
-    if not u: return jsonify({"error": "Nothing to update"}), 400
+    if not u: return err("Nothing to update", 400)
     u["updated_at"] = datetime.now().isoformat()
     sb.table("contract_invoices").update(u).eq("id", iid).execute()
     return jsonify({"message": "Updated"})
@@ -2762,7 +2783,7 @@ def update_contract_invoice(iid):
 @need_db
 def delete_contract_invoice(iid):
     chk = sb.table("contract_invoices").select("*").eq("id", iid).execute()
-    if not chk.data: return jsonify({"error": "Not found"}), 404
+    if not chk.data: return err("Not found", 404)
     sb.table("contract_invoices").delete().eq("id", iid).execute()
     return jsonify({"message": "Deleted"})
 
@@ -2797,15 +2818,15 @@ def set_slack_webhook():
 def test_slack_webhook():
     r = sb.table("app_settings").select("*").eq("key", "slack_webhook_url").execute()
     if not r.data or not r.data[0].get("value"):
-        return jsonify({"error": "No Slack webhook URL configured"}), 400
+        return err("No Slack webhook URL configured", 400)
     url = r.data[0]["value"]
     try:
         resp = http.post(url, json={"text": "EMB CLM test notification — Slack integration is working!"}, timeout=10)
         if resp.status_code == 200:
             return jsonify({"message": "Test message sent successfully"})
-        return jsonify({"error": f"Slack returned {resp.status_code}"}), 400
+        return err(f"Slack returned {resp.status_code}", 400)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return err(str(e), 500)
 
 # ─── Shareable Review Links ──────────────────────────────────────────────
 @app.route("/api/contracts/<int:cid>/share-links", methods=["GET"])
@@ -2821,7 +2842,7 @@ def get_share_links(cid):
 @need_db
 def create_share_link(cid):
     chk = sb.table("contracts").select("id").eq("id", cid).execute()
-    if not chk.data: return jsonify({"error": "Contract not found"}), 404
+    if not chk.data: return err("Contract not found", 404)
     d = request.json or {}
     try: expires_hours = min(int(d.get("expires_hours", 72)), 720)  # max 30 days
     except (ValueError, TypeError): expires_hours = 72
@@ -2845,7 +2866,7 @@ def create_share_link(cid):
 @need_db
 def revoke_share_link(lid):
     chk = sb.table("contract_share_links").select("*").eq("id", lid).execute()
-    if not chk.data: return jsonify({"error": "Not found"}), 404
+    if not chk.data: return err("Not found", 404)
     sb.table("contract_share_links").update({"is_active": False}).eq("id", lid).execute()
     log_activity(chk.data[0]["contract_id"], "share_link_revoked", request.user_email, "Share link revoked")
     return jsonify({"message": "Link revoked"})
@@ -2853,12 +2874,12 @@ def revoke_share_link(lid):
 @app.route("/api/shared/<token>", methods=["GET"])
 def view_shared_contract(token):
     """Public endpoint — no auth required. View a shared contract via token."""
-    if not sb: return jsonify({"error": "Service unavailable"}), 503
+    if not sb: return err("Service unavailable", 503)
     link = sb.table("contract_share_links").select("*").eq("token", token).eq("is_active", True).execute()
-    if not link.data: return jsonify({"error": "Invalid or expired link"}), 404
+    if not link.data: return err("Invalid or expired link", 404)
     sl = link.data[0]
     if datetime.fromisoformat(sl["expires_at"].replace("Z", "+00:00")).replace(tzinfo=None) < datetime.now():
-        return jsonify({"error": "This link has expired"}), 410
+        return err("This link has expired", 410)
     # Update access count
     sb.table("contract_share_links").update({
         "accessed_count": (sl.get("accessed_count", 0) or 0) + 1,
@@ -2866,7 +2887,7 @@ def view_shared_contract(token):
     }).eq("id", sl["id"]).execute()
     # Get contract (limited fields for security)
     c = sb.table("contracts").select("id,name,party_name,contract_type,status,content,content_html,start_date,end_date,value,department,jurisdiction").eq("id", sl["contract_id"]).execute()
-    if not c.data: return jsonify({"error": "Contract not found"}), 404
+    if not c.data: return err("Contract not found", 404)
     return jsonify({
         "contract": c.data[0], "permissions": sl["permissions"],
         "recipient_name": sl.get("recipient_name", ""),
@@ -2876,15 +2897,15 @@ def view_shared_contract(token):
 @app.route("/api/shared/<token>/comments", methods=["POST"])
 def add_shared_comment(token):
     """Public endpoint — add comment on a shared contract (if permission allows)"""
-    if not sb: return jsonify({"error": "Service unavailable"}), 503
+    if not sb: return err("Service unavailable", 503)
     link = sb.table("contract_share_links").select("*").eq("token", token).eq("is_active", True).execute()
-    if not link.data: return jsonify({"error": "Invalid or expired link"}), 404
+    if not link.data: return err("Invalid or expired link", 404)
     sl = link.data[0]
-    if sl["permissions"] != "comment": return jsonify({"error": "View-only access"}), 403
+    if sl["permissions"] != "comment": return err("View-only access", 403)
     if datetime.fromisoformat(sl["expires_at"].replace("Z", "+00:00")).replace(tzinfo=None) < datetime.now():
-        return jsonify({"error": "This link has expired"}), 410
+        return err("This link has expired", 410)
     d = request.json or {}
-    if not d.get("text", "").strip(): return jsonify({"error": "Comment text required"}), 400
+    if not d.get("text", "").strip(): return err("Comment text required", 400)
     commenter = sl.get("recipient_name") or "External Reviewer"
     row = {
         "contract_id": sl["contract_id"], "user_name": commenter,
@@ -2906,12 +2927,12 @@ def compare_contracts():
     id1 = request.args.get("id1")
     id2 = request.args.get("id2")
     if not id1 or not id2:
-        return jsonify({"error": "Provide id1 and id2 parameters"}), 400
+        return err("Provide id1 and id2 parameters", 400)
     try:
         c1 = sb.table("contracts").select("*").eq("id", int(id1)).execute()
         c2 = sb.table("contracts").select("*").eq("id", int(id2)).execute()
         if not c1.data or not c2.data:
-            return jsonify({"error": "One or both contracts not found"}), 404
+            return err("One or both contracts not found", 404)
 
         a, b = c1.data[0], c2.data[0]
         # Field comparison
@@ -2961,7 +2982,7 @@ def compare_contracts():
             "total_fields": len(field_diffs)
         })
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return err(str(e), 500)
 
 # ─── Contract Clone ───────────────────────────────────────────────────────
 @app.route("/api/contracts/<int:cid>/clone", methods=["POST"])
@@ -2970,7 +2991,7 @@ def compare_contracts():
 @need_db
 def clone_contract(cid):
     r = sb.table("contracts").select("*").eq("id", cid).execute()
-    if not r.data: return jsonify({"error": "Not found"}), 404
+    if not r.data: return err("Not found", 404)
     orig = r.data[0]
     d = request.json or {}
     new_name = d.get("name", f"Copy of {orig['name']}")
@@ -3026,9 +3047,9 @@ def bulk_action():
     ids = d.get("ids", [])
     action = d.get("action", "")
     if not ids or not action:
-        return jsonify({"error": "Provide ids and action"}), 400
+        return err("Provide ids and action", 400)
     if len(ids) > 50:
-        return jsonify({"error": "Max 50 contracts per batch"}), 400
+        return err("Max 50 contracts per batch", 400)
 
     results = {"success": 0, "failed": 0, "errors": []}
 
@@ -3036,7 +3057,7 @@ def bulk_action():
         new_status = d.get("status", "")
         valid = ["draft", "pending", "in_review", "executed", "rejected"]
         if new_status not in valid:
-            return jsonify({"error": f"Invalid status"}), 400
+            return err(f"Invalid status", 400)
         for cid in ids:
             try:
                 resp, code = _transition_status(int(cid), new_status, "Bulk Action")
@@ -3054,7 +3075,7 @@ def bulk_action():
         tag_name = d.get("tag_name", "").strip()
         tag_color = d.get("tag_color", "#2563eb")
         if not tag_name:
-            return jsonify({"error": "Tag name required"}), 400
+            return err("Tag name required", 400)
         for cid in ids:
             try:
                 sb.table("contract_tags").insert({"contract_id": int(cid), "tag_name": tag_name, "tag_color": tag_color, "created_by": "Bulk Action"}).execute()
@@ -3066,7 +3087,7 @@ def bulk_action():
     elif action == "remove_tag":
         tag_name = d.get("tag_name", "").strip()
         if not tag_name:
-            return jsonify({"error": "Tag name required"}), 400
+            return err("Tag name required", 400)
         for cid in ids:
             try:
                 sb.table("contract_tags").delete().eq("contract_id", int(cid)).eq("tag_name", tag_name).execute()
@@ -3085,7 +3106,7 @@ def bulk_action():
                 results["failed"] += 1
 
     else:
-        return jsonify({"error": f"Unknown action: {action}"}), 400
+        return err(f"Unknown action: {action}", 400)
 
     return jsonify({"message": f"Bulk {action.replace('_', ' ').title()}: {results['success']} succeeded, {results['failed']} failed", **results})
 
@@ -3099,18 +3120,18 @@ def reset_password():
     admin_password = d.get("admin_password", "")
 
     if not email or not new_password:
-        return jsonify({"error": "Email and new password required"}), 400
+        return err("Email and new password required", 400)
     if len(new_password) < 6:
-        return jsonify({"error": "Password must be at least 6 characters"}), 400
+        return err("Password must be at least 6 characters", 400)
 
     # Verify admin credentials
     if not admin_password or not hmac.compare_digest(admin_password, PASSWORD):
-        return jsonify({"error": "Admin password required to reset user passwords"}), 401
+        return err("Admin password required to reset user passwords", 401)
 
     # Find user
     u = sb.table("clm_users").select("id,email,name").eq("email", email).execute()
     if not u.data:
-        return jsonify({"error": "User not found"}), 404
+        return err("User not found", 404)
 
     pw_hash = _hash_password(new_password)
     sb.table("clm_users").update({"password_hash": pw_hash, "updated_at": datetime.now().isoformat()}).eq("email", email).execute()
@@ -3169,7 +3190,7 @@ def list_parties():
 @need_db
 def generate_pdf(cid):
     r = sb.table("contracts").select("*").eq("id", cid).execute()
-    if not r.data: return jsonify({"error": "Not found"}), 404
+    if not r.data: return err("Not found", 404)
     c = r.data[0]
 
     # Get obligations
@@ -3327,10 +3348,10 @@ def restore_data():
     """Restore data from a backup JSON (admin only)."""
     body = request.get_json(silent=True) or {}
     if not body.get("confirm"):
-        return jsonify({"error": "Safety check: include '\"confirm\": true' in the request body to proceed."}), 400
+        return err("Safety check: include '\"confirm\": true' in the request body to proceed.", 400)
     tbl_data = body.get("tables")
     if not tbl_data or not isinstance(tbl_data, dict):
-        return jsonify({"error": "Invalid backup format: missing 'tables' object."}), 400
+        return err("Invalid backup format: missing 'tables' object.", 400)
 
     summary = {}
     # Pre-fetch existing contracts for duplicate check
@@ -3385,12 +3406,12 @@ def restore_data():
 @auth
 @need_db
 def embed_single(cid):
-    if not oai_h(): return jsonify({"error": "AI not configured"}), 500
+    if not oai_h(): return err("AI not configured", 500)
     r = sb.table("contracts").select("id,name,content").eq("id", cid).execute()
-    if not r.data: return jsonify({"error": "Not found"}), 404
+    if not r.data: return err("Not found", 404)
     c = r.data[0]
     try:
         n = embed_contract(c["id"], c["content"], c["name"])
         return jsonify({"chunks": n})
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return err(str(e), 500)

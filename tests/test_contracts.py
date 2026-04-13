@@ -37,7 +37,7 @@ class TestCreateContract:
             'content': 'Some content'
         })
         assert resp.status_code == 400
-        assert 'name' in resp.get_json()['error'].lower()
+        assert 'name' in resp.get_json()['error']['message'].lower()
 
     def test_create_contract_missing_content(self, client, auth_headers, mock_sb):
         """Creating a contract without content returns 400."""
@@ -47,7 +47,7 @@ class TestCreateContract:
             'contract_type': 'client'
         })
         assert resp.status_code == 400
-        assert 'content' in resp.get_json()['error'].lower()
+        assert 'content' in resp.get_json()['error']['message'].lower()
 
     def test_create_contract_missing_party_name(self, client, auth_headers, mock_sb):
         """Creating a contract without party_name returns 400."""
@@ -57,7 +57,7 @@ class TestCreateContract:
             'content': 'content'
         })
         assert resp.status_code == 400
-        assert 'party_name' in resp.get_json()['error'].lower()
+        assert 'party_name' in resp.get_json()['error']['message'].lower()
 
     def test_create_contract_invalid_type(self, client, auth_headers, mock_sb):
         """Creating a contract with invalid type returns 400."""
@@ -68,7 +68,7 @@ class TestCreateContract:
             'content': 'content'
         })
         assert resp.status_code == 400
-        assert 'type' in resp.get_json()['error'].lower()
+        assert 'type' in resp.get_json()['error']['message'].lower()
 
 
 class TestGetContract:
@@ -122,7 +122,7 @@ class TestUpdateContract:
             'name': 'Try to change'
         })
         assert resp.status_code == 400
-        assert 'executed' in resp.get_json()['error'].lower()
+        assert 'executed' in resp.get_json()['error']['message'].lower()
 
     def test_update_optimistic_locking_conflict(self, client, auth_headers, mock_sb):
         """Mismatched updated_at triggers 409 conflict."""

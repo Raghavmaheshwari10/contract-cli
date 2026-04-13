@@ -126,7 +126,7 @@ class TestDBNotConfigured:
             index.sb = None
             resp = client.get('/api/contracts', headers=auth_headers)
             assert resp.status_code == 503
-            assert 'db' in resp.get_json()['error'].lower()
+            assert 'db' in resp.get_json()['error']['message'].lower()
         finally:
             index.sb = original_sb
 
@@ -138,7 +138,7 @@ class TestCommentsEndpoint:
         """Adding a comment without content returns 400."""
         resp = client.post('/api/contracts/1/comments', headers=auth_headers, json={})
         assert resp.status_code == 400
-        assert 'content' in resp.get_json()['error'].lower()
+        assert 'content' in resp.get_json()['error']['message'].lower()
 
     def test_add_comment_success(self, client, auth_headers, mock_sb):
         """Adding a comment with content returns 201."""

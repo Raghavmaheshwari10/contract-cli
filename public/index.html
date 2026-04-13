@@ -1753,13 +1753,14 @@ let curPage=1,filterStatus='',chatHist=[],selCids=null,mCid=null,mData=null,edit
 const J=JSON.stringify,esc=s=>{if(!s)return '';const d=document.createElement('div');d.textContent=String(s);return d.innerHTML};
 const sanitizeHtml=h=>(h||'').replace(/<script[\s\S]*?<\/script>/gi,'').replace(/on\w+\s*=/gi,'data-x=').replace(/javascript:/gi,'');
 const tc=s=>(s||'').replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase());
+const eMsg=e=>typeof e==='string'?e:(e?.message||'Unknown error');
 const authH=()=>{const h={'Content-Type':'application/json'};const t=localStorage.getItem('cm_token');if(t)h['Authorization']=`Bearer ${t}`;return h};
 const api=(u,o={})=>{if(!o.headers)o.headers=authH();return fetch(u,o)};
 async function apiFetch(url,opts={}){
 try{opts.headers={...(opts.headers||{}),...authH()};const r=await fetch(url,opts);
 if(r.status===401){doLogout();throw new Error('Session expired')}
 if(r.status===429){toast('Rate limit exceeded. Please wait.','error');throw new Error('Rate limited')}
-if(!r.ok){const d=await r.json().catch(()=>({}));throw new Error(d.error||`Request failed (${r.status})`)}
+if(!r.ok){const d=await r.json().catch(()=>({}));const em=typeof d.error==='string'?d.error:(d.error?.message||`Request failed (${r.status})`);throw new Error(em)}
 return r;}catch(e){if(!navigator.onLine){toast('You are offline. Check your connection.','error')}throw e;}}
 window.addEventListener('offline',()=>{document.getElementById('offline-banner').style.display='flex';toast('Connection lost','error')});
 window.addEventListener('online',()=>{document.getElementById('offline-banner').style.display='none';toast('Connection restored','success')});
@@ -1777,7 +1778,7 @@ _refreshInterval=setInterval(async()=>{const t=localStorage.getItem('cm_token');
 function showLogin(){document.getElementById('login-screen').style.display='flex';document.getElementById('app').style.display='none'}
 function showApp(){document.getElementById('login-screen').style.display='none';document.getElementById('app').style.display='flex';initApp();applyRBAC()}
 async function doLogin(e){e.preventDefault();const b=document.getElementById('login-btn');b.disabled=true;b.textContent='Signing in...';
-try{const r=await fetch('/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:J({email:document.getElementById('login-email').value.trim(),password:document.getElementById('login-pw').value})});const d=await r.json();if(d.token){localStorage.setItem('cm_token',d.token);if(d.user){localStorage.setItem('cm_user',J(d.user));document.querySelector('.sidebar-user .name').textContent=d.user.name;document.querySelector('.sidebar-user .role').textContent=d.user.role;document.querySelector('.sidebar-user .avatar').textContent=d.user.name.charAt(0).toUpperCase()}showApp();toast(`Welcome${d.user?' '+d.user.name:''}`,'success')}else{document.getElementById('login-error').textContent=d.error||'Invalid password'}}catch(e){document.getElementById('login-error').textContent='Connection failed'}
+try{const r=await fetch('/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:J({email:document.getElementById('login-email').value.trim(),password:document.getElementById('login-pw').value})});const d=await r.json();if(d.token){localStorage.setItem('cm_token',d.token);if(d.user){localStorage.setItem('cm_user',J(d.user));document.querySelector('.sidebar-user .name').textContent=d.user.name;document.querySelector('.sidebar-user .role').textContent=d.user.role;document.querySelector('.sidebar-user .avatar').textContent=d.user.name.charAt(0).toUpperCase()}showApp();toast(`Welcome${d.user?' '+d.user.name:''}`,'success')}else{document.getElementById('login-error').textContent=eMsg(d.error)||'Invalid password'}}catch(e){document.getElementById('login-error').textContent='Connection failed'}
 b.disabled=false;b.textContent='Sign In'}
 async function doLogout(){try{await fetch('/api/auth/logout',{method:'POST',headers:authH()})}catch(e){}localStorage.removeItem('cm_token');if(_notifInterval){clearInterval(_notifInterval);_notifInterval=null}if(_refreshInterval){clearInterval(_refreshInterval);_refreshInterval=null}showLogin()}
 
@@ -1957,7 +1958,7 @@ async function runReview(){
 const btn=document.getElementById('review-btn');btn.disabled=true;btn.innerHTML='<div class="spinner"></div> Analyzing...';
 document.getElementById('review-results').innerHTML='<div style="text-align:center;padding:2rem"><div class="spinner"></div><p style="margin-top:1rem;color:var(--text4);font-size:.84rem">AI is reviewing all clauses... This may take 15-30 seconds.</p></div>';
 try{const r=await api(`/api/contracts/${mCid}/review`,{method:'POST',headers:authH()});const d=await r.json();
-if(d.error){document.getElementById('review-results').innerHTML=`<div class="empty-state"><p>${d.error}</p></div>`;return}
+if(d.error){document.getElementById('review-results').innerHTML=`<div class="empty-state"><p>${eMsg(d.error)}</p></div>`;return}
 const s=d.summary;
 document.getElementById('review-summary').style.display='flex';
 document.getElementById('review-summary').style.cssText='display:flex;gap:1rem;margin-bottom:1rem';
@@ -2078,7 +2079,7 @@ const s={name:n,email:e,phone:p};s[t]=true;signers.push(s)}
 if(!signers.length){toast('Add at least one signer','error');return}
 try{toast('Sending to Leegality...','info');const r=await api(`/api/contracts/${mCid}/esign`,{method:'POST',headers:authH(),body:J({signers})});const d=await r.json();
 if(r.ok){toast('E-sign request sent! Signers will receive email.','success');loadSignatures();loadTimeline();if(d.signing_url)window.open(d.signing_url,'_blank')}
-else toast(d.error||'Failed','error')}catch(e){toast('Failed to send','error')}}
+else toast(eMsg(d.error)||'Failed','error')}catch(e){toast('Failed to send','error')}}
 
 // ═══ TIMELINE ═══
 async function loadTimeline(){try{const r=await api(`/api/contracts/${mCid}/activity`);const d=await r.json();
@@ -2240,14 +2241,14 @@ ps.innerHTML='<div class="spinner" style="width:14px;height:14px;border-width:2p
 const fd=new FormData();fd.append('file',f);
 try{const r=await fetch('/api/upload-pdf',{method:'POST',headers:{Authorization:`Bearer ${localStorage.getItem('cm_token')}`},body:fd});
 if(r.status===200){const d=await r.json();
-if(d.error){toast(d.error,'error');ps.textContent='Upload failed';return}
+if(d.error){toast(eMsg(d.error),'error');ps.textContent='Upload failed';return}
 document.getElementById('f-content').value=d.content;
 const method=d.method==='ocr'?'OCR (scanned)':'text';
 let statusMsg=`${f.name} (${d.pages} pages, ${method})`;
 if(d.warning){statusMsg+=` ⚠️ ${d.warning}`;toast(d.warning,'warning')}
 ps.innerHTML=method==='OCR (scanned)'?`📸 ${statusMsg}`:statusMsg;
 toast(d.method==='ocr'?'Scanned PDF processed via AI OCR — review extracted text':'PDF uploaded — content extracted','success')
-}else{const d=await r.json();toast(d.error||'Upload failed','error');ps.textContent='Upload failed'}}
+}else{const d=await r.json();toast(eMsg(d.error)||'Upload failed','error');ps.textContent='Upload failed'}}
 catch(e){ps.textContent='Failed';toast('Upload failed','error')}}
 
 // ═══ BULK PDF UPLOAD ═══
@@ -2297,7 +2298,7 @@ document.getElementById('bpf-status-0').style.color='var(--primary)';
 try{
 const r=await fetch('/api/upload-pdfs-bulk',{method:'POST',headers:{Authorization:`Bearer ${localStorage.getItem('cm_token')}`},body:fd});
 const d=await r.json();
-if(d.error){toast(d.error,'error');overlay.remove();input.value='';return}
+if(d.error){toast(eMsg(d.error),'error');overlay.remove();input.value='';return}
 
 // Update each file status
 d.results.forEach((res,i)=>{
@@ -2308,7 +2309,7 @@ statusEl.textContent=`✓ Created${res.method==='ocr'?' (OCR)':''}`;
 statusEl.style.color='var(--success)';
 iconEl.innerHTML='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>';
 }else if(res.status==='error'){
-statusEl.textContent=`✗ ${res.error}`;
+statusEl.textContent=`✗ ${eMsg(res.error)}`;
 statusEl.style.color='var(--danger)';
 iconEl.innerHTML='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
 }else{
@@ -2398,7 +2399,7 @@ const btn=document.getElementById('redline-btn');btn.disabled=true;btn.innerHTML
 const vid=document.getElementById('redline-version').value;
 const url=vid?`/api/contracts/${mCid}/redline?version_id=${vid}`:`/api/contracts/${mCid}/redline`;
 try{const r=await api(url);const d=await r.json();
-if(d.error){document.getElementById('redline-content').innerHTML=`<div class="empty-state"><div class="icon">&#x1F4DD;</div><h3>No changes available</h3><p>${esc(d.error)}</p></div>`;
+if(d.error){document.getElementById('redline-content').innerHTML=`<div class="empty-state"><div class="icon">&#x1F4DD;</div><h3>No changes available</h3><p>${esc(eMsg(d.error))}</p></div>`;
 document.getElementById('redline-stats').style.display='none';document.getElementById('redline-legend').style.display='none';return}
 
 // Stats
@@ -2505,7 +2506,7 @@ if(!editUserId&&pass){const strength=checkPwStrength(pass);if(strength==='Weak')
 const body={name,email,password:pass||undefined,role:document.getElementById('u-role').value,department:document.getElementById('u-dept').value,designation:document.getElementById('u-desg').value,phone:document.getElementById('u-phone').value};
 try{const url=editUserId?`/api/users/${editUserId}`:'/api/users';const method=editUserId?'PUT':'POST';
 const r=await api(url,{method,headers:authH(),body:J(body)});const d=await r.json();
-if(r.ok){toast(editUserId?'User updated':'User created','success');closeUserForm();loadUsers()}else toast(d.error||'Failed','error')}catch(e){toast('Failed','error')}}
+if(r.ok){toast(editUserId?'User updated':'User created','success');closeUserForm();loadUsers()}else toast(eMsg(d.error)||'Failed','error')}catch(e){toast('Failed','error')}}
 async function toggleUserStatus(id,active){try{await api(`/api/users/${id}`,{method:'PUT',headers:authH(),body:J({is_active:active})});loadUsers();toast(`User ${active?'activated':'deactivated'}`,'success')}catch(e){}}
 async function deleteUser(id){if(!confirm('Delete this user permanently?'))return;
 try{await api(`/api/users/${id}`,{method:'DELETE',headers:authH()});loadUsers();toast('User deleted','success')}catch(e){toast('Failed','error')}}
@@ -2516,7 +2517,7 @@ toast('Importing contracts... This may take a while for large files.','info');
 const fd=new FormData();fd.append('file',f);
 try{const r=await fetch('/api/bulk-import',{method:'POST',headers:{Authorization:`Bearer ${localStorage.getItem('cm_token')}`},body:fd});const d=await r.json();
 if(r.ok){toast(`Imported ${d.imported} contracts! (${d.skipped} skipped)`,'success');loadContracts();loadDashboard();
-if(d.errors?.length)console.log('Import errors:',d.errors)}else toast(d.error||'Import failed','error')}
+if(d.errors?.length)console.log('Import errors:',d.errors)}else toast(eMsg(d.error)||'Import failed','error')}
 catch(e){toast('Import failed: '+e.message,'error')}input.value=''}
 function downloadTemplate(){window.open('/api/bulk-import/template','_blank')}
 
@@ -2643,7 +2644,7 @@ const tid=document.getElementById('link-select').value;
 if(!tid){toast('Select a contract to link','error');return}
 const notes=document.getElementById('link-notes').value.trim();
 try{await api(`/api/contracts/${mCid}/links`,{method:'POST',headers:authH(),body:J({linked_contract_id:parseInt(tid),notes})});
-hideLinkPicker();loadLinkedContracts();toast('Contract linked','success')}catch(e){const d=await e.json?.().catch(()=>({}));toast(d?.error||'Failed to link','error')}}
+hideLinkPicker();loadLinkedContracts();toast('Contract linked','success')}catch(e){const d=await e.json?.().catch(()=>({}));toast(eMsg(d?.error)||'Failed to link','error')}}
 
 async function unlinkContract(linkId){
 if(!confirm('Remove this contract link?'))return;
@@ -2713,7 +2714,7 @@ async function aiSuggestClauses(){
 const btn=document.getElementById('ai-clause-btn');btn.disabled=true;btn.textContent='Suggesting...';
 const body={contract_type:document.getElementById('f-type').value,context:document.getElementById('f-content').value.substring(0,2000),department:document.getElementById('f-dept').value};
 try{const r=await api('/api/ai/suggest-clauses',{method:'POST',headers:authH(),body:J(body)});const d=await r.json();
-if(d.error){toast(d.error,'error');return}
+if(d.error){toast(eMsg(d.error),'error');return}
 const suggestions=d.suggestions||[];
 const el=document.getElementById('clause-suggestions');
 el.style.display='block';
@@ -2742,7 +2743,7 @@ async function autoRenewContract(){
 if(!mCid)return;
 if(!confirm('Create a renewal draft from this contract? A new contract will be created as a draft with extended dates.'))return;
 try{const r=await api(`/api/contracts/${mCid}/auto-renew`,{method:'POST',headers:authH()});const d=await r.json();
-if(d.error){toast(d.error,'error');return}
+if(d.error){toast(eMsg(d.error),'error');return}
 toast(d.message,'success');closeModal();loadContracts();loadDashboard();
 setTimeout(()=>openContract(d.id),500)}catch(e){toast('Renewal failed','error')}}
 
@@ -2827,7 +2828,7 @@ if(!id1||!id2){toast('Select two contracts to compare','error');return}
 if(id1===id2){toast('Select two different contracts','error');return}
 const btn=document.getElementById('cmp-btn');btn.disabled=true;btn.textContent='Comparing...';
 try{const r=await api(`/api/contracts/compare?id1=${id1}&id2=${id2}`);const d=await r.json();
-if(d.error){toast(d.error,'error');btn.disabled=false;btn.textContent='Compare';return}
+if(d.error){toast(eMsg(d.error),'error');btn.disabled=false;btn.textContent='Compare';return}
 const simColor=d.similarity>80?'var(--green)':d.similarity>50?'var(--orange)':'var(--red)';
 document.getElementById('cmp-result').innerHTML=`
 <div style="display:flex;gap:1rem;margin-bottom:1rem">
@@ -3047,7 +3048,7 @@ const to=document.getElementById('rpt-to').value;
 let url=`/api/reports?type=${rtype}`;
 if(from)url+=`&from=${from}`;if(to)url+=`&to=${to}`;
 try{const r=await api(url);const d=await r.json();
-if(d.error){toast(d.error,'error');return}
+if(d.error){toast(eMsg(d.error),'error');return}
 Object.values(rptCharts).forEach(c=>{try{c.destroy()}catch(e){}});
 const font={family:'Inter,system-ui,sans-serif'};
 if(rtype==='summary'){
@@ -3378,14 +3379,14 @@ on_comment:document.getElementById('ep-comment').checked,
 on_expiry:document.getElementById('ep-expiry').checked,
 on_workflow:document.getElementById('ep-workflow').checked
 })});const d=await r.json();
-if(d.error){toast(d.error,'error')}else{toast('Email preferences saved','success')}}
+if(d.error){toast(eMsg(d.error),'error')}else{toast('Email preferences saved','success')}}
 catch(e){toast('Failed to save','error')}
 btn.disabled=false;btn.textContent='Save Preferences'}
 
 async function testEmail(){
 const btn=document.getElementById('test-email-btn');btn.disabled=true;btn.innerHTML='<div class="spinner" style="width:14px;height:14px;border-width:2px"></div> Sending...';
 try{const r=await api('/api/email-preferences/test',{method:'POST',headers:authH()});const d=await r.json();
-if(d.error){toast(d.error,'error')}else{toast(d.message,'success')}}
+if(d.error){toast(eMsg(d.error),'error')}else{toast(d.message,'success')}}
 catch(e){toast('Failed to send test email','error')}
 btn.disabled=false;btn.innerHTML='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg> Send Test Email'}
 
@@ -3398,7 +3399,7 @@ if(!mCid)return;
 const name=prompt('Name for the cloned contract:','Copy of '+(mData?.name||''));
 if(!name)return;
 try{const r=await api(`/api/contracts/${mCid}/clone`,{method:'POST',headers:authH(),body:J({name})});const d=await r.json();
-if(d.error){toast(d.error,'error')}else{toast(d.message,'success');closeModal();loadContracts();loadDashboard()}}catch(e){toast('Clone failed','error')}}
+if(d.error){toast(eMsg(d.error),'error')}else{toast(d.message,'success');closeModal();loadContracts();loadDashboard()}}catch(e){toast('Clone failed','error')}}
 
 // ═══ BULK ACTIONS ═══
 let bulkSelected=new Set();
@@ -3483,7 +3484,7 @@ if(pw.length<6){toast('Password must be at least 6 characters','error');return}
 const adminPw=prompt('Enter admin password to confirm:');
 if(!adminPw)return;
 try{const r=await fetch('/api/auth/reset-password',{method:'POST',headers:{'Content-Type':'application/json'},body:J({email,new_password:pw,admin_password:adminPw})});const d=await r.json();
-if(d.error){toast(d.error,'error')}else{toast(d.message,'success');document.getElementById('reset-email').value='';document.getElementById('reset-pw').value=''}}catch(e){toast('Reset failed','error')}}
+if(d.error){toast(eMsg(d.error),'error')}else{toast(d.message,'success');document.getElementById('reset-email').value='';document.getElementById('reset-pw').value=''}}catch(e){toast('Reset failed','error')}}
 
 // ═══ EXECUTIVE DASHBOARD ═══
 async function loadExecDashboard(){
@@ -3569,10 +3570,10 @@ document.getElementById('slack-webhook-url').value=d.url||''}catch(e){}}
 async function saveSlackWebhook(){
 const url=document.getElementById('slack-webhook-url').value.trim();
 try{const r=await api('/api/settings/slack-webhook',{method:'POST',headers:authH(),body:J({url})});const d=await r.json();
-if(d.error){toast(d.error,'error')}else{toast('Slack webhook saved','success')}}catch(e){toast('Failed to save','error')}}
+if(d.error){toast(eMsg(d.error),'error')}else{toast('Slack webhook saved','success')}}catch(e){toast('Failed to save','error')}}
 async function testSlackWebhook(){
 try{const r=await api('/api/settings/slack-test',{method:'POST',headers:authH()});const d=await r.json();
-if(d.error){toast(d.error,'error')}else{toast(d.message,'success')}}catch(e){toast('Failed to test','error')}}
+if(d.error){toast(eMsg(d.error),'error')}else{toast(d.message,'success')}}catch(e){toast('Failed to test','error')}}
 
 // ═══ KEYBOARD ═══
 document.addEventListener('keydown',e=>{

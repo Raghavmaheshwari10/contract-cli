@@ -144,7 +144,7 @@ class TestContractInvoices:
             'amount': '₹50,000'
         })
         assert resp.status_code == 400
-        assert 'invoice number' in resp.get_json()['error'].lower()
+        assert 'invoice number' in resp.get_json()['error']['message'].lower()
 
     def test_get_invoices(self, client, auth_headers, mock_sb):
         invoices = [{'id': 1, 'invoice_number': 'INV-001', 'amount': '₹50,000'}]
@@ -328,7 +328,7 @@ class TestSignContractValidation:
             'signer_name': 'John', 'signature_data': 'base64sig'
         })
         assert resp.status_code == 400
-        assert 'draft' in resp.get_json()['error'].lower()
+        assert 'draft' in resp.get_json()['error']['message'].lower()
 
     def test_sign_pending_contract_succeeds(self, client, auth_headers, mock_sb):
         """Can sign a pending contract."""
