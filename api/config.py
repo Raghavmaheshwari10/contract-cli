@@ -28,9 +28,16 @@ _rate_store = {}  # {ip: [(timestamp, ...)] }
 RATE_LIMIT = int(os.environ.get("RATE_LIMIT", "120"))  # requests per minute
 RATE_WINDOW = 60  # seconds
 
+MAX_RATE_STORE_IPS = 10000  # Prevent unbounded memory growth
+
 def _check_rate_limit():
     ip = request.headers.get("X-Forwarded-For", request.remote_addr or "unknown").split(",")[0].strip()
     now = time.time()
+    # Evict stale IPs if store grows too large
+    if len(_rate_store) > MAX_RATE_STORE_IPS:
+        stale = [k for k, v in _rate_store.items() if not v or now - v[-1] > RATE_WINDOW]
+        for k in stale:
+            del _rate_store[k]
     if ip not in _rate_store:
         _rate_store[ip] = []
     _rate_store[ip] = [t for t in _rate_store[ip] if now - t < RATE_WINDOW]
@@ -80,7 +87,12 @@ VALID_TRANSITIONS = {
 
 # ─── Backup Tables ──────────────────────────────────────────────────────
 BACKUP_TABLES = [
-    "contracts", "contract_tags", "contract_templates", "clause_library",
-    "clm_users", "workflow_rules", "custom_field_defs", "custom_field_values",
-    "webhook_configs", "email_preferences",
+    "contracts", "contract_versions", "contract_chunks", "contract_tags",
+    "contract_comments", "contract_approvals", "contract_obligations",
+    "contract_signatures", "contract_collaborators", "contract_parties",
+    "contract_links", "contract_activity", "contract_templates",
+    "clause_library", "tag_presets", "share_links", "invoices",
+    "clm_users", "workflow_rules", "workflow_log",
+    "custom_field_defs", "custom_field_values",
+    "notifications", "webhook_configs", "email_preferences",
 ]

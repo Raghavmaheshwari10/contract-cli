@@ -36,10 +36,10 @@ def auth_token():
 
     Uses empty email so the auth decorator skips the DB user lookup
     and defaults to admin role. Tests that need email-based auth
-    should create tokens via mk_token("email@example.com") directly.
+    should create tokens via make_token("email@example.com") directly.
     """
-    from index import mk_token
-    return mk_token("")
+    from index import make_token
+    return make_token("")
 
 
 @pytest.fixture

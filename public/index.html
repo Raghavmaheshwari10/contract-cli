@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="referrer" content="no-referrer">
 <title>EMB CLM — Contract Lifecycle Management</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <link href="https://cdn.quilljs.com/1.3.7/quill.snow.css" rel="stylesheet">
@@ -266,6 +267,13 @@ select.form-input{cursor:pointer}
 .risk-low{background:var(--green-bg);color:var(--green)}
 .risk-medium{background:var(--orange-bg);color:var(--orange)}
 .risk-high{background:var(--red-bg);color:var(--red)}
+.risk-critical{background:#fef2f2;color:#991b1b;font-weight:700}
+.review-executive{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:1rem 1.2rem;margin-bottom:1rem;font-size:.85rem;line-height:1.6}
+.review-executive h4{font-size:.82rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--text3);margin-bottom:.5rem}
+.review-executive .risk-badge{display:inline-block;padding:.2rem .6rem;border-radius:10px;font-size:.75rem;font-weight:600;margin-left:.5rem}
+.review-actions-list{margin-top:.5rem;padding-left:1.2rem}
+.review-actions-list li{font-size:.82rem;margin-bottom:.3rem;color:var(--text2)}
+.review-priority{font-size:.62rem;padding:.1rem .35rem;border-radius:6px;background:var(--surface2);color:var(--text4);font-weight:600;margin-left:.3rem}
 .review-detail{display:none;margin-top:.8rem;padding-top:.8rem;border-top:1px solid var(--border3);font-size:.82rem;color:var(--text2);line-height:1.7}
 .review-card.open .review-detail{display:block}
 .review-field{margin-bottom:.5rem}
@@ -303,6 +311,19 @@ select.form-input{cursor:pointer}
 .chat-msg .bubble .text strong{color:var(--text);font-weight:600}
 .chat-msg .bubble .sources{margin-top:.5rem;display:flex;gap:.3rem;flex-wrap:wrap}
 .chat-msg .bubble .sources span{font-size:.68rem;padding:.2rem .5rem;background:var(--primary-bg);color:var(--primary);border-radius:10px;font-weight:500}
+.chat-msg .bubble .actions{margin-top:.5rem;display:flex;gap:.3rem}
+.chat-msg .bubble .actions button{font-size:.68rem;padding:.2rem .5rem;background:var(--surface2);color:var(--text3);border:1px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;transition:var(--transition);display:flex;align-items:center;gap:.3rem}
+.chat-msg .bubble .actions button:hover{background:var(--primary-bg);color:var(--primary);border-color:var(--primary)}
+.chat-msg .bubble .actions button.copied{background:var(--green);color:#fff;border-color:var(--green)}
+.chat-followups{padding:.5rem 1.5rem;display:flex;gap:.4rem;flex-wrap:wrap}
+.chat-followups button{font-size:.76rem;padding:.4rem .8rem;background:var(--primary-bg);color:var(--primary);border:1px solid rgba(37,99,235,.15);border-radius:15px;cursor:pointer;transition:var(--transition);max-width:250px;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chat-followups button:hover{background:var(--primary);color:#fff;border-color:var(--primary)}
+.chat-typing{display:flex;gap:.3rem;align-items:center;padding:.5rem 0}
+.chat-typing .dot{width:6px;height:6px;border-radius:50%;background:var(--primary);animation:typingDot 1.4s ease-in-out infinite}
+.chat-typing .dot:nth-child(2){animation-delay:.2s}
+.chat-typing .dot:nth-child(3){animation-delay:.4s}
+@keyframes typingDot{0%,60%,100%{opacity:.3;transform:scale(.8)}30%{opacity:1;transform:scale(1.1)}}
+.chat-query-badge{font-size:.62rem;padding:.15rem .4rem;background:var(--surface2);color:var(--text4);border-radius:8px;font-weight:500;margin-left:.3rem;text-transform:uppercase;letter-spacing:.03em}
 .chat-input-area{padding:1rem 1.5rem;border-top:1px solid var(--border);display:flex;gap:.6rem;align-items:flex-end}
 .chat-input-area textarea{flex:1;border:1px solid var(--border);border-radius:var(--radius);padding:.7rem 1rem;resize:none;font-size:.88rem;max-height:120px;min-height:42px;transition:var(--transition)}
 .chat-input-area textarea:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px rgba(37,99,235,.08)}
@@ -998,17 +1019,20 @@ Use placeholders like [PARTY_NAME], [DATE], [COMPANY_NAME], [ADDRESS] for fields
 <div class="empty-state" id="chat-empty">
 <div class="icon">&#x1F916;</div>
 <h3>AI Contract Assistant</h3>
-<p>Ask anything about your contracts — financial analysis, risk assessment, clause comparison, deadline tracking.</p>
+<p>Ask anything about your contracts — financial analysis, risk assessment, clause comparison, deadline tracking, and more.</p>
 <div style="display:flex;flex-wrap:wrap;gap:.4rem;justify-content:center;margin-top:1rem">
 <button class="btn btn-outline btn-sm" onclick="sendQuick('What contracts are expiring in the next 30 days?')">Expiring contracts</button>
-<button class="btn btn-outline btn-sm" onclick="sendQuick('Summarize all active contracts by value')">Contract summary</button>
-<button class="btn btn-outline btn-sm" onclick="sendQuick('What are the key risks across all contracts?')">Risk analysis</button>
-<button class="btn btn-outline btn-sm" onclick="sendQuick('Compare payment terms across all contracts')">Payment terms</button>
+<button class="btn btn-outline btn-sm" onclick="sendQuick('Summarize all active contracts by total value and status')">Contract summary</button>
+<button class="btn btn-outline btn-sm" onclick="sendQuick('What are the top risks across all contracts? Rate each as critical, high, medium, or low.')">Risk analysis</button>
+<button class="btn btn-outline btn-sm" onclick="sendQuick('Compare payment terms, penalties, and SLAs across all contracts in a table')">Payment comparison</button>
+<button class="btn btn-outline btn-sm" onclick="sendQuick('List all SLA and penalty clauses with exact amounts and conditions')">SLA & penalties</button>
+<button class="btn btn-outline btn-sm" onclick="sendQuick('What standard clauses are missing from my contracts?')">Missing clauses</button>
 </div>
 </div>
 </div>
+<div class="chat-followups" id="chat-followups"></div>
 <div class="chat-input-area">
-<textarea id="chat-input" placeholder="Ask about your contracts..." rows="1" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendChat()}"></textarea>
+<textarea id="chat-input" placeholder="Ask about your contracts — try financial analysis, risk review, clause comparison..." rows="1" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendChat()}"></textarea>
 <button class="chat-send" onclick="sendChat()" id="chat-send-btn">
 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
 </button>
@@ -1146,7 +1170,10 @@ Use placeholders like [PARTY_NAME], [DATE], [COMPANY_NAME], [ADDRESS] for fields
 <label style="font-size:.72rem;font-weight:600;color:var(--text4);text-transform:uppercase">Contract 2</label>
 <select class="form-input" id="cmp-c2" style="font-size:.82rem"></select>
 </div>
+<div style="display:flex;align-items:center;gap:.8rem">
+<label style="display:flex;align-items:center;gap:.4rem;font-size:.78rem;color:var(--text3);cursor:pointer;white-space:nowrap"><input type="checkbox" id="cmp-ai-toggle" checked style="accent-color:var(--primary)"> AI Analysis</label>
 <button class="btn btn-primary" onclick="runCompare()" id="cmp-btn">Compare</button>
+</div>
 </div>
 <div id="cmp-result"></div>
 </div>
@@ -1518,9 +1545,14 @@ Upcoming Events</h4>
 </div>
 
 <div class="tab-panel" id="mp-review">
-<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem">
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:.5rem">
 <div><h3 style="font-size:.95rem;font-weight:600">AI Contract Review</h3><p style="font-size:.78rem;color:var(--text4);margin-top:.15rem">Clause-by-clause analysis against legal best practices</p></div>
-<button class="btn btn-primary" onclick="runReview()" id="review-btn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg> Run AI Review</button>
+<div style="display:flex;gap:.4rem;flex-wrap:wrap">
+<button class="btn btn-outline btn-sm" onclick="runExplain()" id="explain-btn" title="Explain in plain English">Explain</button>
+<button class="btn btn-outline btn-sm" onclick="runExtractObligations()" id="extract-btn" title="Extract all obligations">Extract Obligations</button>
+<button class="btn btn-outline btn-sm" onclick="runAiSummary()" id="summary-btn" title="Executive summary">Summary</button>
+<button class="btn btn-primary" onclick="runReview()" id="review-btn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg> Full Review</button>
+</div>
 </div>
 <div id="review-summary" style="display:none;margin-bottom:1rem"></div>
 <div id="review-results"></div>
@@ -1755,7 +1787,7 @@ const sanitizeHtml=h=>(h||'').replace(/<script[\s\S]*?<\/script>/gi,'').replace(
 const tc=s=>(s||'').replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase());
 const eMsg=e=>typeof e==='string'?e:(e?.message||'Unknown error');
 const authH=()=>{const h={'Content-Type':'application/json'};const t=localStorage.getItem('cm_token');if(t)h['Authorization']=`Bearer ${t}`;return h};
-const api=(u,o={})=>{if(!o.headers)o.headers=authH();return fetch(u,o)};
+const api=async(u,o={})=>{if(!o.headers)o.headers=authH();const r=await fetch(u,o);if(r.status===401){doLogout();throw new Error('Session expired')}return r};
 async function apiFetch(url,opts={}){
 try{opts.headers={...(opts.headers||{}),...authH()};const r=await fetch(url,opts);
 if(r.status===401){doLogout();throw new Error('Session expired')}
@@ -1956,26 +1988,111 @@ try{await api(`/api/contracts/${mCid}`,{method:'DELETE',headers:authH()});closeM
 // ═══ AI REVIEW ═══
 async function runReview(){
 const btn=document.getElementById('review-btn');btn.disabled=true;btn.innerHTML='<div class="spinner"></div> Analyzing...';
-document.getElementById('review-results').innerHTML='<div style="text-align:center;padding:2rem"><div class="spinner"></div><p style="margin-top:1rem;color:var(--text4);font-size:.84rem">AI is reviewing all clauses... This may take 15-30 seconds.</p></div>';
+document.getElementById('review-results').innerHTML='<div style="text-align:center;padding:2rem"><div class="spinner"></div><p style="margin-top:1rem;color:var(--text4);font-size:.84rem">AI is performing deep clause-by-clause analysis...</p><p style="color:var(--text5);font-size:.76rem">Analyzing up to 18 clauses against industry best practices</p></div>';
 try{const r=await api(`/api/contracts/${mCid}/review`,{method:'POST',headers:authH()});const d=await r.json();
 if(d.error){document.getElementById('review-results').innerHTML=`<div class="empty-state"><p>${eMsg(d.error)}</p></div>`;return}
 const s=d.summary;
-document.getElementById('review-summary').style.display='flex';
-document.getElementById('review-summary').style.cssText='display:flex;gap:1rem;margin-bottom:1rem';
-document.getElementById('review-summary').innerHTML=`
-<div style="flex:1;padding:.8rem 1rem;background:var(--green-bg);border:1px solid var(--green-border);border-radius:var(--radius);text-align:center"><div style="font-size:1.5rem;font-weight:800;color:var(--green)">${s.aligned}</div><div style="font-size:.72rem;color:var(--green);font-weight:600;text-transform:uppercase">Aligned</div></div>
-<div style="flex:1;padding:.8rem 1rem;background:var(--orange-bg);border:1px solid var(--orange-border);border-radius:var(--radius);text-align:center"><div style="font-size:1.5rem;font-weight:800;color:var(--orange)">${s.partial}</div><div style="font-size:.72rem;color:var(--orange);font-weight:600;text-transform:uppercase">Partial</div></div>
-<div style="flex:1;padding:.8rem 1rem;background:var(--red-bg);border:1px solid var(--red-border);border-radius:var(--radius);text-align:center"><div style="font-size:1.5rem;font-weight:800;color:var(--red)">${s.issues}</div><div style="font-size:.72rem;color:var(--red);font-weight:600;text-transform:uppercase">Issues</div></div>`;
+const riskColor={'low':'var(--green)','medium':'var(--orange)','high':'var(--red)','critical':'#991b1b'};
+const riskBg={'low':'var(--green-bg)','medium':'var(--orange-bg)','high':'var(--red-bg)','critical':'#fef2f2'};
 
-document.getElementById('review-results').innerHTML=d.review.map(r=>`<div class="review-card ${r.status}" onclick="this.classList.toggle('open')">
-<div class="review-header"><h4><span class="badge-dot" style="background:${r.status==='aligned'?'var(--green)':r.status==='partially_aligned'?'var(--orange)':'var(--red)'}"></span>${esc(r.clause_name)}${r.section_ref?` <span style="font-size:.72rem;color:var(--text4);font-weight:400">(${r.section_ref})</span>`:''}</h4><span class="risk risk-${r.risk_level}">${r.risk_level}</span></div>
+/* Executive summary + overall risk */
+let execHtml='';
+if(d.executive_summary||d.overall_risk){
+execHtml=`<div class="review-executive"><h4>Executive Summary<span class="risk-badge" style="background:${riskBg[d.overall_risk]||'var(--surface2)'};color:${riskColor[d.overall_risk]||'var(--text3)'}">${esc(d.overall_risk||'medium')} risk</span></h4><p>${esc(d.executive_summary||'')}</p>`;
+if(d.top_actions&&d.top_actions.length){execHtml+=`<h4 style="margin-top:.8rem">Priority Actions</h4><ol class="review-actions-list">${d.top_actions.map(a=>`<li>${esc(a)}</li>`).join('')}</ol>`}
+execHtml+='</div>'}
+
+document.getElementById('review-summary').style.display='flex';
+document.getElementById('review-summary').style.cssText='display:flex;gap:1rem;margin-bottom:1rem;flex-wrap:wrap';
+document.getElementById('review-summary').innerHTML=`
+<div style="flex:1;min-width:80px;padding:.8rem 1rem;background:var(--green-bg);border:1px solid var(--green-border);border-radius:var(--radius);text-align:center"><div style="font-size:1.5rem;font-weight:800;color:var(--green)">${s.aligned}</div><div style="font-size:.72rem;color:var(--green);font-weight:600;text-transform:uppercase">Aligned</div></div>
+<div style="flex:1;min-width:80px;padding:.8rem 1rem;background:var(--orange-bg);border:1px solid var(--orange-border);border-radius:var(--radius);text-align:center"><div style="font-size:1.5rem;font-weight:800;color:var(--orange)">${s.partial}</div><div style="font-size:.72rem;color:var(--orange);font-weight:600;text-transform:uppercase">Partial</div></div>
+<div style="flex:1;min-width:80px;padding:.8rem 1rem;background:var(--red-bg);border:1px solid var(--red-border);border-radius:var(--radius);text-align:center"><div style="font-size:1.5rem;font-weight:800;color:var(--red)">${s.issues}</div><div style="font-size:.72rem;color:var(--red);font-weight:600;text-transform:uppercase">Issues</div></div>
+${s.critical?`<div style="flex:1;min-width:80px;padding:.8rem 1rem;background:#fef2f2;border:1px solid #fecaca;border-radius:var(--radius);text-align:center"><div style="font-size:1.5rem;font-weight:800;color:#991b1b">${s.critical}</div><div style="font-size:.72rem;color:#991b1b;font-weight:600;text-transform:uppercase">Critical</div></div>`:''}`;
+
+document.getElementById('review-results').innerHTML=execHtml+d.review.map(r=>{
+const priorityLabel=['','P1','P2','P3','P4','P5'][r.priority||3]||'';
+return `<div class="review-card ${r.status}" onclick="this.classList.toggle('open')">
+<div class="review-header"><h4><span class="badge-dot" style="background:${r.status==='aligned'?'var(--green)':r.status==='partially_aligned'?'var(--orange)':'var(--red)'}"></span>${esc(r.clause_name)}${r.section_ref&&r.section_ref!=='N/A'?` <span style="font-size:.72rem;color:var(--text4);font-weight:400">(${esc(r.section_ref)})</span>`:''}${priorityLabel?` <span class="review-priority">${priorityLabel}</span>`:''}</h4><span class="risk risk-${r.risk_level}">${r.risk_level}</span></div>
 <div class="review-detail">
-<div class="review-field"><strong>Criteria:</strong><br>${esc(r.criteria)}</div>
+<div class="review-field"><strong>Best Practice Criteria:</strong><br>${esc(r.criteria)}</div>
 <div class="review-field"><strong>Finding:</strong><br>${esc(r.review)}</div>
 <div class="review-field"><strong>Recommendation:</strong><br>${esc(r.recommendation)}</div>
-</div></div>`).join('');
-}catch(e){document.getElementById('review-results').innerHTML=`<div class="empty-state"><p>Review failed: ${e.message}</p></div>`}
-btn.disabled=false;btn.innerHTML='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg> Run AI Review'}
+</div></div>`}).join('');
+}catch(e){document.getElementById('review-results').innerHTML=`<div class="empty-state"><p>Review failed: ${esc(e.message)}</p></div>`}
+btn.disabled=false;btn.innerHTML='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg> Full Review'}
+
+async function runExplain(){
+const btn=document.getElementById('explain-btn');btn.disabled=true;btn.textContent='Explaining...';
+document.getElementById('review-summary').style.display='none';
+document.getElementById('review-results').innerHTML='<div style="text-align:center;padding:2rem"><div class="spinner"></div><p style="margin-top:1rem;color:var(--text4);font-size:.84rem">Translating legal language to plain English...</p></div>';
+try{const r=await api(`/api/contracts/${mCid}/explain`,{method:'POST',headers:authH()});const d=await r.json();
+if(d.error){document.getElementById('review-results').innerHTML=`<div class="empty-state"><p>${eMsg(d.error)}</p></div>`;return}
+document.getElementById('review-results').innerHTML=`
+<div class="card" style="border-left:4px solid var(--primary);margin-bottom:1rem">
+<div style="padding:1rem 1.2rem"><strong style="font-size:.78rem;text-transform:uppercase;color:var(--text4)">In One Sentence</strong><p style="font-size:1rem;font-weight:600;color:var(--text);margin-top:.3rem">${esc(d.in_one_sentence||'')}</p></div></div>
+<div class="card" style="margin-bottom:1rem"><div style="padding:1rem 1.2rem"><strong style="font-size:.78rem;text-transform:uppercase;color:var(--text4)">Plain English Explanation</strong><div style="margin-top:.5rem;font-size:.88rem;line-height:1.8;color:var(--text2)">${renderMd(d.plain_english||'')}</div></div></div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem">
+<div class="card"><div style="padding:1rem 1.2rem"><strong style="font-size:.78rem;text-transform:uppercase;color:var(--green)">What You (EMB) Must Do</strong><ul style="margin-top:.5rem;padding-left:1.2rem">${(d.what_you_must_do||[]).map(i=>`<li style="font-size:.84rem;color:var(--text2);margin-bottom:.3rem">${esc(i)}</li>`).join('')}</ul></div></div>
+<div class="card"><div style="padding:1rem 1.2rem"><strong style="font-size:.78rem;text-transform:uppercase;color:var(--primary)">What They Must Do</strong><ul style="margin-top:.5rem;padding-left:1.2rem">${(d.what_they_must_do||[]).map(i=>`<li style="font-size:.84rem;color:var(--text2);margin-bottom:.3rem">${esc(i)}</li>`).join('')}</ul></div></div>
+</div>
+${d.watch_out_for?.length?`<div class="card" style="border-left:4px solid var(--orange)"><div style="padding:1rem 1.2rem"><strong style="font-size:.78rem;text-transform:uppercase;color:var(--orange)">Watch Out For</strong><ul style="margin-top:.5rem;padding-left:1.2rem">${d.watch_out_for.map(i=>`<li style="font-size:.84rem;color:var(--text2);margin-bottom:.3rem">${esc(i)}</li>`).join('')}</ul></div></div>`:''}`}
+catch(e){document.getElementById('review-results').innerHTML=`<div class="empty-state"><p>Failed: ${esc(e.message)}</p></div>`}
+btn.disabled=false;btn.textContent='Explain'}
+
+async function runExtractObligations(){
+const btn=document.getElementById('extract-btn');btn.disabled=true;btn.textContent='Extracting...';
+document.getElementById('review-summary').style.display='none';
+document.getElementById('review-results').innerHTML='<div style="text-align:center;padding:2rem"><div class="spinner"></div><p style="margin-top:1rem;color:var(--text4);font-size:.84rem">AI is scanning for all obligations, deadlines, and deliverables...</p></div>';
+try{const r=await api(`/api/contracts/${mCid}/extract-obligations`,{method:'POST',headers:authH(),body:J({auto_save:false})});const d=await r.json();
+if(d.error){document.getElementById('review-results').innerHTML=`<div class="empty-state"><p>${eMsg(d.error)}</p></div>`;return}
+const pColor={high:'var(--red)',medium:'var(--orange)',low:'var(--green)'};
+const catIcons={deliverable:'&#x1F4E6;',payment:'&#x1F4B0;',reporting:'&#x1F4CA;',compliance:'&#x2705;',notification:'&#x1F514;',milestone:'&#x1F3AF;'};
+
+let deadlineHtml='';
+if(d.key_deadlines?.length){deadlineHtml=`<div class="card" style="margin-bottom:1rem;border-left:4px solid var(--red)"><div style="padding:1rem 1.2rem"><strong style="font-size:.78rem;text-transform:uppercase;color:var(--red)">Key Deadlines</strong><div style="margin-top:.5rem">${d.key_deadlines.map(dl=>`<div style="display:flex;align-items:center;gap:.6rem;padding:.4rem 0;border-bottom:1px solid var(--border3)"><span style="font-size:.82rem;font-weight:600;color:${dl.critical?'var(--red)':'var(--text3)'};min-width:90px">${esc(dl.date||'TBD')}</span><span style="font-size:.82rem;color:var(--text2)">${esc(dl.description)}</span>${dl.critical?'<span style="font-size:.65rem;padding:.1rem .4rem;background:var(--red-bg);color:var(--red);border-radius:8px;font-weight:600">CRITICAL</span>':''}</div>`).join('')}</div></div></div>`}
+
+document.getElementById('review-results').innerHTML=`
+<div style="display:flex;gap:1rem;margin-bottom:1rem"><div class="card" style="flex:1;text-align:center;padding:.8rem"><div style="font-size:1.8rem;font-weight:800;color:var(--primary)">${d.total_found}</div><div style="font-size:.72rem;color:var(--text4);font-weight:600;text-transform:uppercase">Obligations Found</div></div>
+<div class="card" style="flex:1;text-align:center;padding:.8rem"><div style="font-size:1.8rem;font-weight:800;color:var(--red)">${d.obligations.filter(o=>o.priority==='high').length}</div><div style="font-size:.72rem;color:var(--text4);font-weight:600;text-transform:uppercase">High Priority</div></div></div>
+${deadlineHtml}
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.8rem"><h4 style="font-size:.88rem;font-weight:600">All Obligations</h4><button class="btn btn-primary btn-sm" onclick="saveExtractedObligations()">Save All to Contract</button></div>
+${d.obligations.map((o,i)=>`<div class="review-card aligned" onclick="this.classList.toggle('open')" style="border-left-color:${pColor[o.priority]||'var(--green)'}">
+<div class="review-header"><h4><span style="margin-right:.4rem">${catIcons[o.category]||'&#x1F4CB;'}</span>${esc(o.title)}${o.section_ref?` <span style="font-size:.72rem;color:var(--text4);font-weight:400">(${esc(o.section_ref)})</span>`:''}</h4><span class="risk risk-${o.priority}">${o.priority}</span></div>
+<div class="review-detail">
+<div class="review-field"><strong>Description:</strong><br>${esc(o.description)}</div>
+<div style="display:flex;gap:1rem;flex-wrap:wrap;margin-top:.5rem">
+<div class="review-field"><strong>Responsible:</strong><br>${esc(o.responsible_party||'N/A')}</div>
+<div class="review-field"><strong>Due:</strong><br>${esc(o.due_date||'Not specified')}</div>
+<div class="review-field"><strong>Frequency:</strong><br>${esc(o.frequency||'one-time')}</div>
+<div class="review-field"><strong>Category:</strong><br>${esc(o.category||'general')}</div>
+</div></div></div>`).join('')}`;
+window._extractedObligations=d.obligations}
+catch(e){document.getElementById('review-results').innerHTML=`<div class="empty-state"><p>Failed: ${esc(e.message)}</p></div>`}
+btn.disabled=false;btn.textContent='Extract Obligations'}
+
+async function saveExtractedObligations(){
+if(!window._extractedObligations?.length){toast('No obligations to save','error');return}
+try{const r=await api(`/api/contracts/${mCid}/extract-obligations`,{method:'POST',headers:authH(),body:J({auto_save:true})});const d=await r.json();
+toast(`Saved ${d.saved||0} obligations to contract`,'success');loadObligations&&loadObligations()}catch(e){toast('Failed to save','error')}}
+
+async function runAiSummary(){
+const btn=document.getElementById('summary-btn');btn.disabled=true;btn.textContent='Generating...';
+document.getElementById('review-summary').style.display='none';
+document.getElementById('review-results').innerHTML='<div style="text-align:center;padding:2rem"><div class="spinner"></div><p style="margin-top:1rem;color:var(--text4);font-size:.84rem">Generating executive summary...</p></div>';
+try{const r=await api(`/api/contracts/${mCid}/ai-summary`,{method:'POST',headers:authH()});const d=await r.json();
+if(d.error){document.getElementById('review-results').innerHTML=`<div class="empty-state"><p>${eMsg(d.error)}</p></div>`;return}
+document.getElementById('review-results').innerHTML=`
+<div class="card" style="border-left:4px solid var(--primary);margin-bottom:1rem"><div style="padding:1rem 1.2rem"><strong style="font-size:.78rem;text-transform:uppercase;color:var(--text4)">One-Line Summary</strong><p style="font-size:1rem;font-weight:600;color:var(--text);margin-top:.3rem">${esc(d.one_liner||'')}</p></div></div>
+${d.key_terms?`<div class="card" style="margin-bottom:1rem"><div style="padding:1rem 1.2rem"><strong style="font-size:.78rem;text-transform:uppercase;color:var(--text4)">Key Terms</strong><div style="display:grid;grid-template-columns:1fr 1fr;gap:.8rem;margin-top:.5rem">${Object.entries(d.key_terms).map(([k,v])=>`<div><span style="font-size:.72rem;color:var(--text4);text-transform:uppercase;font-weight:600">${esc(k)}</span><p style="font-size:.88rem;color:var(--text);margin-top:.15rem">${esc(v)}</p></div>`).join('')}</div></div></div>`:''}
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem">
+<div class="card"><div style="padding:1rem 1.2rem"><strong style="font-size:.78rem;text-transform:uppercase;color:var(--primary)">Key Obligations</strong><ul style="margin-top:.5rem;padding-left:1.2rem">${(d.obligations||[]).map(i=>`<li style="font-size:.84rem;color:var(--text2);margin-bottom:.3rem">${esc(i)}</li>`).join('')}</ul></div></div>
+<div class="card" style="border-left:3px solid var(--orange)"><div style="padding:1rem 1.2rem"><strong style="font-size:.78rem;text-transform:uppercase;color:var(--orange)">Risks to Flag</strong><ul style="margin-top:.5rem;padding-left:1.2rem">${(d.risks||[]).map(i=>`<li style="font-size:.84rem;color:var(--text2);margin-bottom:.3rem">${esc(i)}</li>`).join('')}</ul></div></div>
+</div>
+${d.key_dates?.length?`<div class="card" style="margin-bottom:1rem"><div style="padding:1rem 1.2rem"><strong style="font-size:.78rem;text-transform:uppercase;color:var(--text4)">Key Dates</strong><div style="margin-top:.5rem">${d.key_dates.map(kd=>`<div style="display:flex;gap:.6rem;padding:.4rem 0;border-bottom:1px solid var(--border3)"><span style="font-weight:600;font-size:.82rem;color:var(--primary);min-width:90px">${esc(kd.date||'')}</span><span style="font-size:.82rem;color:var(--text2)">${esc(kd.description||'')}</span></div>`).join('')}</div></div></div>`:''}
+${d.recommendation?`<div style="padding:.8rem 1rem;background:var(--primary-bg);border-radius:var(--radius);font-size:.88rem;color:var(--primary);font-weight:500;border:1px solid rgba(37,99,235,.15)">${esc(d.recommendation)}</div>`:''}`}
+catch(e){document.getElementById('review-results').innerHTML=`<div class="empty-state"><p>Failed: ${esc(e.message)}</p></div>`}
+btn.disabled=false;btn.textContent='Summary'}
 
 // ═══ COMMENTS ═══
 async function loadComments(){try{const r=await api(`/api/contracts/${mCid}/comments`);const d=await r.json();
@@ -2347,21 +2464,33 @@ btn.disabled=false;btn.innerHTML='<svg width="14" height="14" viewBox="0 0 24 24
 function loadChatScope(){loadTemplateOptions()}
 async function sendChat(){const inp=document.getElementById('chat-input');const msg=inp.value.trim();if(!msg)return;
 inp.value='';document.getElementById('chat-empty')?.remove();
+document.getElementById('chat-followups')&&(document.getElementById('chat-followups').innerHTML='');
 chatHist.push({role:'user',content:msg});renderChat();
 const scope=_chatScopeValue||'';
 const cids=scope?scope.split(',').map(s=>parseInt(s.trim())):null;
 const btn=document.getElementById('chat-send-btn');btn.disabled=true;
-chatHist.push({role:'assistant',content:''});
-try{const r=await fetch('/api/chat',{method:'POST',headers:authH(),body:J({message:msg,history:chatHist.slice(0,-1),stream:true,contract_ids:cids})});
+chatHist.push({role:'assistant',content:'',_streaming:true});renderChat(true);
+try{const r=await fetch('/api/chat',{method:'POST',headers:authH(),body:J({message:msg,history:chatHist.slice(0,-1).filter(m=>!m._streaming),stream:true,contract_ids:cids})});
+if(!r.ok){const ed=await r.json().catch(()=>({}));throw new Error(ed.error?.message||'AI request failed')}
 const reader=r.body.getReader();const dec=new TextDecoder();let buf='';
 while(true){const{done,value}=await reader.read();if(done)break;
 buf+=dec.decode(value,{stream:true});const lines=buf.split('\n');buf=lines.pop()||'';
 for(const line of lines){if(!line.startsWith('data: '))continue;try{const d=JSON.parse(line.slice(6));
+if(d.error){chatHist[chatHist.length-1].content+='\n\n**Error:** '+d.error;renderChat();continue}
 if(d.c){chatHist[chatHist.length-1].content+=d.c;renderChat(true)}
-if(d.done&&d.sources){chatHist[chatHist.length-1].sources=d.sources}}catch(e){}}}}
-catch(e){chatHist[chatHist.length-1].content='Error: '+e.message;renderChat()}
+if(d.done){chatHist[chatHist.length-1].sources=d.sources||[];
+chatHist[chatHist.length-1].query_types=d.query_types||[];
+chatHist[chatHist.length-1].chunks_used=d.chunks_used||0;
+delete chatHist[chatHist.length-1]._streaming;
+if(d.followups&&d.followups.length){renderFollowups(d.followups)}
+renderChat()}}catch(e){}}}}
+catch(e){chatHist[chatHist.length-1].content='Unable to get response. Please try again.';delete chatHist[chatHist.length-1]._streaming;renderChat()}
 btn.disabled=false;inp.focus()}
 function sendQuick(msg){document.getElementById('chat-input').value=msg;sendChat()}
+function renderFollowups(followups){const el=document.getElementById('chat-followups');if(!el)return;
+el.innerHTML=followups.map(f=>`<button onclick="sendQuick('${esc(f.replace(/'/g,"\\'"))}')" title="${esc(f)}">${esc(f)}</button>`).join('')}
+function copyChatMsg(idx){const m=chatHist[idx];if(!m)return;navigator.clipboard.writeText(m.content).then(()=>{
+const btn=document.querySelector(`.chat-copy-${idx}`);if(btn){btn.classList.add('copied');btn.textContent='Copied!';setTimeout(()=>{btn.classList.remove('copied');btn.innerHTML='&#x1F4CB; Copy'},1500)}})}
 function renderChat(streaming=false){const el=document.getElementById('chat-messages');
 if(!chatHist.length){el.innerHTML=`<div class="empty-state" id="chat-empty">
 <div class="icon">&#x1F916;</div>
@@ -2372,9 +2501,16 @@ if(!chatHist.length){el.innerHTML=`<div class="empty-state" id="chat-empty">
 <button class="btn btn-outline btn-sm" onclick="sendQuick('Summarize all active contracts by value')">Contract summary</button>
 <button class="btn btn-outline btn-sm" onclick="sendQuick('What are the key risks across all contracts?')">Risk analysis</button>
 <button class="btn btn-outline btn-sm" onclick="sendQuick('Compare payment terms across all contracts')">Payment terms</button>
+<button class="btn btn-outline btn-sm" onclick="sendQuick('List all SLA and penalty clauses')">SLA & penalties</button>
+<button class="btn btn-outline btn-sm" onclick="sendQuick('What clauses are missing across contracts?')">Missing clauses</button>
 </div></div>`;return}
-el.innerHTML=chatHist.map(m=>{const isAI=m.role==='assistant';
-return `<div class="chat-msg ${m.role}"><div class="avatar">${isAI?'AI':'U'}</div><div class="bubble"><div class="sender">${isAI?'AI Assistant':'You'}</div><div class="text">${isAI?renderMd(m.content):esc(m.content)}</div>${m.sources?.length?`<div class="sources">${m.sources.map(s=>`<span>${esc(s.name)}</span>`).join('')}</div>`:''}</div></div>`}).join('');
+el.innerHTML=chatHist.map((m,idx)=>{const isAI=m.role==='assistant';
+const typingHtml=m._streaming&&!m.content?'<div class="chat-typing"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>':'';
+const queryBadges=isAI&&m.query_types?.length?m.query_types.map(t=>`<span class="chat-query-badge">${esc(t)}</span>`).join(''):'';
+const chunksInfo=isAI&&m.chunks_used?` <span class="chat-query-badge">${m.chunks_used} sections analyzed</span>`:'';
+const actionsHtml=isAI&&m.content&&!m._streaming?`<div class="actions"><button class="chat-copy-${idx}" onclick="copyChatMsg(${idx})">&#x1F4CB; Copy</button></div>`:'';
+const sourcesHtml=m.sources?.length?`<div class="sources">${m.sources.map(s=>`<span>${esc(s.name)}</span>`).join('')}${queryBadges}${chunksInfo}</div>`:(queryBadges||chunksInfo?`<div class="sources">${queryBadges}${chunksInfo}</div>`:'');
+return `<div class="chat-msg ${m.role}"><div class="avatar">${isAI?'AI':'U'}</div><div class="bubble"><div class="sender">${isAI?'AI Assistant':'You'}</div><div class="text">${typingHtml}${isAI?renderMd(m.content):esc(m.content)}</div>${sourcesHtml}${actionsHtml}</div></div>`}).join('');
 if(streaming||true)el.scrollTop=el.scrollHeight}
 
 // ═══ WEBHOOKS ═══
@@ -2549,19 +2685,55 @@ function ago(d){if(!d)return'';const ms=Date.now()-new Date(d).getTime();const m
 if(m<1)return'Just now';if(m<60)return m+'m ago';if(h<24)return h+'h ago';if(dy<30)return dy+'d ago';return new Date(d).toLocaleDateString()}
 
 function renderMd(t){if(!t)return'';
-return t.replace(/```(\w*)\n([\s\S]*?)```/g,'<pre><code>$2</code></pre>')
+/* Enhanced markdown renderer with proper list wrapping, tables, blockquotes, links, and HR */
+let html=t
+/* Code blocks with optional language label */
+.replace(/```(\w*)\n([\s\S]*?)```/g,(m,lang,code)=>{
+const langLabel=lang?`<span style="position:absolute;top:.3rem;right:.5rem;font-size:.65rem;color:#94a3b8;text-transform:uppercase">${esc(lang)}</span>`:'';
+return `<pre style="position:relative">${langLabel}<code>${esc(code)}</code></pre>`})
+/* Bold, italic, strikethrough, inline code */
+.replace(/\*\*\*(.*?)\*\*\*/g,'<strong><em>$1</em></strong>')
 .replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>')
 .replace(/\*(.*?)\*/g,'<em>$1</em>')
-.replace(/`([^`]+)`/g,'<code>$1</code>')
-.replace(/^### (.*$)/gm,'<h4>$1</h4>')
-.replace(/^## (.*$)/gm,'<h3>$1</h3>')
-.replace(/^# (.*$)/gm,'<h2>$1</h2>')
-.replace(/^\- (.*$)/gm,'<li>$1</li>')
-.replace(/^\d+\. (.*$)/gm,'<li>$1</li>')
-.replace(/\n{2,}/g,'</p><p>')
-.replace(/\n/g,'<br>')
-.replace(/\|(.+)\|/g,(m)=>{const cols=m.split('|').filter(c=>c.trim());if(cols.every(c=>/^[\s-:]+$/.test(c)))return'';return'<tr>'+cols.map(c=>'<td>'+c.trim()+'</td>').join('')+'</tr>'})
-}
+.replace(/~~(.*?)~~/g,'<del>$1</del>')
+.replace(/`([^`]+)`/g,(m,code)=>'<code>'+esc(code)+'</code>')
+/* Headings */
+.replace(/^#### (.*$)/gm,(m,p)=>'<h5 style="font-size:.82rem;font-weight:700;margin:.6rem 0 .3rem">'+esc(p)+'</h5>')
+.replace(/^### (.*$)/gm,(m,p)=>'<h4>'+esc(p)+'</h4>')
+.replace(/^## (.*$)/gm,(m,p)=>'<h3>'+esc(p)+'</h3>')
+.replace(/^# (.*$)/gm,(m,p)=>'<h2>'+esc(p)+'</h2>')
+/* Blockquotes */
+.replace(/^> (.*$)/gm,(m,p)=>'<blockquote style="border-left:3px solid var(--primary);padding:.3rem .8rem;margin:.4rem 0;color:var(--text3);font-style:italic;background:var(--surface2);border-radius:0 var(--radius-sm) var(--radius-sm) 0">'+esc(p)+'</blockquote>')
+/* Horizontal rule */
+.replace(/^---+$/gm,'<hr style="border:none;border-top:1px solid var(--border);margin:.8rem 0">')
+/* Links */
+.replace(/\[([^\]]+)\]\(([^)]+)\)/g,(m,text,url)=>'<a href="'+esc(url)+'" target="_blank" rel="noopener" style="color:var(--primary);text-decoration:underline">'+esc(text)+'</a>');
+
+/* Tables — proper wrapping with thead/tbody */
+html=html.replace(/((?:\|.+\|\n?)+)/g,(tableBlock)=>{
+const rows=tableBlock.trim().split('\n').filter(r=>r.trim());
+if(rows.length<2)return tableBlock;
+let thead='',tbody='',isHeader=true;
+for(let i=0;i<rows.length;i++){
+const cols=rows[i].split('|').filter(c=>c.trim()!=='');
+if(cols.every(c=>/^[\s\-:]+$/.test(c))){isHeader=false;continue}
+const tag=isHeader&&i===0?'th':'td';
+const cells=cols.map(c=>`<${tag}>${esc(c.trim())}</${tag}>`).join('');
+if(isHeader&&i===0)thead=`<thead><tr>${cells}</tr></thead>`;
+else tbody+=`<tr>${cells}</tr>`}
+return `<table><colgroup>${'<col>'.repeat((rows[0].split('|').filter(c=>c.trim()!=='').length))}</colgroup>${thead}<tbody>${tbody}</tbody></table>`});
+
+/* Lists — wrap consecutive list items in ul/ol */
+html=html.replace(/^(- .*(\n|$))+/gm,(block)=>{
+const items=block.trim().split('\n').map(l=>'<li>'+esc(l.replace(/^- /,''))+'</li>').join('');
+return '<ul>'+items+'</ul>'});
+html=html.replace(/^(\d+\. .*(\n|$))+/gm,(block)=>{
+const items=block.trim().split('\n').map(l=>'<li>'+esc(l.replace(/^\d+\. /,''))+'</li>').join('');
+return '<ol>'+items+'</ol>'});
+
+/* Paragraphs and line breaks */
+html=html.replace(/\n{2,}/g,'</p><p>').replace(/\n/g,'<br>');
+return html}
 
 function toast(msg,type='info'){const w=document.getElementById('toast-wrap');
 if(!w)return;
@@ -2827,15 +2999,32 @@ const id2=document.getElementById('cmp-c2').value;
 if(!id1||!id2){toast('Select two contracts to compare','error');return}
 if(id1===id2){toast('Select two different contracts','error');return}
 const btn=document.getElementById('cmp-btn');btn.disabled=true;btn.textContent='Comparing...';
-try{const r=await api(`/api/contracts/compare?id1=${id1}&id2=${id2}`);const d=await r.json();
+const aiOn=document.getElementById('cmp-ai-toggle')?.checked;
+try{const r=await api(`/api/contracts/compare?id1=${id1}&id2=${id2}${aiOn?'&ai_analysis=true':''}`);const d=await r.json();
 if(d.error){toast(eMsg(d.error),'error');btn.disabled=false;btn.textContent='Compare';return}
 const simColor=d.similarity>80?'var(--green)':d.similarity>50?'var(--orange)':'var(--red)';
+const simLabel=d.similarity>80?'Highly Similar':d.similarity>50?'Moderately Similar':'Significantly Different';
+
+/* AI Analysis card */
+let aiHtml='';
+if(d.ai_analysis){const ai=d.ai_analysis;
+aiHtml=`<div class="card" style="margin-bottom:1rem;border-left:4px solid var(--primary)">
+<div class="card-header"><h3 style="display:flex;align-items:center;gap:.5rem"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg> AI Comparison Analysis</h3></div>
+<div style="padding:0 1.2rem 1rem">
+${ai.key_differences?`<div style="margin-bottom:.8rem"><strong style="font-size:.78rem;text-transform:uppercase;color:var(--text4);letter-spacing:.03em">Key Differences</strong><ul style="margin-top:.3rem;padding-left:1.2rem">${ai.key_differences.map(d=>`<li style="font-size:.84rem;margin-bottom:.3rem;color:var(--text2)">${esc(d)}</li>`).join('')}</ul></div>`:''}
+${ai.financial_comparison?`<div style="margin-bottom:.8rem"><strong style="font-size:.78rem;text-transform:uppercase;color:var(--text4);letter-spacing:.03em">Financial Comparison</strong><p style="font-size:.84rem;color:var(--text2);margin-top:.3rem">${esc(ai.financial_comparison)}</p></div>`:''}
+${ai.risk_comparison?`<div style="margin-bottom:.8rem"><strong style="font-size:.78rem;text-transform:uppercase;color:var(--text4);letter-spacing:.03em">Risk Comparison</strong><p style="font-size:.84rem;color:var(--text2);margin-top:.3rem">${esc(ai.risk_comparison)}</p></div>`:''}
+${ai.which_is_better?`<div style="margin-bottom:.8rem"><strong style="font-size:.78rem;text-transform:uppercase;color:var(--text4);letter-spacing:.03em">Which is Better for EMB?</strong><p style="font-size:.84rem;color:var(--text2);margin-top:.3rem">${esc(ai.which_is_better)}</p></div>`:''}
+${ai.recommendation?`<div style="padding:.6rem .8rem;background:var(--primary-bg);border-radius:var(--radius-sm);font-size:.84rem;color:var(--primary);font-weight:500">${esc(ai.recommendation)}</div>`:''}
+</div></div>`}
+
 document.getElementById('cmp-result').innerHTML=`
-<div style="display:flex;gap:1rem;margin-bottom:1rem">
-<div class="card" style="flex:1;text-align:center"><div style="font-size:2.2rem;font-weight:800;color:${simColor}">${d.similarity}%</div><div style="font-size:.75rem;color:var(--text4);font-weight:600;text-transform:uppercase">Content Similarity</div></div>
-<div class="card" style="flex:1;text-align:center"><div style="font-size:2.2rem;font-weight:800;color:var(--primary)">${d.match_count}/${d.total_fields}</div><div style="font-size:.75rem;color:var(--text4);font-weight:600;text-transform:uppercase">Fields Match</div></div>
-<div class="card" style="flex:1;text-align:center"><div style="font-size:2.2rem;font-weight:800;color:var(--text3)">${d.contract_1.word_count} / ${d.contract_2.word_count}</div><div style="font-size:.75rem;color:var(--text4);font-weight:600;text-transform:uppercase">Word Count</div></div>
+<div style="display:flex;gap:1rem;margin-bottom:1rem;flex-wrap:wrap">
+<div class="card" style="flex:1;min-width:120px;text-align:center"><div style="font-size:2.2rem;font-weight:800;color:${simColor}">${d.similarity}%</div><div style="font-size:.75rem;color:var(--text4);font-weight:600;text-transform:uppercase">${simLabel}</div></div>
+<div class="card" style="flex:1;min-width:120px;text-align:center"><div style="font-size:2.2rem;font-weight:800;color:var(--primary)">${d.match_count}/${d.total_fields}</div><div style="font-size:.75rem;color:var(--text4);font-weight:600;text-transform:uppercase">Fields Match</div></div>
+<div class="card" style="flex:1;min-width:120px;text-align:center"><div style="font-size:2.2rem;font-weight:800;color:var(--text3)">${d.contract_1.word_count} / ${d.contract_2.word_count}</div><div style="font-size:.75rem;color:var(--text4);font-weight:600;text-transform:uppercase">Word Count</div></div>
 </div>
+${aiHtml}
 <div class="card" style="margin-bottom:1rem">
 <div class="card-header"><h3>Field-by-Field Comparison</h3></div>
 <table class="compare-field-table">

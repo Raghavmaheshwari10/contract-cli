@@ -12,6 +12,10 @@ import fitz
 # Ensure api/ directory is in path for module imports
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+def _escape_like(s):
+    """Escape SQL LIKE/ILIKE wildcards in user input."""
+    return s.replace("%", "\\%").replace("_", "\\_")
+
 # ─── Import modules ──────────────────────────────────────────────────────
 from config import (
     log, sb, SB_URL, SB_KEY, SECRET, PASSWORD, OAI_URL, EMB_MODEL,
@@ -26,13 +30,13 @@ from auth import (
     err, _hash_password, _verify_password,
     _EMAIL_RE, _FIELD_MAX, _valid_email,
     _sanitize, _sanitize_html, _sanitize_dict,
-    _sign, mk_token, chk_token,
+    _hmac_sign, make_token, check_token,
     auth, role_required, need_db,
 )
 from ai import (
     oai_h, oai_chat, oai_stream, oai_emb,
     chunk_text, embed_contract, hybrid_search, build_prompt,
-    ocr_pdf_pages,
+    ocr_pdf_pages, classify_query, generate_followups,
 )
 from helpers import (
     log_activity, fire_webhooks,
@@ -107,7 +111,7 @@ def login():
                     if needs_upgrade:
                         upd["password_hash"] = _hash_password(password)
                     sb.table("clm_users").update(upd).eq("id", user["id"]).execute()
-                    return jsonify({"token": mk_token(email), "user": {"id": user["id"], "name": user["name"], "email": user["email"], "role": user["role"], "department": user.get("department","")}})
+                    return jsonify({"token": make_token(email), "user": {"id": user["id"], "name": user["name"], "email": user["email"], "role": user["role"], "department": user.get("department","")}})
                 else:
                     return err("Invalid password", 401)
         except Exception as e:
@@ -117,14 +121,14 @@ def login():
         return err("APP_PASSWORD not configured. Set it in environment variables.", 503)
     if not hmac.compare_digest(password, PASSWORD):
         return err("Invalid password", 401)
-    return jsonify({"token": mk_token("raghav.maheshwari@emb.global"), "user": {"name": "Raghav Maheshwari", "email": "raghav.maheshwari@emb.global", "role": "admin"}})
+    return jsonify({"token": make_token("raghav.maheshwari@emb.global"), "user": {"name": "Raghav Maheshwari", "email": "raghav.maheshwari@emb.global", "role": "admin"}})
 
 @app.route("/api/auth/verify")
 def verify():
     if not PASSWORD: return jsonify({"valid": False, "auth_enabled": True, "error": "APP_PASSWORD not configured"}), 503
     h = request.headers.get("Authorization", "")
     if h.startswith("Bearer "):
-        valid, email = chk_token(h[7:])
+        valid, email = check_token(h[7:])
         if valid:
             return jsonify({"valid": True, "auth_enabled": True})
     return jsonify({"valid": False, "auth_enabled": True}), 401
@@ -134,10 +138,10 @@ def refresh_token():
     h = request.headers.get("Authorization", "")
     if not h.startswith("Bearer "):
         return err("Auth required", 401)
-    valid, email = chk_token(h[7:])
+    valid, email = check_token(h[7:])
     if not valid:
         return err("Invalid or expired token", 401)
-    return jsonify({"token": mk_token(email)})
+    return jsonify({"token": make_token(email)})
 
 @app.route("/api/auth/logout", methods=["POST"])
 def logout():
@@ -227,7 +231,7 @@ def executive_dashboard():
                 elif days <= 30: renewals_30.append({**c, "days_left": days})
                 elif days <= 60: renewals_60.append({**c, "days_left": days})
                 elif days <= 90: renewals_90.append({**c, "days_left": days})
-            except: pass
+            except (ValueError, TypeError): pass
     # Pending approvals
     approvals = sb.table("contract_approvals").select("id,contract_id,approver_name,created_at").eq("status", "pending").execute().data or []
     # Overdue obligations
@@ -284,7 +288,7 @@ def counterparty_risk_aggregation():
                 if days < 0: p["expired_count"] += 1; p["risk_score"] += 3
                 elif days <= 30: p["expiring_count"] += 1; p["risk_score"] += 2
                 elif days <= 60: p["expiring_count"] += 1; p["risk_score"] += 1
-            except: pass
+            except (ValueError, TypeError): pass
     result = sorted(parties.values(), key=lambda x: -x["total_value"])
     # Limit contracts in response to top 5 per party
     for p in result: p["contracts"] = p["contracts"][:5]
@@ -454,6 +458,8 @@ def update_contract(cid):
         db_updated = chk.data[0].get("updated_at", "")
         if db_updated and d["updated_at"] != db_updated:
             return jsonify({"error": {"message": "This contract was modified by another user. Please reload and try again.", "code": 409}}), 409
+    if "contract_type" in d and d["contract_type"] not in ("client", "vendor"):
+        return err("contract_type must be 'client' or 'vendor'", 400)
     u = {}
     for f in ["name","party_name","contract_type","start_date","end_date","value","notes","content",
               "content_html","department","jurisdiction","governing_law"]:
@@ -488,7 +494,26 @@ def update_contract(cid):
 def delete_contract(cid):
     chk = sb.table("contracts").select("id").eq("id", cid).execute()
     if not chk.data: return err("Not found", 404)
+    # Cascade delete all related records
+    related_tables = [
+        "contract_activity", "contract_comments", "contract_approvals",
+        "contract_obligations", "contract_signatures", "contract_collaborators",
+        "contract_versions", "contract_chunks", "contract_tags",
+        "contract_links", "contract_parties", "share_links",
+        "custom_field_values", "invoices",
+    ]
+    for table in related_tables:
+        try:
+            sb.table(table).delete().eq("contract_id", cid).execute()
+        except Exception:
+            pass  # Table may not exist in all deployments
+    # Also delete reverse links (where this contract is the target)
+    try:
+        sb.table("contract_links").delete().eq("target_id", cid).execute()
+    except Exception:
+        pass
     sb.table("contracts").delete().eq("id", cid).execute()
+    log_activity(None, "contract_deleted", request.user_email, f"Contract #{cid} deleted with all related data")
     return jsonify({"message": "Deleted"})
 
 # ─── Status Transitions ───────────────────────────────────────────────────
@@ -507,48 +532,117 @@ def update_status(cid):
 @need_db
 def ai_review(cid):
     if not oai_h(): return err("AI not configured", 500)
-    r = sb.table("contracts").select("content,name,contract_type").eq("id", cid).execute()
+    r = sb.table("contracts").select("content,name,contract_type,party_name,value,start_date,end_date").eq("id", cid).execute()
     if not r.data: return err("Not found", 404)
     c = r.data[0]
+    contract_type = c.get("contract_type", "client")
+
+    # Type-specific review criteria
+    type_context = ""
+    if contract_type == "vendor":
+        type_context = """
+VENDOR CONTRACT PRIORITIES:
+- Ensure EMB has right to audit vendor performance
+- Check for adequate SLA commitments with measurable KPIs
+- Verify vendor liability is not capped too low
+- Look for adequate IP assignment to EMB/client
+- Check subcontracting restrictions
+- Ensure adequate insurance coverage from vendor
+- Look for performance guarantees and penalty clauses"""
+    else:
+        type_context = """
+CLIENT CONTRACT PRIORITIES:
+- Ensure payment terms protect EMB cash flow (Net 30 preferred)
+- Check scope is clearly defined to prevent scope creep
+- Verify limitation of liability protects EMB (capped at contract value)
+- Look for reasonable acceptance/sign-off criteria
+- Check change request process is defined
+- Ensure EMB retains IP for reusable components
+- Look for auto-renewal terms favourable to EMB"""
+
     try:
         reply = oai_chat([
-            {"role": "system", "content": """You are a contract review AI for EMB (Expand My Business), a technology services broker company in India.
+            {"role": "system", "content": f"""You are a senior contract review AI for EMB (Expand My Business), a technology services broker in India.
+EMB operates as a broker: clients pay EMB, EMB pays vendors. Margin = client value - vendor cost.
 
-Analyze the contract clause by clause against standard Indian business & legal best practices.
+Analyze this {contract_type} contract clause by clause against Indian business law and IT industry best practices.
+{type_context}
 
-For each key clause found (or missing), return a JSON array:
-[
-  {
-    "clause_name": "Clause Name",
-    "status": "aligned|partially_aligned|not_aligned|missing",
-    "criteria": "What best practice requires",
-    "review": "Your specific finding",
-    "recommendation": "What should change",
-    "risk_level": "low|medium|high",
-    "section_ref": "Section number if found"
-  }
-]
+For each key clause found (or missing), return a JSON object with this EXACT structure:
+{{
+  "clauses": [
+    {{
+      "clause_name": "Clause Name",
+      "status": "aligned|partially_aligned|not_aligned|missing",
+      "criteria": "What best practice requires (be specific)",
+      "review": "Your detailed finding with exact quotes from the contract",
+      "recommendation": "Specific actionable change to make",
+      "risk_level": "low|medium|high|critical",
+      "section_ref": "Exact section number (e.g., '4.2') or 'N/A' if missing",
+      "priority": 1
+    }}
+  ],
+  "overall_risk_score": "low|medium|high|critical",
+  "executive_summary": "2-3 sentence summary of the contract's overall health",
+  "top_actions": ["Action 1", "Action 2", "Action 3"]
+}}
 
-MUST analyze these clauses:
-1. Confidentiality/NDA 2. Payment Terms 3. Termination 4. Intellectual Property
-5. Indemnification 6. Limitation of Liability 7. Governing Law & Jurisdiction
-8. Force Majeure 9. Non-Compete/Non-Solicitation 10. Data Protection/Privacy
-11. Dispute Resolution/Arbitration 12. Insurance 13. Compliance with Laws
-14. Assignment 15. Warranty/SLA
+MUST analyze these clauses (minimum 15):
+1. Confidentiality/NDA  2. Payment Terms & Schedule  3. Termination Rights
+4. Intellectual Property  5. Indemnification  6. Limitation of Liability
+7. Governing Law & Jurisdiction  8. Force Majeure  9. Non-Compete/Non-Solicitation
+10. Data Protection/Privacy  11. Dispute Resolution/Arbitration  12. Insurance
+13. Compliance with Laws  14. Assignment & Subcontracting  15. Warranty/SLA
+16. Scope of Work (if applicable)  17. Change Management  18. Acceptance Criteria
 
-Return ONLY valid JSON array, no markdown."""},
-            {"role": "user", "content": f"Contract: {c['name']} (Type: {c['contract_type']})\n\n{c['content'][:8000]}"}
-        ], model="gpt-4o", max_tok=4096)
+RISK LEVELS:
+- critical: Missing essential clause OR terms that could cause significant financial/legal harm
+- high: Clause present but significantly below market standard
+- medium: Clause needs improvement but workable
+- low: Clause meets or exceeds standard practice
+
+Set "priority" 1-5 (1=most urgent fix needed, 5=minor/informational).
+Return ONLY valid JSON, no markdown wrapping."""},
+            {"role": "user", "content": f"Contract: {c['name']}\nParty: {c.get('party_name','N/A')}\nType: {contract_type}\nValue: {c.get('value','N/A')}\nPeriod: {c.get('start_date','N/A')} to {c.get('end_date','N/A')}\n\n{c['content'][:15000]}"}
+        ], model="gpt-4o", max_tok=4096, temperature=0.2)
         reply = reply.strip()
         if reply.startswith("```"): reply = reply.split("\n",1)[1].rsplit("```",1)[0].strip()
-        review = J.loads(reply)
-        aligned = sum(1 for r in review if r["status"] == "aligned")
-        partial = sum(1 for r in review if r["status"] == "partially_aligned")
-        not_aligned = sum(1 for r in review if r["status"] in ("not_aligned", "missing"))
-        log_activity(cid, "ai_review", "AI", f"Review: {aligned} aligned, {partial} partial, {not_aligned} issues")
-        return jsonify({"review": review, "summary": {"aligned": aligned, "partial": partial, "issues": not_aligned}})
+        parsed = J.loads(reply)
+
+        # Handle both old format (array) and new format (object with clauses key)
+        if isinstance(parsed, list):
+            review = parsed
+            overall_risk = "medium"
+            executive_summary = ""
+            top_actions = []
+        else:
+            review = parsed.get("clauses", parsed.get("review", []))
+            overall_risk = parsed.get("overall_risk_score", "medium")
+            executive_summary = parsed.get("executive_summary", "")
+            top_actions = parsed.get("top_actions", [])
+
+        # Sort by priority (most urgent first)
+        review.sort(key=lambda x: x.get("priority", 3))
+
+        aligned = sum(1 for r in review if r.get("status") == "aligned")
+        partial = sum(1 for r in review if r.get("status") == "partially_aligned")
+        not_aligned = sum(1 for r in review if r.get("status") in ("not_aligned", "missing"))
+        critical = sum(1 for r in review if r.get("risk_level") == "critical")
+        high = sum(1 for r in review if r.get("risk_level") == "high")
+
+        log_activity(cid, "ai_review", "AI",
+            f"Review: {aligned} aligned, {partial} partial, {not_aligned} issues ({critical} critical, {high} high risk)")
+        return jsonify({
+            "review": review,
+            "summary": {"aligned": aligned, "partial": partial, "issues": not_aligned,
+                         "critical": critical, "high_risk": high},
+            "overall_risk": overall_risk,
+            "executive_summary": executive_summary,
+            "top_actions": top_actions[:5]
+        })
     except Exception as e:
-        return err(str(e), 500)
+        log.error(f"Internal error: {e}")
+        return err("Internal server error", 500)
 
 # ─── Comments ──────────────────────────────────────────────────────────────
 @app.route("/api/contracts/<int:cid>/comments", methods=["GET"])
@@ -814,12 +908,14 @@ def respond_approval(aid):
     new_status = "in_review" if action == "approved" else "rejected"
     log_activity(cid, f"approval_{action}", appr.data[0]["approver_name"], d.get("comments", ""))
     fire_webhooks(f"contract.{action}", {"contract_id": cid})
-    # Use state machine for status transition -- silently skip if transition is invalid
+    # Use state machine for status transition
     chk = sb.table("contracts").select("status").eq("id", cid).execute()
     old_status = chk.data[0]["status"] if chk.data else ""
+    transition_applied = False
     if new_status in VALID_TRANSITIONS.get(old_status, set()):
         _transition_status(cid, new_status, appr.data[0]["approver_name"])
-    return jsonify({"message": f"Approval {action}"})
+        transition_applied = True
+    return jsonify({"message": f"Approval {action}", "status_updated": transition_applied})
 
 # ─── Signatures ────────────────────────────────────────────────────────────
 @app.route("/api/contracts/<int:cid>/signatures", methods=["GET"])
@@ -951,23 +1047,22 @@ def leegality_esign(cid):
         return err("Leegality API timeout", 504)
     except Exception as e:
         log.error(f"Leegality error: {e}")
-        return err(str(e), 500)
+        return err("Internal server error", 500)
 
 @app.route("/api/leegality/webhook", methods=["POST"])
 def leegality_webhook():
     """Receive Leegality webhook callbacks for signature status updates"""
     d = request.json or {}
     # Verify webhook MAC using Private Salt
-    if LEEGALITY_SALT:
-        mac = d.get("mac", "")
-        # Leegality sends a MAC for verification -- compute expected MAC
-        payload_str = J.dumps(d, separators=(',', ':'), sort_keys=True)
-        # Remove mac from payload for verification
-        verify_data = {k: v for k, v in d.items() if k != "mac"}
-        expected = hmac.new(LEEGALITY_SALT.encode(), J.dumps(verify_data, separators=(',', ':'), sort_keys=True).encode(), hashlib.sha256).hexdigest()
-        if mac and not hmac.compare_digest(mac, expected):
-            log.warning("Leegality webhook MAC verification failed")
-            return err("MAC verification failed", 403)
+    if not LEEGALITY_SALT:
+        log.warning("Leegality webhook received but LEEGALITY_PRIVATE_SALT not configured")
+        return err("Webhook not configured", 503)
+    mac = d.get("mac", "")
+    verify_data = {k: v for k, v in d.items() if k != "mac"}
+    expected = hmac.new(LEEGALITY_SALT.encode(), J.dumps(verify_data, separators=(',', ':'), sort_keys=True).encode(), hashlib.sha256).hexdigest()
+    if not mac or not hmac.compare_digest(mac, expected):
+        log.warning("Leegality webhook MAC verification failed")
+        return err("MAC verification failed", 403)
     doc_id = d.get("documentId", "")
     event = d.get("event", "")
     signer_info = d.get("signer", {})
@@ -1067,7 +1162,8 @@ def upload_pdf():
             result["warning"] = f"Only first {ocr_pages} of {total_pages} pages were OCR'd"
         return jsonify(result)
     except Exception as e:
-        return err(str(e), 500)
+        log.error(f"Internal error: {e}")
+        return err("Internal server error", 500)
 
 # ─── Bulk PDF Upload (multiple files → multiple contracts) ────────────────
 @app.route("/api/upload-pdfs-bulk", methods=["POST"])
@@ -1126,7 +1222,8 @@ def upload_pdfs_bulk():
                     ], model="gpt-4o-mini", max_tok=400)
                     if reply.startswith("```"): reply = reply.split("\n",1)[1].rsplit("```",1)[0].strip()
                     meta = J.loads(reply)
-                except: pass
+                except (Exception) as e:
+                    log.debug(f"AI metadata extraction failed: {e}")
 
             # Create the contract
             contract = {
@@ -1179,7 +1276,7 @@ def search():
     q = _sanitize_html(request.args.get("q", "").strip(), max_len=200)
     if not q: return jsonify([])
     # Escape special PostgREST chars
-    safe = q.replace("%", "").replace("*", "").replace(",", "").replace(".", " ")
+    safe = q.replace("%", "").replace("*", "").replace(",", "").replace(".", " ").replace("_", "")
     t = f"%{safe}%"
     r = sb.table("contracts").select(
         "id,name,party_name,contract_type,status,start_date,end_date,value"
@@ -1196,14 +1293,34 @@ def parse():
     if not content: return err("No content", 400)
     try:
         reply = oai_chat([
-            {"role": "system", "content": """Extract contract metadata. Return ONLY JSON:
-{"name":"","party_name":"","contract_type":"client|vendor","start_date":"YYYY-MM-DD|null","end_date":"YYYY-MM-DD|null","value":"USD X|null","notes":"","department":"","jurisdiction":"","governing_law":""}"""},
-            {"role": "user", "content": content[:3000]}
-        ], model="gpt-4o-mini", max_tok=300).strip()
+            {"role": "system", "content": """You are a contract metadata extraction engine. Extract key fields from the contract text.
+
+Return ONLY valid JSON with these fields:
+{
+  "name": "Short descriptive contract name (e.g., 'Cloud Services MSA - Acme Corp')",
+  "party_name": "The other party's company/person name (not EMB)",
+  "contract_type": "client|vendor (client=they pay EMB, vendor=EMB pays them)",
+  "start_date": "YYYY-MM-DD or null if not found",
+  "end_date": "YYYY-MM-DD or null if not found",
+  "value": "Currency + Amount (e.g., 'INR 25,00,000' or 'USD 50,000') or null",
+  "notes": "One-line summary of what this contract covers",
+  "department": "Likely department (Engineering/Sales/HR/Finance/Operations/Legal)",
+  "jurisdiction": "City/State mentioned for disputes (e.g., 'Mumbai, Maharashtra')",
+  "governing_law": "Country/State law governing the contract (e.g., 'India')"
+}
+
+RULES:
+- For Indian amounts, preserve lakh/crore formatting (e.g., 'INR 25,00,000')
+- If contract_type is ambiguous, check who provides services vs who pays
+- Extract the most specific jurisdiction mentioned (city > state > country)
+- For name, create a meaningful title, not just 'Agreement' or 'Contract'"""},
+            {"role": "user", "content": content[:5000]}
+        ], model="gpt-4o-mini", max_tok=500, temperature=0.1).strip()
         if reply.startswith("```"): reply = reply.split("\n",1)[1].rsplit("```",1)[0].strip()
         return jsonify(J.loads(reply))
     except Exception as e:
-        return err(str(e), 500)
+        log.error(f"Internal error: {e}")
+        return err("Internal server error", 500)
 
 # ─── Chat (RAG + Streaming) ───────────────────────────────────────────────
 @app.route("/api/chat", methods=["POST"])
@@ -1215,8 +1332,13 @@ def chat():
     msg = d.get("message", "").strip()
     history = d.get("history", [])[-20:]
     cids = d.get("contract_ids")
+    if cids and isinstance(cids, list):
+        cids = cids[:50]  # Cap to prevent DoS
     stream = d.get("stream", False)
     if not msg: return err("No message", 400)
+
+    # Classify query for optimized retrieval and prompt
+    query_types = classify_query(msg)
 
     chunks = []
     try: chunks = hybrid_search(msg, cids, 30)
@@ -1229,12 +1351,17 @@ def chat():
     # For scoped queries (1-3 contracts): use full contract text as primary context
     # This ensures NO section is missed (annexures, payment terms, signatures, etc.)
     if cids and len(cids) <= 3:
-        full_data = sb.table("contracts").select("id,name,party_name,contract_type,content").in_("id", cids).execute().data or []
+        full_data = sb.table("contracts").select("id,name,party_name,contract_type,content,start_date,end_date,value,status").in_("id", cids).execute().data or []
         if full_data:
             # Limit per-contract text to avoid exceeding token limits (especially with 2-3 contracts)
             max_per = 120000 // max(len(full_data), 1)
-            ctx = "\n\n".join(f"=== CONTRACT: {c['name']} ({c['party_name']}) ===\n{(c.get('content') or '')[:max_per]}" for c in full_data)
-            summ = "\n".join(f"- {c['name']} ({c['party_name']}, {c['contract_type']})" for c in full_data)
+            ctx_parts = []
+            for c in full_data:
+                header = f"=== CONTRACT: {c['name']} ({c['party_name']}) ==="
+                meta_line = f"Type: {c.get('contract_type','N/A')} | Value: {c.get('value','N/A')} | Status: {c.get('status','N/A')} | Start: {c.get('start_date','N/A')} | End: {c.get('end_date','N/A')}"
+                ctx_parts.append(f"{header}\n{meta_line}\n{(c.get('content') or '')[:max_per]}")
+            ctx = "\n\n".join(ctx_parts)
+            summ = "\n".join(f"- {c['name']} ({c['party_name']}, {c['contract_type']}, Value: {c.get('value','N/A')})" for c in full_data)
             meta = full_data
         elif chunks:
             parts = [f"[{ml.get(c['contract_id'],{}).get('name','?')} | {c.get('section_title','?')}]\n{c['chunk_text']}" for c in chunks]
@@ -1244,35 +1371,55 @@ def chat():
             ctx = "No contracts found."
             summ = "None."
     elif chunks:
-        parts = [f"[{ml.get(c['contract_id'],{}).get('name','?')} | {c.get('section_title','?')} | Rel:{c.get('similarity','?')}]\n{c['chunk_text']}" for c in chunks]
+        parts = [f"[{ml.get(c['contract_id'],{}).get('name','?')} | {c.get('section_title','?')} | Relevance:{round(c.get('similarity',0)*100)}%]\n{c['chunk_text']}" for c in chunks]
         ctx = "\n---\n".join(parts)
-        summ = "\n".join(f"- {c['name']} ({c['party_name']}, {c['contract_type']})" for c in meta)
+        summ = "\n".join(f"- {c['name']} ({c['party_name']}, {c['contract_type']}, Value: {c.get('value','N/A')})" for c in meta)
     else:
-        q = sb.table("contracts").select("id,name,party_name,contract_type,content")
+        # Fallback: load contract summaries, not full text (prevents token overflow)
+        q = sb.table("contracts").select("id,name,party_name,contract_type,content,value,status")
         if cids: q = q.in_("id", cids)
-        r = q.execute()
-        ctx = "\n\n".join(f"--- {c['name']} ---\n{c['content']}" for c in r.data) if r.data else "No contracts."
-        summ = "Full text loaded."
+        r = q.limit(20).execute()
+        if r.data:
+            # Truncate each contract to stay within token budget
+            budget_per = 100000 // max(len(r.data), 1)
+            ctx = "\n\n".join(f"--- {c['name']} (Value: {c.get('value','N/A')}) ---\n{(c.get('content') or '')[:budget_per]}" for c in r.data)
+            summ = "\n".join(f"- {c['name']} ({c['party_name']}, {c['contract_type']})" for c in r.data)
+            meta = r.data
+        else:
+            ctx = "No contracts found in the system."
+            summ = "None."
 
-    msgs = [{"role": "system", "content": build_prompt(summ, ctx)}] + history + [{"role": "user", "content": msg}]
-    sources = [{"id": c["id"], "name": c["name"], "party": c["party_name"]} for c in meta]
+    sys_prompt = build_prompt(summ, ctx, query_types)
+    msgs = [{"role": "system", "content": sys_prompt}] + history + [{"role": "user", "content": msg}]
+    sources = [{"id": c["id"], "name": c.get("name",""), "party": c.get("party_name","")} for c in meta]
     n_chunks = len(chunks)
+
+    # Generate follow-up suggestions
+    contract_names = [c.get("name","") for c in meta] if meta else []
 
     if stream:
         def gen():
+            full_response = []
             try:
                 for tok in oai_stream(msgs):
+                    full_response.append(tok)
                     yield f"data: {J.dumps({'c': tok})}\n\n"
-                yield f"data: {J.dumps({'done': True, 'sources': sources, 'chunks_used': n_chunks})}\n\n"
+                # Generate follow-up suggestions based on response
+                response_text = "".join(full_response)
+                followups = generate_followups(msg, response_text, contract_names)
+                yield f"data: {J.dumps({'done': True, 'sources': sources, 'chunks_used': n_chunks, 'followups': followups, 'query_types': query_types})}\n\n"
             except Exception as e:
-                yield f"data: {J.dumps({'error': str(e)})}\n\n"
+                log.error(f"Chat stream error: {e}")
+                yield f"data: {J.dumps({'error': 'AI service temporarily unavailable. Please try again.'})}\n\n"
         return Response(gen(), mimetype="text/event-stream", headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
     try:
         reply = oai_chat(msgs)
-        return jsonify({"reply": reply, "sources": sources, "chunks_used": n_chunks})
+        followups = generate_followups(msg, reply, contract_names)
+        return jsonify({"reply": reply, "sources": sources, "chunks_used": n_chunks, "followups": followups, "query_types": query_types})
     except Exception as e:
-        return err(str(e), 500)
+        log.error(f"Internal error: {e}")
+        return err("Internal server error", 500)
 
 # ─── Export ────────────────────────────────────────────────────────────────
 @app.route("/api/export")
@@ -1376,7 +1523,11 @@ def contract_redline(cid):
 
     # Get comparison text
     if vid:
-        ver = sb.table("contract_versions").select("*").eq("id", int(vid)).eq("contract_id", cid).execute()
+        try:
+            vid = int(vid)
+        except (ValueError, TypeError):
+            return err("version_id must be an integer", 400)
+        ver = sb.table("contract_versions").select("*").eq("id", vid).eq("contract_id", cid).execute()
         if not ver.data: return err("Version not found", 404)
         old_text = ver.data[0].get("content", "")
         old_label = f"Version {ver.data[0]['version_number']}"
@@ -1407,7 +1558,7 @@ def contract_redline(cid):
     # Preserve line breaks
     redline_html = redline_html.replace("\n", "<br>")
 
-    return jsonify({
+    result = {
         "redline_html": redline_html,
         "word_diff": word_diff,
         "additions": additions,
@@ -1421,7 +1572,37 @@ def contract_redline(cid):
             "old_word_count": len(old_text.split()),
             "new_word_count": len(current_text.split())
         }
-    })
+    }
+
+    # AI-powered change summary (if requested)
+    if request.args.get("ai_summary") == "true" and oai_h() and (additions + deletions) > 0:
+        try:
+            # Build a concise diff for AI analysis
+            changes = []
+            for chunk in word_diff:
+                if chunk["type"] != "equal":
+                    changes.append(f"[{chunk['type'].upper()}]: {chunk['text'][:200]}")
+            change_text = "\n".join(changes[:50])  # Cap to prevent token overflow
+
+            ai_resp = oai_chat([
+                {"role": "system", "content": """Analyze these contract changes and return JSON:
+{
+  "change_summary": "2-3 sentence plain-English summary of what changed",
+  "impact_level": "low|medium|high|critical",
+  "material_changes": ["List 2-4 material/significant changes"],
+  "risk_implications": "Any new risks introduced by these changes (1-2 sentences, or 'No significant risk changes')",
+  "action_needed": "What the contract manager should do about these changes (1 sentence)"
+}"""},
+                {"role": "user", "content": f"Contract: {cur.data[0]['name']}\nTotal additions: {additions}, deletions: {deletions}\n\nChanges:\n{change_text}"}
+            ], model="gpt-4o-mini", max_tok=800, temperature=0.2)
+            ai_resp = ai_resp.strip()
+            if ai_resp.startswith("```"): ai_resp = ai_resp.split("\n",1)[1].rsplit("```",1)[0].strip()
+            result["ai_change_summary"] = J.loads(ai_resp)
+        except Exception as e:
+            log.debug(f"Redline AI summary failed: {e}")
+            result["ai_change_summary"] = None
+
+    return jsonify(result)
 
 @app.route("/api/contracts/<int:cid>/diff", methods=["GET"])
 @auth
@@ -1712,7 +1893,7 @@ def reports():
                     if days < 0: score -= 25; risks.append(f"Expired {abs(days)}d ago")
                     elif days <= 30: score -= 15; risks.append(f"Expires in {days}d")
                     elif days <= 60: score -= 5; risks.append(f"Expires in {days}d")
-                except: pass
+                except (ValueError, TypeError): pass
             # Deduct for overdue obligations
             obs = ob_map.get(c["id"], {"total": 0, "overdue": 0, "completed": 0})
             if obs["overdue"] > 0: score -= min(obs["overdue"] * 10, 30); risks.append(f"{obs['overdue']} overdue obligations")
@@ -1752,7 +1933,7 @@ def reports():
                     if days < 0: risk_reasons.append(f"Expired {abs(days)} days ago"); risk_level += 3
                     elif days <= 30: risk_reasons.append(f"Expiring in {days} days"); risk_level += 2
                     elif days <= 60: risk_reasons.append(f"Expiring in {days} days"); risk_level += 1
-                except: pass
+                except (ValueError, TypeError): pass
             if c["id"] in overdue_map:
                 risk_reasons.append(f"{len(overdue_map[c['id']])} overdue obligations")
                 risk_level += 2
@@ -1812,7 +1993,7 @@ def audit_log():
     q = sb.table("contract_activity").select("*").order("created_at", desc=True)
     if date_from: q = q.gte("created_at", date_from)
     if date_to: q = q.lte("created_at", date_to)
-    if action: q = q.ilike("action", f"%{action}%")
+    if action: q = q.ilike("action", f"%{_escape_like(action)}%")
     r = q.limit(1000).execute()
 
     # Enrich with contract names
@@ -1847,7 +2028,7 @@ def audit_log_cleanup():
     d = request.json or {}
     if not d.get("confirm"):
         return err("Include '\"confirm\": true' to proceed with cleanup.", 400)
-    try: days = max(int(d.get("retention_days", 365)), 30)  # minimum 30 days
+    try: days = max(min(int(d.get("retention_days", 365)), 3650), 30)  # 30 days min, 10 years max
     except (ValueError, TypeError): days = 365
     cutoff = (datetime.now() - timedelta(days=days)).isoformat()
     # Count before delete
@@ -1873,10 +2054,14 @@ def bulk_import():
         return err("CSV file required", 400)
     try:
         raw = f.read().decode("utf-8-sig")
+        MAX_CSV_ROWS = 5000
         reader = csv.DictReader(io.StringIO(raw))
         imported, skipped, errors = 0, 0, []
         required = {"name", "party_name", "contract_type", "content"}
         for i, row in enumerate(reader):
+            if i >= MAX_CSV_ROWS:
+                errors.append(f"Row limit reached ({MAX_CSV_ROWS}). Remaining rows skipped.")
+                break
             row = {k.strip().lower().replace(" ", "_"): (v.strip() if v else "") for k, v in row.items() if k}
             missing = required - {k for k, v in row.items() if v}
             if missing:
@@ -2273,7 +2458,8 @@ def save_email_prefs():
             sb.table("email_preferences").insert(row).execute()
         return jsonify({"message": "Preferences saved", **row})
     except Exception as e:
-        return err(str(e), 500)
+        log.error(f"Internal error: {e}")
+        return err("Internal server error", 500)
 
 @app.route("/api/email-preferences/test", methods=["POST"])
 @auth
@@ -2309,7 +2495,8 @@ def test_email():
         else:
             return err(f"Resend API error: {r.text}", 400)
     except Exception as e:
-        return err(str(e), 500)
+        log.error(f"Internal error: {e}")
+        return err("Internal server error", 500)
 
 @app.route("/api/email-status")
 @auth
@@ -2511,6 +2698,170 @@ def delete_contract_party(pid):
     log_activity(cid, "party_removed", request.user_email, f"Party '{chk.data[0]['party_name']}' removed")
     return jsonify({"message": "Deleted"})
 
+# ─── AI Executive Summary ────────────────────────────────────────────────
+@app.route("/api/contracts/<int:cid>/ai-summary", methods=["POST"])
+@auth
+@need_db
+def ai_summary(cid):
+    """Generate a concise executive summary of a contract."""
+    if not oai_h(): return err("AI not configured", 500)
+    r = sb.table("contracts").select("content,name,contract_type,party_name,value,start_date,end_date,status").eq("id", cid).execute()
+    if not r.data: return err("Not found", 404)
+    c = r.data[0]
+    try:
+        reply = oai_chat([
+            {"role": "system", "content": """Generate a concise executive summary of this contract for business stakeholders.
+
+Return JSON with this structure:
+{
+  "one_liner": "Single sentence describing what this contract is about",
+  "key_terms": {
+    "parties": "Who is involved",
+    "value": "Total contract value",
+    "duration": "Start to end date and total duration",
+    "type": "Type of agreement"
+  },
+  "obligations": ["Top 3-5 key obligations for EMB"],
+  "risks": ["Top 2-3 risks to flag"],
+  "key_dates": [{"date": "YYYY-MM-DD", "description": "What happens on this date"}],
+  "recommendation": "1-2 sentence recommendation for management"
+}
+
+Be specific — use actual numbers, dates, and party names from the contract."""},
+            {"role": "user", "content": f"Contract: {c['name']}\nParty: {c.get('party_name','N/A')}\nType: {c.get('contract_type','N/A')}\nValue: {c.get('value','N/A')}\nStatus: {c.get('status','N/A')}\n\n{(c.get('content') or '')[:12000]}"}
+        ], model="gpt-4o", max_tok=1500, temperature=0.2)
+        reply = reply.strip()
+        if reply.startswith("```"): reply = reply.split("\n",1)[1].rsplit("```",1)[0].strip()
+        summary = J.loads(reply)
+        log_activity(cid, "ai_summary", "AI", "Executive summary generated")
+        return jsonify(summary)
+    except Exception as e:
+        log.error(f"Internal error: {e}")
+        return err("Internal server error", 500)
+
+# ─── AI Obligation Extraction ────────────────────────────────────────────
+@app.route("/api/contracts/<int:cid>/extract-obligations", methods=["POST"])
+@auth
+@role_required("editor")
+@need_db
+def extract_obligations(cid):
+    """AI-powered extraction of obligations, deadlines, and deliverables from contract text."""
+    if not oai_h(): return err("AI not configured", 500)
+    r = sb.table("contracts").select("content,name,contract_type,party_name").eq("id", cid).execute()
+    if not r.data: return err("Not found", 404)
+    c = r.data[0]
+    auto_save = (request.json or {}).get("auto_save", False)
+    try:
+        reply = oai_chat([
+            {"role": "system", "content": """Extract all obligations, deliverables, milestones, and deadlines from this contract.
+
+Return JSON:
+{
+  "obligations": [
+    {
+      "title": "Short descriptive title (e.g., 'Monthly Progress Report')",
+      "description": "What needs to be done — specific and actionable",
+      "responsible_party": "EMB|counterparty|both",
+      "due_date": "YYYY-MM-DD or null if recurring/not specified",
+      "frequency": "one-time|weekly|monthly|quarterly|annually|ongoing|as-needed",
+      "priority": "high|medium|low",
+      "section_ref": "Section number where this obligation appears",
+      "category": "deliverable|payment|reporting|compliance|notification|milestone"
+    }
+  ],
+  "key_deadlines": [
+    {"date": "YYYY-MM-DD", "description": "What happens on this date", "critical": true}
+  ],
+  "total_found": 0
+}
+
+RULES:
+- Extract ALL obligations, not just major ones
+- Include payment obligations (invoicing deadlines, payment terms)
+- Include reporting obligations (progress reports, audits)
+- Include compliance obligations (insurance, certifications)
+- Include notification obligations (notice periods, escalation)
+- Mark obligations as high priority if they have financial penalties for non-compliance"""},
+            {"role": "user", "content": f"Contract: {c['name']}\nParty: {c.get('party_name','N/A')}\nType: {c.get('contract_type','N/A')}\n\n{(c.get('content') or '')[:15000]}"}
+        ], model="gpt-4o", max_tok=3000, temperature=0.2)
+        reply = reply.strip()
+        if reply.startswith("```"): reply = reply.split("\n",1)[1].rsplit("```",1)[0].strip()
+        parsed = J.loads(reply)
+        obligations = parsed.get("obligations", [])
+
+        # Auto-save obligations to database if requested
+        saved = 0
+        if auto_save and obligations:
+            for ob in obligations:
+                try:
+                    row = {
+                        "contract_id": cid,
+                        "title": _sanitize(ob.get("title", "Untitled"))[:200],
+                        "description": _sanitize(ob.get("description", ""))[:2000],
+                        "due_date": ob.get("due_date"),
+                        "status": "pending",
+                        "priority": ob.get("priority", "medium"),
+                    }
+                    if row["due_date"] and not re.match(r'^\d{4}-\d{2}-\d{2}$', row["due_date"]):
+                        row["due_date"] = None
+                    sb.table("contract_obligations").insert(row).execute()
+                    saved += 1
+                except Exception:
+                    pass
+
+        log_activity(cid, "ai_extract_obligations", "AI",
+            f"Extracted {len(obligations)} obligations" + (f", saved {saved}" if auto_save else ""))
+
+        return jsonify({
+            "obligations": obligations,
+            "key_deadlines": parsed.get("key_deadlines", []),
+            "total_found": len(obligations),
+            "saved": saved if auto_save else None
+        })
+    except Exception as e:
+        log.error(f"Internal error: {e}")
+        return err("Internal server error", 500)
+
+# ─── AI Contract Plain-English Explainer ─────────────────────────────────
+@app.route("/api/contracts/<int:cid>/explain", methods=["POST"])
+@auth
+@need_db
+def explain_contract(cid):
+    """Explain contract terms in simple, non-legal language."""
+    if not oai_h(): return err("AI not configured", 500)
+    r = sb.table("contracts").select("content,name,contract_type,party_name").eq("id", cid).execute()
+    if not r.data: return err("Not found", 404)
+    c = r.data[0]
+    section = (request.json or {}).get("section", "")  # Optional: explain a specific section
+    content = section if section else (c.get("content") or "")[:12000]
+
+    try:
+        reply = oai_chat([
+            {"role": "system", "content": """You are a contract simplifier. Explain this contract (or section) in plain English that a non-lawyer business person can understand.
+
+Return JSON:
+{
+  "plain_english": "A clear, simple explanation of what this contract says and means for the parties involved. Use everyday language. 3-5 paragraphs.",
+  "what_you_must_do": ["Simple list of what EMB must do under this contract"],
+  "what_they_must_do": ["Simple list of what the other party must do"],
+  "watch_out_for": ["Things to be careful about, explained simply"],
+  "in_one_sentence": "The entire contract summarized in one plain sentence"
+}
+
+RULES:
+- NO legal jargon — write as if explaining to someone with no legal background
+- Use 'you' for EMB and the party name for the counterparty
+- Highlight anything that could cost money if missed
+- Be honest about unfavourable terms"""},
+            {"role": "user", "content": f"Contract: {c['name']} with {c.get('party_name','the other party')}\nType: {c.get('contract_type','N/A')}\n\n{content}"}
+        ], model="gpt-4o", max_tok=2000, temperature=0.3)
+        reply = reply.strip()
+        if reply.startswith("```"): reply = reply.split("\n",1)[1].rsplit("```",1)[0].strip()
+        return jsonify(J.loads(reply))
+    except Exception as e:
+        log.error(f"Internal error: {e}")
+        return err("Internal server error", 500)
+
 # ─── Margin Tracking ─────────────────────────────────────────────────────
 @app.route("/api/contracts/<int:cid>/margin", methods=["GET"])
 @auth
@@ -2592,10 +2943,12 @@ def get_all_margins():
     })
 
 def _parse_currency(val):
-    """Parse currency string like '₹25,00,000' or '$48,000' to float"""
-    if not val: return 0
-    try: return float(re.sub(r'[^\d.]', '', str(val)))
-    except: return 0
+    """Parse currency string like '₹25,00,000' or '$48,000' to float."""
+    if not val: return 0.0
+    try:
+        parsed = float(re.sub(r'[^\d.]', '', str(val)))
+        return min(parsed, 1_000_000_000_000)  # Cap at 1 trillion
+    except (ValueError, TypeError): return 0.0
 
 # ─── AI Clause Suggestions ───────────────────────────────────────────────
 @app.route("/api/ai/suggest-clauses", methods=["POST"])
@@ -2635,7 +2988,8 @@ Return as JSON array: [{{"title":"...","content":"...","reason":"..."}}]"""
         suggestions = parsed.get("suggestions", parsed.get("clauses", parsed if isinstance(parsed, list) else []))
         return jsonify({"suggestions": suggestions})
     except Exception as e:
-        return err(str(e), 500)
+        log.error(f"Internal error: {e}")
+        return err("Internal server error", 500)
 
 # ─── Renewal Autopilot ───────────────────────────────────────────────────
 @app.route("/api/contracts/<int:cid>/auto-renew", methods=["POST"])
@@ -2648,7 +3002,7 @@ def auto_renew_contract(cid):
     if not c.data: return err("Not found", 404)
     orig = c.data[0]
     # Idempotency: check if a renewal draft already exists for this contract
-    existing_renewal = sb.table("contracts").select("id,name").ilike("name", f"%Renewal of {orig['name']}%").eq("status", "draft").execute()
+    existing_renewal = sb.table("contracts").select("id,name").ilike("name", f"%Renewal of {_escape_like(orig['name'])}%").eq("status", "draft").execute()
     if existing_renewal.data:
         return jsonify({"error": {"message": f"A renewal draft already exists (#{existing_renewal.data[0]['id']})", "code": 409}, "id": existing_renewal.data[0]["id"]}), 409
     # Calculate new dates
@@ -2658,12 +3012,12 @@ def auto_renew_contract(cid):
             sd = datetime.strptime(orig["start_date"], "%Y-%m-%d")
             ed = datetime.strptime(orig["end_date"], "%Y-%m-%d")
             duration_days = (ed - sd).days
-        except: pass
+        except (ValueError, TypeError): pass
     new_start = orig.get("end_date") or datetime.now().strftime("%Y-%m-%d")
     try:
         ns = datetime.strptime(new_start, "%Y-%m-%d")
         new_end = (ns + timedelta(days=duration_days)).strftime("%Y-%m-%d")
-    except:
+    except (ValueError, TypeError):
         new_end = (datetime.now() + timedelta(days=365)).strftime("%Y-%m-%d")
     row = {
         "name": f"{orig['name']} — Renewal",
@@ -2715,7 +3069,7 @@ def approval_sla():
             try:
                 ct = datetime.fromisoformat(created.replace("Z", "+00:00")).replace(tzinfo=None)
                 days_pending = (today - ct).days
-            except: pass
+            except (ValueError, TypeError): pass
         a["days_pending"] = days_pending
         a["is_overdue"] = days_pending > threshold_days
         if a["is_overdue"]: overdue_count += 1
@@ -2826,7 +3180,8 @@ def test_slack_webhook():
             return jsonify({"message": "Test message sent successfully"})
         return err(f"Slack returned {resp.status_code}", 400)
     except Exception as e:
-        return err(str(e), 500)
+        log.error(f"Internal error: {e}")
+        return err("Internal server error", 500)
 
 # ─── Shareable Review Links ──────────────────────────────────────────────
 @app.route("/api/contracts/<int:cid>/share-links", methods=["GET"])
@@ -2957,20 +3312,22 @@ def compare_contracts():
         sm = difflib.SequenceMatcher(None, words1, words2)
         similarity = round(sm.ratio() * 100, 1)
 
-        # Word-level diff
+        # Word-level diff (HTML-escaped to prevent XSS)
         diff_html = []
         for op, i1, i2, j1, j2 in sm.get_opcodes():
+            seg1 = html_mod.escape(" ".join(words1[i1:i2]))
+            seg2 = html_mod.escape(" ".join(words2[j1:j2]))
             if op == "equal":
-                diff_html.append(" ".join(words1[i1:i2]))
+                diff_html.append(seg1)
             elif op == "delete":
-                diff_html.append(f'<span class="rl-del">{" ".join(words1[i1:i2])}</span>')
+                diff_html.append(f'<span class="rl-del">{seg1}</span>')
             elif op == "insert":
-                diff_html.append(f'<span class="rl-ins">{" ".join(words2[j1:j2])}</span>')
+                diff_html.append(f'<span class="rl-ins">{seg2}</span>')
             elif op == "replace":
-                diff_html.append(f'<span class="rl-del">{" ".join(words1[i1:i2])}</span>')
-                diff_html.append(f'<span class="rl-ins">{" ".join(words2[j1:j2])}</span>')
+                diff_html.append(f'<span class="rl-del">{seg1}</span>')
+                diff_html.append(f'<span class="rl-ins">{seg2}</span>')
 
-        return jsonify({
+        result = {
             "contract_1": {"id": a["id"], "name": a["name"], "party": a["party_name"],
                           "word_count": len(words1), "content": text1[:5000]},
             "contract_2": {"id": b["id"], "name": b["name"], "party": b["party_name"],
@@ -2980,9 +3337,35 @@ def compare_contracts():
             "diff_html": " ".join(diff_html),
             "match_count": sum(1 for d in field_diffs if d["match"]),
             "total_fields": len(field_diffs)
-        })
+        }
+
+        # AI-powered comparison analysis (if requested and OpenAI available)
+        if request.args.get("ai_analysis") == "true" and oai_h():
+            try:
+                ai_resp = oai_chat([
+                    {"role": "system", "content": """You are a contract comparison analyst for EMB (a tech services broker).
+Compare these two contracts and return JSON:
+{
+  "key_differences": ["Top 3-5 material differences between the contracts"],
+  "which_is_better": "Which contract is more favourable for EMB and why (1-2 sentences)",
+  "risk_comparison": "Which contract carries more risk and in what areas (1-2 sentences)",
+  "financial_comparison": "Compare financial terms — values, payment terms, penalties (1-2 sentences)",
+  "recommendation": "1-2 sentence actionable recommendation"
+}
+Be specific — reference actual terms, values, and clause names."""},
+                    {"role": "user", "content": f"CONTRACT 1: {a['name']} ({a.get('party_name','?')}, {a.get('contract_type','?')}, Value: {a.get('value','N/A')})\n{text1[:6000]}\n\nCONTRACT 2: {b['name']} ({b.get('party_name','?')}, {b.get('contract_type','?')}, Value: {b.get('value','N/A')})\n{text2[:6000]}"}
+                ], model="gpt-4o", max_tok=1500, temperature=0.2)
+                ai_resp = ai_resp.strip()
+                if ai_resp.startswith("```"): ai_resp = ai_resp.split("\n",1)[1].rsplit("```",1)[0].strip()
+                result["ai_analysis"] = J.loads(ai_resp)
+            except Exception as e:
+                log.debug(f"Compare AI analysis failed: {e}")
+                result["ai_analysis"] = None
+
+        return jsonify(result)
     except Exception as e:
-        return err(str(e), 500)
+        log.error(f"Internal error: {e}")
+        return err("Internal server error", 500)
 
 # ─── Contract Clone ───────────────────────────────────────────────────────
 @app.route("/api/contracts/<int:cid>/clone", methods=["POST"])
@@ -3025,7 +3408,7 @@ def clone_contract(cid):
 def counterparty_view(party_name):
     from urllib.parse import unquote
     name = unquote(party_name).strip()
-    r = sb.table("contracts").select("id,name,party_name,contract_type,status,value,start_date,end_date,department").ilike("party_name", f"%{name}%").order("added_on", desc=True).execute()
+    r = sb.table("contracts").select("id,name,party_name,contract_type,status,value,start_date,end_date,department").ilike("party_name", f"%{_escape_like(name)}%").order("added_on", desc=True).execute()
     contracts = r.data or []
     total = len(contracts)
     by_status = {}
@@ -3066,7 +3449,7 @@ def bulk_action():
                 else:
                     results["failed"] += 1
                     try: results["errors"].append(f"#{cid}: {resp.get_json().get('error',{}).get('message','Failed')}")
-                    except: results["errors"].append(f"#{cid}: Transition failed")
+                    except (AttributeError, TypeError): results["errors"].append(f"#{cid}: Transition failed")
             except Exception as e:
                 log.debug(f"Bulk status change error: {e}")
                 results["failed"] += 1
@@ -3112,21 +3495,18 @@ def bulk_action():
 
 # ─── Password Reset ──────────────────────────────────────────────────────
 @app.route("/api/auth/reset-password", methods=["POST"])
+@auth
+@role_required("admin")
 @need_db
 def reset_password():
     d = request.json or {}
     email = d.get("email", "").strip().lower()
     new_password = d.get("new_password", "")
-    admin_password = d.get("admin_password", "")
 
     if not email or not new_password:
         return err("Email and new password required", 400)
     if len(new_password) < 6:
         return err("Password must be at least 6 characters", 400)
-
-    # Verify admin credentials
-    if not admin_password or not hmac.compare_digest(admin_password, PASSWORD):
-        return err("Admin password required to reset user passwords", 401)
 
     # Find user
     u = sb.table("clm_users").select("id,email,name").eq("email", email).execute()
@@ -3414,4 +3794,5 @@ def embed_single(cid):
         n = embed_contract(c["id"], c["content"], c["name"])
         return jsonify({"chunks": n})
     except Exception as e:
-        return err(str(e), 500)
+        log.error(f"Internal error: {e}")
+        return err("Internal server error", 500)

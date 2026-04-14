@@ -1095,8 +1095,8 @@ class TestEmailPreferences:
 
     def test_save_email_prefs(self, client, mock_sb):
         """Save email prefs requires email-based auth token."""
-        from index import mk_token
-        token = mk_token("user@test.com")
+        from index import make_token
+        token = make_token("user@test.com")
         headers = {'Authorization': f'Bearer {token}', 'Content-Type': 'application/json'}
         # Mock user lookup for auth decorator
         user_data = {'id': 1, 'email': 'user@test.com', 'role': 'admin', 'is_active': True}
@@ -1676,37 +1676,37 @@ class TestBulkActions:
 # ═══════════════════════════════════════════════════════════════════════════
 
 class TestPasswordReset:
-    def test_reset_missing_fields(self, client, mock_sb):
-        resp = client.post('/api/auth/reset-password', json={}, content_type='application/json')
+    def test_reset_missing_fields(self, client, auth_headers, mock_sb):
+        resp = client.post('/api/auth/reset-password', headers=auth_headers, json={})
         assert resp.status_code == 400
 
-    def test_reset_short_password(self, client, mock_sb):
-        resp = client.post('/api/auth/reset-password', json={
-            'email': 'user@test.com', 'new_password': '123', 'admin_password': 'test-password-123'
-        }, content_type='application/json')
+    def test_reset_short_password(self, client, auth_headers, mock_sb):
+        resp = client.post('/api/auth/reset-password', headers=auth_headers, json={
+            'email': 'user@test.com', 'new_password': '123'
+        })
         assert resp.status_code == 400
 
-    def test_reset_wrong_admin_password(self, client, mock_sb):
+    def test_reset_requires_auth(self, client, mock_sb):
         resp = client.post('/api/auth/reset-password', json={
-            'email': 'user@test.com', 'new_password': 'newpassword', 'admin_password': 'wrong'
+            'email': 'user@test.com', 'new_password': 'newpassword'
         }, content_type='application/json')
         assert resp.status_code == 401
 
-    def test_reset_user_not_found(self, client, mock_sb):
+    def test_reset_user_not_found(self, client, auth_headers, mock_sb):
         chain = mock_chain(make_mock_response([]))
         mock_sb.table.return_value = chain
-        resp = client.post('/api/auth/reset-password', json={
-            'email': 'noexist@test.com', 'new_password': 'newpassword123', 'admin_password': 'test-password-123'
-        }, content_type='application/json')
+        resp = client.post('/api/auth/reset-password', headers=auth_headers, json={
+            'email': 'noexist@test.com', 'new_password': 'newpassword123'
+        })
         assert resp.status_code == 404
 
-    def test_reset_success(self, client, mock_sb):
+    def test_reset_success(self, client, auth_headers, mock_sb):
         user = {'id': 1, 'email': 'user@test.com', 'name': 'Test User'}
         chain = mock_chain(make_mock_response([user]))
         mock_sb.table.return_value = chain
-        resp = client.post('/api/auth/reset-password', json={
-            'email': 'user@test.com', 'new_password': 'newpassword123', 'admin_password': 'test-password-123'
-        }, content_type='application/json')
+        resp = client.post('/api/auth/reset-password', headers=auth_headers, json={
+            'email': 'user@test.com', 'new_password': 'newpassword123'
+        })
         assert resp.status_code == 200
         assert 'reset' in resp.get_json()['message'].lower()
 

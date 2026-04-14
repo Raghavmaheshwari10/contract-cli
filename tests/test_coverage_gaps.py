@@ -91,9 +91,9 @@ class TestOriginCheck:
 
     def test_post_bad_origin_rejected(self, app, client, mock_sb):
         """POST with disallowed Origin should return 403."""
-        from index import mk_token
+        from index import make_token
         headers = {
-            'Authorization': f'Bearer {mk_token("")}',
+            'Authorization': f'Bearer {make_token("")}',
             'Content-Type': 'application/json',
             'Origin': 'https://evil.com'
         }
@@ -104,9 +104,9 @@ class TestOriginCheck:
 
     def test_post_good_origin_allowed(self, app, client, mock_sb):
         """POST with allowed Origin should pass."""
-        from index import mk_token
+        from index import make_token
         headers = {
-            'Authorization': f'Bearer {mk_token("")}',
+            'Authorization': f'Bearer {make_token("")}',
             'Content-Type': 'application/json',
             'Origin': 'http://localhost:3000'
         }
@@ -118,9 +118,9 @@ class TestOriginCheck:
 
     def test_referer_fallback(self, app, client, mock_sb):
         """Referer starting with an allowed origin should pass."""
-        from index import mk_token
+        from index import make_token
         headers = {
-            'Authorization': f'Bearer {mk_token("")}',
+            'Authorization': f'Bearer {make_token("")}',
             'Content-Type': 'application/json',
             'Referer': 'https://contract-cli-six.vercel.app/some/page'
         }
@@ -586,8 +586,8 @@ class TestObligationEndpoints:
         assert resp.status_code == 200
 
     def test_escalate_no_ids(self, client, mock_sb):
-        from index import mk_token
-        token = mk_token("mgr@test.com")
+        from index import make_token
+        token = make_token("mgr@test.com")
         headers = {'Authorization': f'Bearer {token}', 'Content-Type': 'application/json'}
         chain = mock_chain(make_mock_response([{
             "email": "mgr@test.com", "role": "manager", "name": "Mgr",
@@ -599,8 +599,8 @@ class TestObligationEndpoints:
         assert resp.status_code == 400
 
     def test_escalate_success(self, client, mock_sb):
-        from index import mk_token
-        token = mk_token("mgr@test.com")
+        from index import make_token
+        token = make_token("mgr@test.com")
         headers = {'Authorization': f'Bearer {token}', 'Content-Type': 'application/json'}
 
         call_count = {"n": 0}
@@ -625,8 +625,8 @@ class TestObligationEndpoints:
 
     def test_auto_escalate_requires_admin(self, client, mock_sb):
         """Editor should not be able to auto-escalate."""
-        from index import mk_token
-        token = mk_token("ed@test.com")
+        from index import make_token
+        token = make_token("ed@test.com")
         headers = {'Authorization': f'Bearer {token}', 'Content-Type': 'application/json'}
         chain = mock_chain(make_mock_response([{
             "email": "ed@test.com", "role": "editor", "name": "Ed", "is_active": True
@@ -1121,41 +1121,34 @@ class TestRenewalTracker:
 # ═══════════════════════════════════════════════════════════════════════════
 class TestPasswordReset:
 
-    def test_reset_missing_fields(self, client, mock_sb):
-        resp = client.post("/api/auth/reset-password",
-                           json={"email": "a@b.com"}, content_type="application/json")
+    def test_reset_missing_fields(self, client, auth_headers, mock_sb):
+        resp = client.post("/api/auth/reset-password", headers=auth_headers,
+                           json={"email": "a@b.com"})
         assert resp.status_code == 400
 
-    def test_reset_short_password(self, client, mock_sb):
-        resp = client.post("/api/auth/reset-password",
-                           json={"email": "a@b.com", "new_password": "abc",
-                                 "admin_password": "test-password-123"},
-                           content_type="application/json")
+    def test_reset_short_password(self, client, auth_headers, mock_sb):
+        resp = client.post("/api/auth/reset-password", headers=auth_headers,
+                           json={"email": "a@b.com", "new_password": "abc"})
         assert resp.status_code == 400
 
-    def test_reset_wrong_admin_password(self, client, mock_sb):
+    def test_reset_requires_auth(self, client, mock_sb):
         resp = client.post("/api/auth/reset-password",
-                           json={"email": "a@b.com", "new_password": "newpass123",
-                                 "admin_password": "wrong"},
+                           json={"email": "a@b.com", "new_password": "newpass123"},
                            content_type="application/json")
         assert resp.status_code == 401
 
-    def test_reset_user_not_found(self, client, mock_sb):
+    def test_reset_user_not_found(self, client, auth_headers, mock_sb):
         mock_sb.table.return_value = mock_chain(make_mock_response([]))
-        resp = client.post("/api/auth/reset-password",
-                           json={"email": "nobody@test.com", "new_password": "newpass123",
-                                 "admin_password": "test-password-123"},
-                           content_type="application/json")
+        resp = client.post("/api/auth/reset-password", headers=auth_headers,
+                           json={"email": "nobody@test.com", "new_password": "newpass123"})
         assert resp.status_code == 404
 
-    def test_reset_success(self, client, mock_sb):
+    def test_reset_success(self, client, auth_headers, mock_sb):
         mock_sb.table.return_value = mock_chain(make_mock_response([
             {"id": 1, "email": "a@b.com", "name": "Alice"}
         ]))
-        resp = client.post("/api/auth/reset-password",
-                           json={"email": "a@b.com", "new_password": "newpass123",
-                                 "admin_password": "test-password-123"},
-                           content_type="application/json")
+        resp = client.post("/api/auth/reset-password", headers=auth_headers,
+                           json={"email": "a@b.com", "new_password": "newpass123"})
         assert resp.status_code == 200
 
 
@@ -1255,8 +1248,8 @@ class TestAuthDecorator:
 
     def test_user_lookup_failure_defaults_admin(self, client, mock_sb):
         """If user DB lookup fails, role defaults to admin."""
-        from index import mk_token
-        token = mk_token("user@test.com")
+        from index import make_token
+        token = make_token("user@test.com")
         headers = {'Authorization': f'Bearer {token}', 'Content-Type': 'application/json'}
         mock_sb.table.side_effect = Exception("DB error")
         # Should still proceed with default admin role
@@ -1370,8 +1363,8 @@ class TestAuditLogCleanup:
 
     def test_cleanup_requires_admin(self, client, mock_sb):
         """Editors should not be able to clean up audit logs."""
-        from index import mk_token
-        token = mk_token("editor@test.com")
+        from index import make_token
+        token = make_token("editor@test.com")
         headers = {'Authorization': f'Bearer {token}', 'Content-Type': 'application/json'}
         chain = mock_chain(make_mock_response([{
             "email": "editor@test.com", "role": "editor",

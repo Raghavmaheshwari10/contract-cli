@@ -11,6 +11,7 @@ from config import (
     _check_rate_limit, _check_origin, _revoked_tokens,
     ROLE_HIERARCHY,
 )
+from constants import TOKEN_EXPIRY_SECONDS
 
 # ─── Error Helper ────────────────────────────────────────────────────────
 def err(message, code, details=None):
@@ -81,25 +82,25 @@ def _sanitize_dict(d, fields=None):
     return out
 
 # ─── Token Auth ──────────────────────────────────────────────────────────
-def _sign(p): return hmac.new(SECRET.encode(), p.encode(), hashlib.sha256).hexdigest()
+def _hmac_sign(payload): return hmac.new(SECRET.encode(), payload.encode(), hashlib.sha256).hexdigest()
 
-def mk_token(email=""):
+def make_token(email=""):
     ts = str(int(time.time()))
     payload = f"{email}:{ts}" if email else ts
-    return f"{payload}:{_sign(payload)}"
+    return f"{payload}:{_hmac_sign(payload)}"
 
-def chk_token(t):
+def check_token(t):
     """Returns (valid, email)"""
     try:
         parts = t.rsplit(":", 1)
         if len(parts) != 2: return False, ""
         payload, sig = parts
-        if not hmac.compare_digest(sig, _sign(payload)): return False, ""
+        if not hmac.compare_digest(sig, _hmac_sign(payload)): return False, ""
         if sig in _revoked_tokens: return False, ""
         # Extract timestamp -- payload is either "ts" or "email:ts"
         segments = payload.split(":")
         ts = int(segments[-1])
-        if time.time() - ts > 86400: return False, ""
+        if time.time() - ts > TOKEN_EXPIRY_SECONDS: return False, ""
         email = segments[0] if len(segments) > 1 else ""
         return True, email
     except Exception as e:
@@ -122,7 +123,7 @@ def auth(f):
         h = request.headers.get("Authorization", "")
         if not h.startswith("Bearer "):
             return err("Auth required", 401)
-        valid, email = chk_token(h[7:])
+        valid, email = check_token(h[7:])
         if not valid:
             return err("Auth required", 401)
         # Look up user role

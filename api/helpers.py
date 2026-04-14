@@ -1,14 +1,18 @@
 """Activity logger, webhooks, notifications, email, workflows, and utility helpers for CLM API."""
 
-import os, sys, re, time, hmac, hashlib, difflib
+import os, sys, re, time, difflib
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import json as J
+import json
 import requests as http
 from datetime import datetime
 from flask import jsonify
 
 from config import (
     sb, log, RESEND_API_KEY, EMAIL_FROM, VALID_TRANSITIONS,
+)
+from constants import (
+    DEFAULT_TAG_COLOR, NOTIFICATION_COLORS, VALID_STATUSES,
+    MAX_EMAIL_RECIPIENTS,
 )
 
 # ─── Activity Logger ────────────────────────────────────────────────────
@@ -71,9 +75,7 @@ def send_email_notification(title, message="", ntype="info", contract_id=None, u
         if not recipients: return
 
         # Build email HTML
-        type_colors = {"info": "#2563eb", "approval": "#ea580c", "comment": "#0891b2",
-                       "expiry": "#dc2626", "success": "#059669", "workflow": "#7c3aed"}
-        color = type_colors.get(ntype, "#2563eb")
+        color = NOTIFICATION_COLORS.get(ntype, DEFAULT_TAG_COLOR)
 
         html = f"""<!DOCTYPE html><html><body style="font-family:'Helvetica',Arial,sans-serif;background:#f5f7fa;margin:0;padding:0">
 <div style="max-width:600px;margin:0 auto;padding:20px">
@@ -92,7 +94,7 @@ def send_email_notification(title, message="", ntype="info", contract_id=None, u
 <a href="https://contract-cli-six.vercel.app" style="color:#64748b">Manage preferences</a></p>
 </div></div></body></html>"""
 
-        for email in recipients[:10]:  # Max 10 recipients per event
+        for email in recipients[:MAX_EMAIL_RECIPIENTS]:
             for attempt in range(2):
                 try:
                     r = http.post("https://api.resend.com/emails",
@@ -147,7 +149,7 @@ def run_workflows(event, contract_id, context=None):
             try:
                 if rule["action_type"] == "add_tag":
                     tag = conf.get("tag", "")
-                    color = conf.get("color", "#2563eb")
+                    color = conf.get("color", DEFAULT_TAG_COLOR)
                     if tag:
                         existing = sb.table("contract_tags").select("id").eq("contract_id", contract_id).eq("tag_name", tag).execute()
                         if not existing.data:
@@ -165,7 +167,7 @@ def run_workflows(event, contract_id, context=None):
 
                 elif rule["action_type"] == "change_status":
                     new_s = conf.get("status", "")
-                    if new_s in ("draft", "pending", "in_review", "executed", "rejected"):
+                    if new_s in VALID_STATUSES:
                         upd = {"status": new_s}
                         if new_s == "executed": upd["executed_at"] = datetime.now().isoformat()
                         sb.table("contracts").update(upd).eq("id", contract_id).execute()
@@ -233,26 +235,29 @@ def _line_diff(old_text, new_text):
 
 # ─── Status Transition ──────────────────────────────────────────────────
 def _transition_status(cid, new_status, user="User"):
-    """Enforce state machine transitions. Returns (success_response, status_code)"""
-    valid = ["draft", "pending", "in_review", "executed", "rejected"]
-    if new_status not in valid:
-        return jsonify({"error": {"message": f"Status must be one of: {', '.join(valid)}", "code": 400}}), 400
-    chk = sb.table("contracts").select("id,status,name").eq("id", cid).execute()
-    if not chk.data:
-        return jsonify({"error": {"message": "Contract not found", "code": 404}}), 404
-    old = chk.data[0]["status"]
-    if new_status not in VALID_TRANSITIONS.get(old, set()):
-        return jsonify({"error": {"message": f"Cannot transition from '{old}' to '{new_status}'. Allowed: {', '.join(VALID_TRANSITIONS.get(old, set()))}", "code": 400}}), 400
+    """Enforce state machine transitions. Returns (success_response, status_code)."""
+    from auth import err
+    if new_status not in VALID_STATUSES:
+        return err(f"Status must be one of: {', '.join(VALID_STATUSES)}", 400)
+    contract = sb.table("contracts").select("id,status,name").eq("id", cid).execute()
+    if not contract.data:
+        return err("Contract not found", 404)
+    old = contract.data[0]["status"]
+    allowed = VALID_TRANSITIONS.get(old, set())
+    if new_status not in allowed:
+        return err(f"Cannot transition from '{old}' to '{new_status}'. Allowed: {', '.join(allowed)}", 400)
     # Approval gate for execution
     if new_status == "executed":
         pending_approvals = sb.table("contract_approvals").select("id").eq("contract_id", cid).eq("status", "pending").execute()
         if pending_approvals.data:
-            return jsonify({"error": {"message": f"All approvals must be completed before execution. {len(pending_approvals.data)} pending.", "code": 400}}), 400
-    upd = {"status": new_status}
-    if new_status == "executed": upd["executed_at"] = datetime.now().isoformat()
-    sb.table("contracts").update(upd).eq("id", cid).execute()
+            return err(f"All approvals must be completed before execution. {len(pending_approvals.data)} pending.", 400)
+    update_data = {"status": new_status}
+    if new_status == "executed":
+        update_data["executed_at"] = datetime.now().isoformat()
+    sb.table("contracts").update(update_data).eq("id", cid).execute()
+    name = contract.data[0]["name"]
     log_activity(cid, "status_changed", user, f"{old} -> {new_status}")
-    fire_webhooks(f"contract.{new_status}", {"contract_id": cid, "name": chk.data[0]["name"]})
-    create_notification(f"Status Changed: {chk.data[0]['name']}", f"{old} -> {new_status}", "info", cid)
-    run_workflows("status_change", cid, {"from_status": old, "to_status": new_status, "name": chk.data[0]["name"]})
+    fire_webhooks(f"contract.{new_status}", {"contract_id": cid, "name": name})
+    create_notification(f"Status Changed: {name}", f"{old} -> {new_status}", "info", cid)
+    run_workflows("status_change", cid, {"from_status": old, "to_status": new_status, "name": name})
     return jsonify({"message": f"Status changed from {old} to {new_status}"}), 200

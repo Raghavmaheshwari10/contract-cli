@@ -105,7 +105,7 @@ class TestVerify:
         # Create a token with old timestamp
         old_ts = str(int(time.time()) - 90000)  # > 86400 seconds ago
         payload = f"test@example.com:{old_ts}"
-        sig = index._sign(payload)
+        sig = index._hmac_sign(payload)
         expired_token = f"{payload}:{sig}"
         resp = client.get('/api/auth/verify', headers={
             'Authorization': f'Bearer {expired_token}'

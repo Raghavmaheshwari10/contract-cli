@@ -284,9 +284,9 @@ class TestApprovalRoleChecks:
 
     def test_request_approval_requires_editor(self, client, mock_sb):
         """Viewers cannot request approvals."""
-        from index import mk_token
+        from index import make_token
         # Create a viewer token
-        viewer_token = mk_token("viewer@test.com")
+        viewer_token = make_token("viewer@test.com")
         viewer_headers = {'Authorization': f'Bearer {viewer_token}', 'Content-Type': 'application/json'}
 
         # Mock user lookup to return viewer role
@@ -301,8 +301,8 @@ class TestApprovalRoleChecks:
 
     def test_respond_approval_requires_manager(self, client, mock_sb):
         """Editors cannot approve/reject approvals."""
-        from index import mk_token
-        editor_token = mk_token("editor@test.com")
+        from index import make_token
+        editor_token = make_token("editor@test.com")
         editor_headers = {'Authorization': f'Bearer {editor_token}', 'Content-Type': 'application/json'}
 
         user_data = {'id': 2, 'email': 'editor@test.com', 'role': 'editor', 'is_active': True}
@@ -358,8 +358,8 @@ class TestObligationRoleCheck:
 
     def test_add_obligation_requires_editor(self, client, mock_sb):
         """Viewers cannot add obligations."""
-        from index import mk_token
-        viewer_token = mk_token("viewer@test.com")
+        from index import make_token
+        viewer_token = make_token("viewer@test.com")
         viewer_headers = {'Authorization': f'Bearer {viewer_token}', 'Content-Type': 'application/json'}
 
         user_data = {'id': 1, 'email': 'viewer@test.com', 'role': 'viewer', 'is_active': True}

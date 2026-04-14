@@ -173,55 +173,55 @@ class TestPasswordHashing:
 
 class TestTokenAuth:
     def test_token_roundtrip(self):
-        from auth import mk_token, chk_token
-        token = mk_token("user@test.com")
-        valid, email = chk_token(token)
+        from auth import make_token, check_token
+        token = make_token("user@test.com")
+        valid, email = check_token(token)
         assert valid is True
         assert email == "user@test.com"
 
     def test_token_no_email(self):
-        from auth import mk_token, chk_token
-        token = mk_token("")
-        valid, email = chk_token(token)
+        from auth import make_token, check_token
+        token = make_token("")
+        valid, email = check_token(token)
         assert valid is True
         assert email == ""
 
     def test_invalid_token(self):
-        from auth import chk_token
-        valid, _ = chk_token("garbage:invalid")
+        from auth import check_token
+        valid, _ = check_token("garbage:invalid")
         assert valid is False
 
     def test_tampered_token(self):
-        from auth import mk_token, chk_token
-        token = mk_token("user@test.com")
+        from auth import make_token, check_token
+        token = make_token("user@test.com")
         tampered = token[:-5] + "xxxxx"
-        valid, _ = chk_token(tampered)
+        valid, _ = check_token(tampered)
         assert valid is False
 
     def test_expired_token(self):
-        from auth import chk_token, _sign
+        from auth import check_token, _hmac_sign
         # Create token with old timestamp
         old_ts = str(int(time.time()) - 90000)  # 25 hours ago
         payload = f"user@test.com:{old_ts}"
-        sig = _sign(payload)
+        sig = _hmac_sign(payload)
         token = f"{payload}:{sig}"
-        valid, _ = chk_token(token)
+        valid, _ = check_token(token)
         assert valid is False
 
     def test_revoked_token(self):
-        from auth import mk_token, chk_token
+        from auth import make_token, check_token
         import config
-        token = mk_token("user@test.com")
+        token = make_token("user@test.com")
         sig = token.rsplit(":", 1)[-1]
         config._revoked_tokens.add(sig)
-        valid, _ = chk_token(token)
+        valid, _ = check_token(token)
         assert valid is False
 
     def test_malformed_token(self):
-        from auth import chk_token
-        assert chk_token("noseparator")[0] is False
-        assert chk_token("")[0] is False
-        assert chk_token("a:b:c:d:e")[0] is False
+        from auth import check_token
+        assert check_token("noseparator")[0] is False
+        assert check_token("")[0] is False
+        assert check_token("a:b:c:d:e")[0] is False
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -313,8 +313,8 @@ class TestRBACEnforcement:
     """Test that protected endpoints reject lower roles."""
 
     def _make_token_with_role(self, role, mock_sb):
-        from index import mk_token
-        token = mk_token("user@test.com")
+        from index import make_token
+        token = make_token("user@test.com")
         headers = {'Authorization': f'Bearer {token}', 'Content-Type': 'application/json'}
         # Mock user lookup to return specific role
         user = {'id': 1, 'email': 'user@test.com', 'role': role, 'is_active': True, 'name': 'Test'}
@@ -397,8 +397,8 @@ class TestRBACEnforcement:
         assert resp.status_code == 403
 
     def test_deactivated_user_rejected(self, client, mock_sb):
-        from index import mk_token
-        token = mk_token("deactivated@test.com")
+        from index import make_token
+        token = make_token("deactivated@test.com")
         headers = {'Authorization': f'Bearer {token}', 'Content-Type': 'application/json'}
         user = {'id': 1, 'email': 'deactivated@test.com', 'role': 'admin', 'is_active': False, 'name': 'Deactivated'}
         def table_side(t):
@@ -682,37 +682,56 @@ class TestMalformedRequests:
 # ═══════════════════════════════════════════════════════════════════════════
 
 class TestLeegalityWebhook:
+    def test_webhook_rejects_without_salt(self, client, mock_sb):
+        """Webhook returns 503 if LEEGALITY_PRIVATE_SALT is not configured."""
+        with patch('index.LEEGALITY_SALT', ''):
+            resp = client.post('/api/leegality/webhook', json={'event': 'test'},
+                               content_type='application/json')
+            assert resp.status_code == 503
+
     def test_webhook_no_doc_id(self, client, mock_sb):
-        resp = client.post('/api/leegality/webhook', json={'event': 'test'},
-                           content_type='application/json')
-        assert resp.status_code == 200
-        assert resp.get_json()['status'] == 'ignored'
+        with patch('index.LEEGALITY_SALT', 'test-salt'):
+            import hmac as _hmac, hashlib as _hashlib, json as _json
+            payload = {'event': 'test'}
+            mac = _hmac.new(b'test-salt', _json.dumps(payload, separators=(',',':'), sort_keys=True).encode(), _hashlib.sha256).hexdigest()
+            payload['mac'] = mac
+            resp = client.post('/api/leegality/webhook', json=payload,
+                               content_type='application/json')
+            assert resp.status_code == 200
+            assert resp.get_json()['status'] == 'ignored'
 
     def test_webhook_no_matching_sig(self, client, mock_sb):
         chain = mock_chain(make_mock_response([]))
         mock_sb.table.return_value = chain
-        resp = client.post('/api/leegality/webhook', json={
-            'documentId': 'doc123', 'event': 'document.signed', 'signer': {'name': 'John'}
-        }, content_type='application/json')
-        assert resp.status_code == 200
-        assert resp.get_json()['status'] == 'no match'
+        with patch('index.LEEGALITY_SALT', 'test-salt'):
+            import hmac as _hmac, hashlib as _hashlib, json as _json
+            payload = {'documentId': 'doc123', 'event': 'document.signed', 'signer': {'name': 'John'}}
+            mac = _hmac.new(b'test-salt', _json.dumps(payload, separators=(',',':'), sort_keys=True).encode(), _hashlib.sha256).hexdigest()
+            payload['mac'] = mac
+            resp = client.post('/api/leegality/webhook', json=payload,
+                               content_type='application/json')
+            assert resp.status_code == 200
+            assert resp.get_json()['status'] == 'no match'
 
-    def test_webhook_signed_event(self, client, mock_sb):
+    def test_webhook_hmac_signed_event(self, client, mock_sb):
         sigs = [{'id': 1, 'contract_id': 5, 'signer_name': 'John', 'signer_email': 'john@test.com',
                  'signature_data': 'leegality:doc123'}]
         def table_side(t):
             chain = mock_chain()
-            if t == 'contract_signatures':
+            if t == 'contract_hmac_signatures':
                 chain.execute.return_value = make_mock_response(sigs)
             elif t == 'contracts':
                 chain.execute.return_value = make_mock_response([])
             return chain
         mock_sb.table.side_effect = table_side
-        with patch('index.log_activity'):
-            resp = client.post('/api/leegality/webhook', json={
-                'documentId': 'doc123', 'event': 'invitee.signed',
-                'signer': {'name': 'John', 'email': 'john@test.com'}
-            }, content_type='application/json')
+        with patch('index.LEEGALITY_SALT', 'test-salt'), patch('index.log_activity'):
+            import hmac as _hmac, hashlib as _hashlib, json as _json
+            payload = {'documentId': 'doc123', 'event': 'invitee.signed',
+                       'signer': {'name': 'John', 'email': 'john@test.com'}}
+            mac = _hmac.new(b'test-salt', _json.dumps(payload, separators=(',',':'), sort_keys=True).encode(), _hashlib.sha256).hexdigest()
+            payload['mac'] = mac
+            resp = client.post('/api/leegality/webhook', json=payload,
+                               content_type='application/json')
         assert resp.status_code == 200
 
 
@@ -841,6 +860,168 @@ class TestAIEndpoints:
             resp = client.post('/api/ai/suggest-clauses', headers=auth_headers, json={})
         assert resp.status_code == 400
 
+    def test_ai_summary_no_ai(self, client, auth_headers, mock_sb):
+        with patch('index.oai_h', return_value=None):
+            resp = client.post('/api/contracts/1/ai-summary', headers=auth_headers)
+        assert resp.status_code == 500
+
+    def test_ai_summary_not_found(self, client, auth_headers, mock_sb):
+        chain = mock_chain(make_mock_response([]))
+        mock_sb.table.return_value = chain
+        with patch('index.oai_h', return_value={'Authorization': 'Bearer x'}):
+            resp = client.post('/api/contracts/999/ai-summary', headers=auth_headers)
+        assert resp.status_code == 404
+
+    def test_extract_obligations_no_ai(self, client, auth_headers, mock_sb):
+        with patch('index.oai_h', return_value=None):
+            resp = client.post('/api/contracts/1/extract-obligations', headers=auth_headers, json={})
+        assert resp.status_code == 500
+
+    def test_extract_obligations_not_found(self, client, auth_headers, mock_sb):
+        chain = mock_chain(make_mock_response([]))
+        mock_sb.table.return_value = chain
+        with patch('index.oai_h', return_value={'Authorization': 'Bearer x'}):
+            resp = client.post('/api/contracts/999/extract-obligations', headers=auth_headers, json={})
+        assert resp.status_code == 404
+
+    def test_explain_contract_no_ai(self, client, auth_headers, mock_sb):
+        with patch('index.oai_h', return_value=None):
+            resp = client.post('/api/contracts/1/explain', headers=auth_headers, json={})
+        assert resp.status_code == 500
+
+    def test_explain_contract_not_found(self, client, auth_headers, mock_sb):
+        chain = mock_chain(make_mock_response([]))
+        mock_sb.table.return_value = chain
+        with patch('index.oai_h', return_value={'Authorization': 'Bearer x'}):
+            resp = client.post('/api/contracts/999/explain', headers=auth_headers, json={})
+        assert resp.status_code == 404
+
+    def test_chat_with_query_classification(self, client, auth_headers, mock_sb):
+        """Test that chat endpoint works with query classification."""
+        with patch('index.oai_h', return_value={'Authorization': 'Bearer x'}):
+            chain = mock_chain(make_mock_response([]))
+            mock_sb.table.return_value = chain
+            mock_sb.rpc.return_value = chain
+            resp = client.post('/api/chat', headers=auth_headers,
+                json={'message': 'What are the payment terms?', 'stream': False})
+        # Should fail due to no actual OpenAI, but should get past classification
+        assert resp.status_code in (500, 200)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# AI MODULE UNIT TESTS
+# ═══════════════════════════════════════════════════════════════════════════
+
+class TestAiModule:
+    """Tests for ai.py helper functions."""
+
+    def test_classify_query_financial(self):
+        from ai import classify_query
+        types = classify_query("What is the payment amount?")
+        assert "financial" in types
+
+    def test_classify_query_dates(self):
+        from ai import classify_query
+        types = classify_query("When is the expiry date of this contract?")
+        assert "dates" in types
+
+    def test_classify_query_legal(self):
+        from ai import classify_query
+        types = classify_query("What does the indemnity clause say?")
+        assert "legal" in types
+
+    def test_classify_query_comparison(self):
+        from ai import classify_query
+        types = classify_query("Compare contract A vs contract B")
+        assert "comparison" in types
+
+    def test_classify_query_risk(self):
+        from ai import classify_query
+        types = classify_query("What is the risk exposure and vulnerability?")
+        assert "risk" in types
+
+    def test_classify_query_summary(self):
+        from ai import classify_query
+        types = classify_query("Give me a summary overview of the contract")
+        assert "summary" in types
+
+    def test_classify_query_general(self):
+        from ai import classify_query
+        types = classify_query("Hello how are you?")
+        assert types == ["general"]
+
+    def test_classify_query_multiple_types(self):
+        from ai import classify_query
+        types = classify_query("Compare the payment terms between contracts")
+        assert "financial" in types
+        assert "comparison" in types
+
+    def test_generate_followups_payment(self):
+        from ai import generate_followups
+        followups = generate_followups("What is the payment amount?", "The payment is INR 50,000", ["Contract A"])
+        assert len(followups) > 0
+        assert len(followups) <= 3
+
+    def test_generate_followups_risk(self):
+        from ai import generate_followups
+        followups = generate_followups("What are the risks?", "There are liability risks", ["Contract A"])
+        assert len(followups) > 0
+
+    def test_generate_followups_general(self):
+        from ai import generate_followups
+        followups = generate_followups("Tell me about this", "General info", ["Contract A"])
+        assert len(followups) > 0
+        assert len(followups) <= 3
+
+    def test_generate_followups_no_duplicates(self):
+        from ai import generate_followups
+        followups = generate_followups("payment payment payment", "payment info", [])
+        seen = set()
+        for f in followups:
+            assert f.lower() not in seen
+            seen.add(f.lower())
+
+    def test_build_prompt_with_query_types(self):
+        from ai import build_prompt
+        prompt = build_prompt("Contract A", "Some context", ["financial"])
+        assert "FINANCIAL" in prompt
+        assert "monetary" in prompt.lower() or "payment" in prompt.lower()
+
+    def test_build_prompt_general(self):
+        from ai import build_prompt
+        prompt = build_prompt("Contract A", "Some context", None)
+        assert "GENERAL" in prompt
+        assert "EMB" in prompt
+
+    def test_build_prompt_legal(self):
+        from ai import build_prompt
+        prompt = build_prompt("Contract A", "Some context", ["legal"])
+        assert "LEGAL" in prompt
+
+    def test_chunk_text_tags_financial(self):
+        from ai import chunk_text
+        content = "\n1. PAYMENT TERMS\nPayment shall be made within 30 days of invoice.\nThe total fee is INR 10,00,000.\n"
+        chunks = chunk_text(content)
+        assert any("FINANCIAL" in c["section_title"] for c in chunks)
+
+    def test_chunk_text_tags_confidentiality(self):
+        from ai import chunk_text
+        content = "\n1. CONFIDENTIALITY AND NDA\nBoth parties agree to maintain confidentiality of all information.\n"
+        chunks = chunk_text(content)
+        assert any("CONFIDENTIALITY" in c["section_title"] for c in chunks)
+
+    def test_chunk_text_tags_termination(self):
+        from ai import chunk_text
+        content = "\n1. TERMINATION CLAUSE\nEither party may terminate this agreement with 30 days notice.\n"
+        chunks = chunk_text(content)
+        assert any("TERMINATION" in c["section_title"] for c in chunks)
+
+    def test_chunk_text_tags_liability(self):
+        from ai import chunk_text
+        content = "\n1. LIMITATION OF LIABILITY AND INDEMNIFICATION\nThe liability of either party shall not exceed the contract value.\n"
+        chunks = chunk_text(content)
+        assert any("LIABILITY" in c["section_title"] for c in chunks)
+
 
 # ═══════════════════════════════════════════════════════════════════════════
 # ESIGN INTEGRATION
@@ -861,7 +1042,7 @@ class TestEsignIntegration:
             })
         assert resp.status_code == 404
 
-    def test_esign_missing_signers(self, client, auth_headers, mock_sb):
+    def test_esign_missing_hmac_signers(self, client, auth_headers, mock_sb):
         contract = {'id': 1, 'name': 'Test', 'content': 'text', 'content_html': '', 'party_name': 'Acme'}
         chain = mock_chain(make_mock_response([contract]))
         mock_sb.table.return_value = chain
@@ -871,7 +1052,7 @@ class TestEsignIntegration:
             })
         assert resp.status_code == 400
 
-    def test_esign_signer_missing_email(self, client, auth_headers, mock_sb):
+    def test_esign_hmac_signer_missing_email(self, client, auth_headers, mock_sb):
         contract = {'id': 1, 'name': 'Test', 'content': 'text', 'content_html': '', 'party_name': 'Acme'}
         chain = mock_chain(make_mock_response([contract]))
         mock_sb.table.return_value = chain
