@@ -258,8 +258,8 @@ def hybrid_search(query, cids=None, n=30):
 
 
 # ─── System Prompt Builder ───────────────────────────────────────────────
-def build_prompt(summary, context, query_types=None):
-    """Build an optimized system prompt based on query classification."""
+def build_prompt(summary, context, query_types=None, learnings=""):
+    """Build an optimized system prompt based on query classification and past learnings."""
 
     # Base identity and grounding
     base = """You are an expert CLM (Contract Lifecycle Management) assistant for EMB (Expand My Business / Mantarav Private Limited).
@@ -338,13 +338,21 @@ GENERAL ANALYSIS:
 - Cover financial, legal, and operational aspects as relevant
 - Highlight any risks or concerns proactively"""
 
+    learning_section = ""
+    if learnings:
+        learning_section = f"""
+
+LEARNING FROM PAST INTERACTIONS:
+{learnings}
+Use this feedback to adjust your response style. Avoid approaches that received negative feedback. Emulate patterns from positively-rated responses."""
+
     return f"""{base}
 
 CONTRACTS IN SCOPE: {summary}
 
 RELEVANT CONTRACT SECTIONS:
 {context}
-{type_guidance}
+{type_guidance}{learning_section}
 
 RESPONSE RULES:
 1. Answer ONLY from provided contract data. If information is not in the contracts, say so clearly.

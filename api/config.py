@@ -95,4 +95,5 @@ BACKUP_TABLES = [
     "clm_users", "workflow_rules", "workflow_log",
     "custom_field_defs", "custom_field_values",
     "notifications", "webhook_configs", "email_preferences",
+    "chat_sessions", "chat_feedback",
 ]

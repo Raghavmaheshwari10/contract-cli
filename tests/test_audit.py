@@ -909,6 +909,94 @@ class TestAIEndpoints:
 
 
 # ═══════════════════════════════════════════════════════════════════════════
+# CHAT FEEDBACK & SESSIONS
+# ═══════════════════════════════════════════════════════════════════════════
+
+class TestChatFeedback:
+    def test_feedback_invalid_rating(self, client, auth_headers, mock_sb):
+        resp = client.post('/api/chat/feedback', headers=auth_headers,
+            json={'query': 'test', 'response_snippet': 'test', 'rating': 'maybe'})
+        assert resp.status_code == 400
+
+    def test_feedback_missing_query(self, client, auth_headers, mock_sb):
+        resp = client.post('/api/chat/feedback', headers=auth_headers,
+            json={'response_snippet': 'test', 'rating': 'up'})
+        assert resp.status_code == 400
+
+    def test_feedback_success(self, client, auth_headers, mock_sb):
+        chain = mock_chain(make_mock_response([{'id': 1}]))
+        mock_sb.table.return_value = chain
+        resp = client.post('/api/chat/feedback', headers=auth_headers,
+            json={'query': 'What is payment?', 'response_snippet': 'Payment is...', 'rating': 'up'})
+        assert resp.status_code == 200
+        assert resp.get_json()['ok'] is True
+
+    def test_feedback_down(self, client, auth_headers, mock_sb):
+        chain = mock_chain(make_mock_response([{'id': 1}]))
+        mock_sb.table.return_value = chain
+        resp = client.post('/api/chat/feedback', headers=auth_headers,
+            json={'query': 'Summarize', 'response_snippet': 'Bad response', 'rating': 'down',
+                  'comment': 'Too vague', 'contract_ids': [1, 2]})
+        assert resp.status_code == 200
+
+    def test_feedback_stats(self, client, auth_headers, mock_sb):
+        chain = mock_chain(make_mock_response([
+            {'rating': 'up', 'query_types': ['financial'], 'created_at': '2026-01-01'},
+            {'rating': 'down', 'query_types': ['legal'], 'created_at': '2026-01-02'},
+            {'rating': 'up', 'query_types': [], 'created_at': '2026-01-03'},
+        ]))
+        mock_sb.table.return_value = chain
+        resp = client.get('/api/chat/feedback/stats', headers=auth_headers)
+        assert resp.status_code == 200
+        d = resp.get_json()
+        assert d['total'] == 3
+        assert d['positive'] == 2
+        assert d['negative'] == 1
+
+
+class TestChatSessions:
+    def test_save_session_no_messages(self, client, auth_headers, mock_sb):
+        resp = client.post('/api/chat/sessions', headers=auth_headers,
+            json={'messages': []})
+        assert resp.status_code == 400
+
+    def test_save_session_success(self, client, auth_headers, mock_sb):
+        chain = mock_chain(make_mock_response([{'id': 42}]))
+        mock_sb.table.return_value = chain
+        resp = client.post('/api/chat/sessions', headers=auth_headers,
+            json={'messages': [{'role': 'user', 'content': 'Hello'}],
+                  'scope_label': 'Test Contract'})
+        assert resp.status_code == 200
+        assert resp.get_json()['ok'] is True
+
+    def test_list_sessions(self, client, auth_headers, mock_sb):
+        chain = mock_chain(make_mock_response([
+            {'id': 1, 'scope_label': 'Contract A', 'contract_ids': [1],
+             'messages': [{'role': 'user', 'content': 'Tell me about payment'}],
+             'updated_at': '2026-01-01T00:00:00'}
+        ]))
+        mock_sb.table.return_value = chain
+        resp = client.get('/api/chat/sessions', headers=auth_headers)
+        assert resp.status_code == 200
+        d = resp.get_json()
+        assert len(d) == 1
+        assert d[0]['preview'] == 'Tell me about payment'
+        assert d[0]['message_count'] == 1
+
+    def test_get_session_not_found(self, client, auth_headers, mock_sb):
+        chain = mock_chain(make_mock_response([]))
+        mock_sb.table.return_value = chain
+        resp = client.get('/api/chat/sessions/999', headers=auth_headers)
+        assert resp.status_code == 404
+
+    def test_delete_session(self, client, auth_headers, mock_sb):
+        chain = mock_chain(make_mock_response([]))
+        mock_sb.table.return_value = chain
+        resp = client.delete('/api/chat/sessions/1', headers=auth_headers)
+        assert resp.status_code == 200
+
+
+# ═══════════════════════════════════════════════════════════════════════════
 # AI MODULE UNIT TESTS
 # ═══════════════════════════════════════════════════════════════════════════
 
@@ -997,6 +1085,18 @@ class TestAiModule:
         from ai import build_prompt
         prompt = build_prompt("Contract A", "Some context", ["legal"])
         assert "LEGAL" in prompt
+
+    def test_build_prompt_with_learnings(self):
+        from ai import build_prompt
+        learnings = 'User asked: "payment terms" — Response was rated poorly.'
+        prompt = build_prompt("Contract A", "Some context", None, learnings)
+        assert "LEARNING FROM PAST" in prompt
+        assert "poorly" in prompt
+
+    def test_build_prompt_no_learnings(self):
+        from ai import build_prompt
+        prompt = build_prompt("Contract A", "Some context", None, "")
+        assert "LEARNING FROM PAST" not in prompt
 
     def test_chunk_text_tags_financial(self):
         from ai import chunk_text

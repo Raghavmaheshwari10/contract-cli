@@ -315,6 +315,13 @@ select.form-input{cursor:pointer}
 .chat-msg .bubble .actions button{font-size:.68rem;padding:.2rem .5rem;background:var(--surface2);color:var(--text3);border:1px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;transition:var(--transition);display:flex;align-items:center;gap:.3rem}
 .chat-msg .bubble .actions button:hover{background:var(--primary-bg);color:var(--primary);border-color:var(--primary)}
 .chat-msg .bubble .actions button.copied{background:var(--green);color:#fff;border-color:var(--green)}
+.chat-msg .bubble .actions button.voted-up{background:var(--green-bg);color:var(--green);border-color:var(--green)}
+.chat-msg .bubble .actions button.voted-down{background:var(--red-bg);color:var(--red);border-color:var(--red)}
+.chat-sessions-dropdown{position:absolute;top:calc(100% + 4px);left:0;width:300px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow-lg);z-index:50;max-height:320px;overflow-y:auto;display:none}
+.chat-session-item{padding:.6rem .8rem;border-bottom:1px solid var(--border3);cursor:pointer;transition:var(--transition)}
+.chat-session-item:hover{background:var(--surface2)}
+.chat-session-item .preview{font-size:.76rem;color:var(--text4);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chat-session-item .meta{font-size:.68rem;color:var(--text5);margin-top:.15rem;display:flex;justify-content:space-between}
 .chat-followups{padding:.5rem 1.5rem;display:flex;gap:.4rem;flex-wrap:wrap}
 .chat-followups button{font-size:.76rem;padding:.4rem .8rem;background:var(--primary-bg);color:var(--primary);border:1px solid rgba(37,99,235,.15);border-radius:15px;cursor:pointer;transition:var(--transition);max-width:250px;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .chat-followups button:hover{background:var(--primary);color:#fff;border-color:var(--primary)}
@@ -1012,9 +1019,13 @@ Use placeholders like [PARTY_NAME], [DATE], [COMPANY_NAME], [ADDRESS] for fields
 <div id="chat-scope-list" style="max-height:280px;overflow-y:auto"></div>
 </div>
 </div>
+<div style="position:relative">
+<button class="btn btn-ghost btn-sm" onclick="toggleChatHistory()" title="Chat history">History</button>
+<div class="chat-sessions-dropdown" id="chat-sessions-dropdown"></div>
+</div>
 <button class="btn btn-ghost btn-sm" onclick="copyFullChat()" title="Copy entire conversation" id="chat-copy-all-btn" style="display:none">Copy All</button>
-<button class="btn btn-ghost btn-sm" onclick="exportChat()" title="Download chat as text file" id="chat-export-btn" style="display:none">Save</button>
-<button class="btn btn-ghost btn-sm" onclick="chatHist=[];renderChat();document.getElementById('chat-copy-all-btn').style.display='none';document.getElementById('chat-export-btn').style.display='none'">Clear</button>
+<button class="btn btn-ghost btn-sm" onclick="saveChatSession()" title="Save this conversation" id="chat-export-btn" style="display:none">Save</button>
+<button class="btn btn-ghost btn-sm" onclick="clearChat()">Clear</button>
 </div>
 </div>
 <div class="chat-messages" id="chat-messages">
@@ -2544,10 +2555,61 @@ el.innerHTML=chatHist.map((m,idx)=>{const isAI=m.role==='assistant';
 const typingHtml=m._streaming&&!m.content?'<div class="chat-typing"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>':'';
 const queryBadges=isAI&&m.query_types?.length?m.query_types.map(t=>`<span class="chat-query-badge">${esc(t)}</span>`).join(''):'';
 const chunksInfo=isAI&&m.chunks_used?` <span class="chat-query-badge">${m.chunks_used} sections analyzed</span>`:'';
-const actionsHtml=isAI&&m.content&&!m._streaming?`<div class="actions"><button class="chat-copy-${idx}" onclick="copyChatMsg(${idx})">&#x1F4CB; Copy</button></div>`:'';
+const voted=m._voted||'';
+const actionsHtml=isAI&&m.content&&!m._streaming?`<div class="actions"><button class="chat-copy-${idx}" onclick="copyChatMsg(${idx})">&#x1F4CB; Copy</button><button class="${voted==='up'?'voted-up':''}" onclick="rateChatMsg(${idx},'up')" title="Good response">&#x1F44D;</button><button class="${voted==='down'?'voted-down':''}" onclick="rateChatMsg(${idx},'down')" title="Poor response">&#x1F44E;</button></div>`:'';
 const sourcesHtml=m.sources?.length?`<div class="sources">${m.sources.map(s=>`<span>${esc(s.name)}</span>`).join('')}${queryBadges}${chunksInfo}</div>`:(queryBadges||chunksInfo?`<div class="sources">${queryBadges}${chunksInfo}</div>`:'');
 return `<div class="chat-msg ${m.role}"><div class="avatar">${isAI?'AI':'U'}</div><div class="bubble"><div class="sender">${isAI?'AI Assistant':'You'}</div><div class="text">${typingHtml}${isAI?renderMd(m.content):esc(m.content)}</div>${sourcesHtml}${actionsHtml}</div></div>`}).join('');
 if(streaming||true)el.scrollTop=el.scrollHeight}
+
+/* ─── Chat Feedback (thumbs up/down) ─── */
+async function rateChatMsg(idx,rating){
+const m=chatHist[idx];if(!m||m.role!=='assistant')return;
+/* Find the user message that triggered this response */
+let userMsg='';
+for(let i=idx-1;i>=0;i--){if(chatHist[i].role==='user'){userMsg=chatHist[i].content;break}}
+m._voted=rating;renderChat();
+const cids=_chatScopeValue?_chatScopeValue.split(',').map(s=>parseInt(s.trim())):[];
+try{await api('/api/chat/feedback',{method:'POST',headers:authH(),body:J({
+query:userMsg,response_snippet:m.content.slice(0,500),rating:rating,
+contract_ids:cids,query_types:m.query_types||[]})});
+toast(rating==='up'?'Thanks for the feedback!':'Got it, I\'ll improve','success')}catch(e){}}
+
+/* ─── Chat Session Persistence ─── */
+let _chatSessionId=null;
+function clearChat(){chatHist=[];_chatSessionId=null;renderChat();
+document.getElementById('chat-copy-all-btn').style.display='none';
+document.getElementById('chat-export-btn').style.display='none'}
+
+async function saveChatSession(){
+if(!chatHist.length){toast('Nothing to save','error');return}
+const cids=_chatScopeValue?_chatScopeValue.split(',').map(s=>parseInt(s.trim())):[];
+try{const r=await api('/api/chat/sessions',{method:'POST',headers:authH(),body:J({
+session_id:_chatSessionId,messages:chatHist,scope_label:_chatScopeLabel||'All Contracts',contract_ids:cids})});
+const d=await r.json();if(d.id)_chatSessionId=d.id;
+toast('Chat saved','success')}catch(e){toast('Save failed','error')}}
+
+async function toggleChatHistory(){
+const dd=document.getElementById('chat-sessions-dropdown');
+if(dd.style.display!=='none'){dd.style.display='none';return}
+dd.innerHTML='<div style="padding:1rem;text-align:center"><div class="spinner"></div></div>';
+dd.style.display='block';
+try{const r=await api('/api/chat/sessions');const sessions=await r.json();
+if(!sessions.length){dd.innerHTML='<div style="padding:1rem;text-align:center;font-size:.82rem;color:var(--text4)">No saved chats yet</div>';return}
+dd.innerHTML=sessions.map(s=>`<div class="chat-session-item" onclick="loadChatSession(${s.id})">
+<div style="font-size:.82rem;font-weight:600;color:var(--text)">${esc(s.scope_label)}</div>
+<div class="preview">${esc(s.preview||'Empty conversation')}</div>
+<div class="meta"><span>${s.message_count} messages</span><span>${ago(s.updated_at)}</span></div>
+</div>`).join('')+'<div style="padding:.5rem;border-top:1px solid var(--border)"><button class="btn btn-ghost btn-sm" style="width:100%;color:var(--text4)" onclick="document.getElementById(\'chat-sessions-dropdown\').style.display=\'none\'">Close</button></div>'}
+catch(e){dd.innerHTML='<div style="padding:1rem;text-align:center;font-size:.82rem;color:var(--red)">Failed to load</div>'}}
+
+async function loadChatSession(sid){
+document.getElementById('chat-sessions-dropdown').style.display='none';
+try{const r=await api(`/api/chat/sessions/${sid}`);const d=await r.json();
+chatHist=d.messages||[];_chatSessionId=d.id;
+_chatScopeLabel=d.scope_label||'All Contracts';
+_chatScopeValue=d.contract_ids?.length?d.contract_ids.join(','):'';
+document.getElementById('chat-scope-label').textContent=_chatScopeLabel;
+renderChat();toast('Chat loaded','success')}catch(e){toast('Failed to load chat','error')}}
 
 // ═══ WEBHOOKS ═══
 async function loadWebhooks(){loadSlackWebhook();try{const r=await api('/api/webhooks');const d=await r.json();

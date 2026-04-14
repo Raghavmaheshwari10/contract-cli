@@ -1389,7 +1389,31 @@ def chat():
             ctx = "No contracts found in the system."
             summ = "None."
 
-    sys_prompt = build_prompt(summ, ctx, query_types)
+    # Fetch past learnings from feedback to improve response quality
+    learnings = ""
+    try:
+        fb_query = sb.table("chat_feedback").select("query,response_snippet,rating").eq("rating", "down").order("created_at", desc=True).limit(10)
+        if cids:
+            fb_query = fb_query.contains("contract_ids", cids[:3])
+        neg_fb = fb_query.execute().data or []
+        if neg_fb:
+            learnings = "\n\nPAST FEEDBACK (avoid these patterns):\n"
+            for fb in neg_fb[:5]:
+                learnings += f"- User asked: \"{fb['query'][:100]}\" — Response was rated poorly. Avoid similar approach.\n"
+
+        # Also get positive patterns
+        pos_query = sb.table("chat_feedback").select("query,response_snippet,rating").eq("rating", "up").order("created_at", desc=True).limit(10)
+        if cids:
+            pos_query = pos_query.contains("contract_ids", cids[:3])
+        pos_fb = pos_query.execute().data or []
+        if pos_fb:
+            learnings += "\nPOSITIVE FEEDBACK (users liked this style):\n"
+            for fb in pos_fb[:5]:
+                learnings += f"- User asked: \"{fb['query'][:100]}\" — Response was well received.\n"
+    except Exception:
+        pass  # Learning context is optional — don't fail the request
+
+    sys_prompt = build_prompt(summ, ctx, query_types, learnings)
     msgs = [{"role": "system", "content": sys_prompt}] + history + [{"role": "user", "content": msg}]
     sources = [{"id": c["id"], "name": c.get("name",""), "party": c.get("party_name","")} for c in meta]
     n_chunks = len(chunks)
@@ -1419,6 +1443,150 @@ def chat():
         return jsonify({"reply": reply, "sources": sources, "chunks_used": n_chunks, "followups": followups, "query_types": query_types})
     except Exception as e:
         log.error(f"Internal error: {e}")
+        return err("Internal server error", 500)
+
+# ─── Chat Feedback (Learning) ────────────────────────────────────────────
+@app.route("/api/chat/feedback", methods=["POST"])
+@auth
+@need_db
+def chat_feedback():
+    """Store thumbs up/down feedback on AI responses for learning."""
+    d = request.json or {}
+    query = _sanitize(d.get("query", ""))[:500]
+    response_snippet = _sanitize(d.get("response_snippet", ""))[:1000]
+    rating = d.get("rating", "")
+    if rating not in ("up", "down"): return err("Rating must be 'up' or 'down'", 400)
+    if not query: return err("Query is required", 400)
+    try:
+        row = {
+            "user_email": request.user_email,
+            "contract_ids": d.get("contract_ids", [])[:50],
+            "query": query,
+            "response_snippet": response_snippet,
+            "rating": rating,
+            "comment": _sanitize(d.get("comment", ""))[:500],
+            "query_types": d.get("query_types", [])[:10],
+        }
+        sb.table("chat_feedback").insert(row).execute()
+        return jsonify({"ok": True})
+    except Exception as e:
+        log.error(f"Chat feedback error: {e}")
+        return err("Internal server error", 500)
+
+@app.route("/api/chat/feedback/stats", methods=["GET"])
+@auth
+@need_db
+def chat_feedback_stats():
+    """Get feedback stats for admin dashboard."""
+    try:
+        all_fb = sb.table("chat_feedback").select("rating,query_types,created_at").execute().data or []
+        total = len(all_fb)
+        up = sum(1 for f in all_fb if f["rating"] == "up")
+        down = total - up
+        return jsonify({"total": total, "positive": up, "negative": down,
+                        "satisfaction_rate": round(up / total * 100, 1) if total else 0})
+    except Exception as e:
+        log.error(f"Feedback stats error: {e}")
+        return err("Internal server error", 500)
+
+# ─── Chat Sessions (Persistence) ────────────────────────────────────────
+@app.route("/api/chat/sessions", methods=["GET"])
+@auth
+@need_db
+def list_chat_sessions():
+    """List user's saved chat sessions."""
+    try:
+        sessions = sb.table("chat_sessions").select("id,scope_label,contract_ids,updated_at,messages") \
+            .eq("user_email", request.user_email) \
+            .order("updated_at", desc=True).limit(20).execute().data or []
+        # Return message count instead of full messages for listing
+        result = []
+        for s in sessions:
+            msgs = s.get("messages", [])
+            preview = ""
+            if msgs:
+                first_user = next((m["content"] for m in msgs if m.get("role") == "user"), "")
+                preview = first_user[:80]
+            result.append({
+                "id": s["id"],
+                "scope_label": s.get("scope_label", "All Contracts"),
+                "contract_ids": s.get("contract_ids", []),
+                "message_count": len(msgs),
+                "preview": preview,
+                "updated_at": s["updated_at"],
+            })
+        return jsonify(result)
+    except Exception as e:
+        log.error(f"Chat sessions list error: {e}")
+        return err("Internal server error", 500)
+
+@app.route("/api/chat/sessions", methods=["POST"])
+@auth
+@need_db
+def save_chat_session():
+    """Save or update a chat session."""
+    d = request.json or {}
+    messages = d.get("messages", [])
+    if not messages: return err("No messages to save", 400)
+    # Sanitize messages — only keep role, content, sources
+    clean_msgs = []
+    for m in messages[:100]:  # Cap at 100 messages
+        clean = {"role": m.get("role", "user"), "content": _sanitize(m.get("content", ""))[:10000]}
+        if m.get("sources"):
+            clean["sources"] = m["sources"][:20]
+        clean_msgs.append(clean)
+
+    session_id = d.get("session_id")
+    scope_label = _sanitize(d.get("scope_label", "All Contracts"))[:200]
+    contract_ids = d.get("contract_ids", [])[:50]
+
+    try:
+        if session_id:
+            # Update existing
+            sb.table("chat_sessions").update({
+                "messages": clean_msgs,
+                "scope_label": scope_label,
+                "contract_ids": contract_ids,
+                "updated_at": datetime.utcnow().isoformat(),
+            }).eq("id", int(session_id)).eq("user_email", request.user_email).execute()
+            return jsonify({"id": int(session_id), "ok": True})
+        else:
+            # Create new
+            r = sb.table("chat_sessions").insert({
+                "user_email": request.user_email,
+                "messages": clean_msgs,
+                "scope_label": scope_label,
+                "contract_ids": contract_ids,
+            }).execute()
+            new_id = r.data[0]["id"] if r.data else None
+            return jsonify({"id": new_id, "ok": True})
+    except Exception as e:
+        log.error(f"Chat session save error: {e}")
+        return err("Internal server error", 500)
+
+@app.route("/api/chat/sessions/<int:sid>", methods=["GET"])
+@auth
+@need_db
+def get_chat_session(sid):
+    """Load a specific chat session."""
+    try:
+        r = sb.table("chat_sessions").select("*").eq("id", sid).eq("user_email", request.user_email).execute()
+        if not r.data: return err("Session not found", 404)
+        return jsonify(r.data[0])
+    except Exception as e:
+        log.error(f"Chat session get error: {e}")
+        return err("Internal server error", 500)
+
+@app.route("/api/chat/sessions/<int:sid>", methods=["DELETE"])
+@auth
+@need_db
+def delete_chat_session(sid):
+    """Delete a chat session."""
+    try:
+        sb.table("chat_sessions").delete().eq("id", sid).eq("user_email", request.user_email).execute()
+        return jsonify({"ok": True})
+    except Exception as e:
+        log.error(f"Chat session delete error: {e}")
         return err("Internal server error", 500)
 
 # ─── Export ────────────────────────────────────────────────────────────────
