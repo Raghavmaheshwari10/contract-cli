@@ -1012,20 +1012,22 @@ Use placeholders like [PARTY_NAME], [DATE], [COMPANY_NAME], [ADDRESS] for fields
 <div id="chat-scope-list" style="max-height:280px;overflow-y:auto"></div>
 </div>
 </div>
-<button class="btn btn-ghost btn-sm" onclick="chatHist=[];renderChat()">Clear</button>
+<button class="btn btn-ghost btn-sm" onclick="copyFullChat()" title="Copy entire conversation" id="chat-copy-all-btn" style="display:none">Copy All</button>
+<button class="btn btn-ghost btn-sm" onclick="exportChat()" title="Download chat as text file" id="chat-export-btn" style="display:none">Save</button>
+<button class="btn btn-ghost btn-sm" onclick="chatHist=[];renderChat();document.getElementById('chat-copy-all-btn').style.display='none';document.getElementById('chat-export-btn').style.display='none'">Clear</button>
 </div>
 </div>
 <div class="chat-messages" id="chat-messages">
 <div class="empty-state" id="chat-empty">
 <div class="icon">&#x1F916;</div>
 <h3>AI Contract Assistant</h3>
-<p>Ask anything about your contracts — financial analysis, risk assessment, clause comparison, deadline tracking, and more.</p>
+<p>Ask anything about your contracts — financial analysis, risk assessment, clause comparison, deadline tracking.</p>
 <div style="display:flex;flex-wrap:wrap;gap:.4rem;justify-content:center;margin-top:1rem">
 <button class="btn btn-outline btn-sm" onclick="sendQuick('What contracts are expiring in the next 30 days?')">Expiring contracts</button>
 <button class="btn btn-outline btn-sm" onclick="sendQuick('Summarize all active contracts by total value and status')">Contract summary</button>
-<button class="btn btn-outline btn-sm" onclick="sendQuick('What are the top risks across all contracts? Rate each as critical, high, medium, or low.')">Risk analysis</button>
-<button class="btn btn-outline btn-sm" onclick="sendQuick('Compare payment terms, penalties, and SLAs across all contracts in a table')">Payment comparison</button>
-<button class="btn btn-outline btn-sm" onclick="sendQuick('List all SLA and penalty clauses with exact amounts and conditions')">SLA & penalties</button>
+<button class="btn btn-outline btn-sm" onclick="sendQuick('What are the top risks across all contracts?')">Risk analysis</button>
+<button class="btn btn-outline btn-sm" onclick="sendQuick('Compare payment terms across all contracts in a table')">Payment comparison</button>
+<button class="btn btn-outline btn-sm" onclick="sendQuick('List all SLA and penalty clauses with exact amounts')">SLA & penalties</button>
 <button class="btn btn-outline btn-sm" onclick="sendQuick('What standard clauses are missing from my contracts?')">Missing clauses</button>
 </div>
 </div>
@@ -2255,7 +2257,7 @@ try{const lr=await api('/api/contract-links');_chatScopeLinks=await lr.json()}ca
 _chatScopeValue='';
 renderChatScopeList('')}catch(e){}}
 
-let _chatScopeContracts=[],_chatScopeLinks=[],_chatScopeValue='';
+let _chatScopeContracts=[],_chatScopeLinks=[],_chatScopeValue='',_chatScopeLabel='All Contracts';
 
 function toggleChatScope(){
 const dd=document.getElementById('chat-scope-dropdown');
@@ -2265,8 +2267,11 @@ if(!open){document.getElementById('chat-scope-search').value='';filterChatScope(
 
 function selectChatScope(val,label){
 _chatScopeValue=val;
-document.getElementById('chat-scope-label').textContent=label||'All Contracts';
-document.getElementById('chat-scope-dropdown').style.display='none'}
+_chatScopeLabel=label||'All Contracts';
+document.getElementById('chat-scope-label').textContent=_chatScopeLabel;
+document.getElementById('chat-scope-dropdown').style.display='none';
+/* Re-render empty state with scope-specific prompts */
+if(!chatHist.length)renderChat()}
 
 function filterChatScope(){
 const q=document.getElementById('chat-scope-search').value.trim().toLowerCase();
@@ -2491,19 +2496,50 @@ function renderFollowups(followups){const el=document.getElementById('chat-follo
 el.innerHTML=followups.map(f=>`<button onclick="sendQuick('${esc(f.replace(/'/g,"\\'"))}')" title="${esc(f)}">${esc(f)}</button>`).join('')}
 function copyChatMsg(idx){const m=chatHist[idx];if(!m)return;navigator.clipboard.writeText(m.content).then(()=>{
 const btn=document.querySelector(`.chat-copy-${idx}`);if(btn){btn.classList.add('copied');btn.textContent='Copied!';setTimeout(()=>{btn.classList.remove('copied');btn.innerHTML='&#x1F4CB; Copy'},1500)}})}
+function copyFullChat(){if(!chatHist.length)return;
+const text=chatHist.filter(m=>m.content).map(m=>`${m.role==='user'?'You':'AI'}: ${m.content}`).join('\n\n---\n\n');
+navigator.clipboard.writeText(text).then(()=>{toast('Chat copied to clipboard','success')}).catch(()=>{toast('Copy failed','error')})}
+function exportChat(){if(!chatHist.length)return;
+const scope=_chatScopeLabel||'All Contracts';
+const date=new Date().toISOString().slice(0,10);
+let text=`Chat Export — ${scope}\nDate: ${date}\n${'='.repeat(50)}\n\n`;
+chatHist.filter(m=>m.content).forEach(m=>{
+text+=`[${m.role==='user'?'You':'AI Assistant'}]\n${m.content}\n`;
+if(m.sources?.length)text+=`Sources: ${m.sources.map(s=>s.name).join(', ')}\n`;
+text+='\n---\n\n'});
+const blob=new Blob([text],{type:'text/plain'});
+const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+a.download=`chat-${scope.replace(/[^a-zA-Z0-9]/g,'-').toLowerCase()}-${date}.txt`;
+a.click();URL.revokeObjectURL(a.href);toast('Chat exported','success')}
 function renderChat(streaming=false){const el=document.getElementById('chat-messages');
-if(!chatHist.length){el.innerHTML=`<div class="empty-state" id="chat-empty">
-<div class="icon">&#x1F916;</div>
-<h3>AI Contract Assistant</h3>
-<p>Ask anything about your contracts — financial analysis, risk assessment, clause comparison, deadline tracking.</p>
-<div style="display:flex;flex-wrap:wrap;gap:.4rem;justify-content:center;margin-top:1rem">
+if(!chatHist.length){
+const hasScope=!!_chatScopeValue;
+const scopeName=_chatScopeLabel||'All Contracts';
+let promptBtns='';
+if(hasScope){promptBtns=`
+<button class="btn btn-outline btn-sm" onclick="sendQuick('Summarize this contract in simple terms')">Summarize</button>
+<button class="btn btn-outline btn-sm" onclick="sendQuick('What are the payment terms and total value?')">Payment terms</button>
+<button class="btn btn-outline btn-sm" onclick="sendQuick('What are the key risks and missing clauses?')">Risks & gaps</button>
+<button class="btn btn-outline btn-sm" onclick="sendQuick('List all obligations, deadlines, and deliverables')">Obligations</button>
+<button class="btn btn-outline btn-sm" onclick="sendQuick('What is the termination clause and notice period?')">Termination</button>
+<button class="btn btn-outline btn-sm" onclick="sendQuick('Explain this contract in plain English')">Plain English</button>`
+}else{promptBtns=`
 <button class="btn btn-outline btn-sm" onclick="sendQuick('What contracts are expiring in the next 30 days?')">Expiring contracts</button>
-<button class="btn btn-outline btn-sm" onclick="sendQuick('Summarize all active contracts by value')">Contract summary</button>
-<button class="btn btn-outline btn-sm" onclick="sendQuick('What are the key risks across all contracts?')">Risk analysis</button>
-<button class="btn btn-outline btn-sm" onclick="sendQuick('Compare payment terms across all contracts')">Payment terms</button>
-<button class="btn btn-outline btn-sm" onclick="sendQuick('List all SLA and penalty clauses')">SLA & penalties</button>
-<button class="btn btn-outline btn-sm" onclick="sendQuick('What clauses are missing across contracts?')">Missing clauses</button>
-</div></div>`;return}
+<button class="btn btn-outline btn-sm" onclick="sendQuick('Summarize all active contracts by total value and status')">Contract summary</button>
+<button class="btn btn-outline btn-sm" onclick="sendQuick('What are the top risks across all contracts?')">Risk analysis</button>
+<button class="btn btn-outline btn-sm" onclick="sendQuick('Compare payment terms across all contracts in a table')">Payment comparison</button>
+<button class="btn btn-outline btn-sm" onclick="sendQuick('List all SLA and penalty clauses with exact amounts')">SLA & penalties</button>
+<button class="btn btn-outline btn-sm" onclick="sendQuick('What standard clauses are missing from my contracts?')">Missing clauses</button>`}
+el.innerHTML=`<div class="empty-state" id="chat-empty">
+<div class="icon">${hasScope?'&#x1F4C4;':'&#x1F916;'}</div>
+<h3>${hasScope?esc(scopeName):'AI Contract Assistant'}</h3>
+<p>${hasScope?'Ask anything about this contract — financial terms, risks, obligations, clauses, deadlines.':'Ask anything about your contracts — financial analysis, risk assessment, clause comparison, deadline tracking.'}</p>
+<div style="display:flex;flex-wrap:wrap;gap:.4rem;justify-content:center;margin-top:1rem">${promptBtns}</div></div>`;
+document.getElementById('chat-copy-all-btn').style.display='none';
+document.getElementById('chat-export-btn').style.display='none';return}
+/* Show copy/save buttons when there are messages */
+document.getElementById('chat-copy-all-btn').style.display='';
+document.getElementById('chat-export-btn').style.display='';
 el.innerHTML=chatHist.map((m,idx)=>{const isAI=m.role==='assistant';
 const typingHtml=m._streaming&&!m.content?'<div class="chat-typing"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>':'';
 const queryBadges=isAI&&m.query_types?.length?m.query_types.map(t=>`<span class="chat-query-badge">${esc(t)}</span>`).join(''):'';
