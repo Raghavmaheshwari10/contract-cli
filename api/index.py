@@ -1908,8 +1908,8 @@ def create_user():
             <p>Hi <strong>{_sanitize(d['name'], 100)}</strong>,</p>
             <p>You've been invited to EMB CLM — Contract Lifecycle Management platform.</p>
             <p><strong>Your login details:</strong></p>
-            <ul><li>Email: <code>{email}</code></li><li>Role: <code>{role}</code></li></ul>
-            <p>Please log in and change your password after first sign-in.</p>
+            <ul><li>Email: <code>{email}</code></li><li>Password: <code>{_sanitize(d['password'], 100)}</code></li><li>Role: <code>{role}</code></li></ul>
+            <p style="color:#dc2626;font-weight:600">Please change your password after your first login.</p>
             <p style="color:#64748b;font-size:12px;margin-top:2rem">— EMB CLM Team</p></div>"""
             http.post("https://api.resend.com/emails",
                 headers={"Authorization": f"Bearer {RESEND_API_KEY}", "Content-Type": "application/json"},
