@@ -873,6 +873,7 @@ Dark Mode
 </select>
 <button class="btn btn-outline btn-sm" onclick="document.getElementById('adv-filters').style.display=document.getElementById('adv-filters').style.display==='none'?'block':'none'" title="Advanced Filters"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg> Filters</button>
 <button class="btn btn-outline btn-sm" onclick="exportData('csv')" title="Export CSV"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Export</button>
+<button class="btn btn-outline btn-sm" onclick="openUploadOldModal()" title="Upload old/existing contracts with tagging and linking options"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><polyline points="9 15 12 12 15 15"/></svg> Upload Old</button>
 <label class="btn btn-outline btn-sm" style="cursor:pointer;margin:0" title="Bulk upload PDFs — up to 10 files at once"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><polyline points="9 15 12 12 15 15"/></svg> Bulk PDFs<input type="file" accept=".pdf" multiple onchange="bulkUploadPDFs(this)" hidden></label>
 <label class="btn btn-outline btn-sm" style="cursor:pointer;margin:0" title="Bulk import from CSV"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> Import CSV<input type="file" accept=".csv" onchange="bulkImport(this)" hidden></label>
 <button class="btn btn-ghost btn-sm" onclick="downloadTemplate()" title="Download CSV template"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></button>
@@ -1775,6 +1776,64 @@ Upcoming Events</h4>
 </div>
 
 <!-- ═══ SEARCH MODAL ═══ -->
+<!-- ═══ UPLOAD OLD CONTRACT MODAL ═══ -->
+<div class="modal-overlay" id="upload-old-modal" onclick="if(event.target===this)closeUploadOldModal()">
+<div class="modal" style="max-width:600px">
+<div class="modal-header">
+<h2><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><polyline points="9 15 12 12 15 15"/></svg> Upload Old Contracts</h2>
+<button class="modal-close" onclick="closeUploadOldModal()">✕</button>
+</div>
+<div class="modal-body" style="padding:1.2rem 1.5rem">
+<!-- Drop Zone -->
+<div id="uom-dropzone" style="border:2px dashed var(--border);border-radius:var(--radius-lg);padding:2rem;text-align:center;cursor:pointer;transition:var(--transition);margin-bottom:1.2rem;background:var(--surface2)" ondragover="event.preventDefault();this.style.borderColor='var(--primary)';this.style.background='var(--primary-bg)'" ondragleave="this.style.borderColor='var(--border)';this.style.background='var(--surface2)'" ondrop="uomHandleDrop(event)" onclick="document.getElementById('uom-file-input').click()">
+<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="1.5" style="margin:0 auto .6rem;display:block;opacity:.7"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><polyline points="9 15 12 12 15 15"/></svg>
+<p style="margin:0 0 .3rem;font-weight:600;color:var(--text)">Drop PDF files here or click to browse</p>
+<p style="margin:0;font-size:.78rem;color:var(--text3)">Supports multiple PDFs · Max 10 files · 50MB each</p>
+<input type="file" id="uom-file-input" accept=".pdf" multiple style="display:none" onchange="uomHandleFiles(this.files)">
+</div>
+<div id="uom-file-list" style="margin-bottom:1rem;display:none"></div>
+<!-- Options -->
+<div class="form-grid" style="grid-template-columns:1fr 1fr;gap:.8rem;margin-bottom:1rem">
+<div class="form-group" style="margin:0">
+<label style="font-size:.75rem;font-weight:600;color:var(--text3);text-transform:uppercase;margin-bottom:.3rem;display:block">Contract Type</label>
+<select class="form-input" id="uom-type" onchange="uomTypeChanged()">
+<option value="auto">🤖 Auto-detect (AI)</option>
+<option value="client">📥 Client (they pay us)</option>
+<option value="vendor">📤 Vendor (we pay them)</option>
+</select>
+</div>
+<div class="form-group" style="margin:0">
+<label style="font-size:.75rem;font-weight:600;color:var(--text3);text-transform:uppercase;margin-bottom:.3rem;display:block">Tags (optional)</label>
+<input class="form-input" id="uom-tags" placeholder="e.g., legacy, archive, 2023" style="font-size:.85rem">
+</div>
+</div>
+<!-- Link to contract -->
+<div id="uom-link-section" style="background:var(--surface2);border-radius:var(--radius);padding:.9rem 1rem;margin-bottom:1rem">
+<div style="display:flex;align-items:center;gap:.6rem;margin-bottom:.6rem">
+<input type="checkbox" id="uom-link-check" onchange="uomLinkToggle()" style="width:15px;height:15px;cursor:pointer;accent-color:var(--primary)">
+<label for="uom-link-check" style="font-size:.82rem;font-weight:600;cursor:pointer">Link to an existing contract</label>
+<span style="font-size:.72rem;color:var(--text4)">(e.g., link vendor contracts to a client contract)</span>
+</div>
+<div id="uom-link-picker" style="display:none">
+<select class="form-input" id="uom-link-contract" style="font-size:.84rem">
+<option value="">Loading contracts...</option>
+</select>
+<p id="uom-link-hint" style="margin:.4rem 0 0;font-size:.72rem;color:var(--text3)"></p>
+</div>
+</div>
+<!-- Status bar -->
+<div id="uom-status" style="display:none;padding:.6rem .8rem;border-radius:var(--radius);background:var(--primary-bg);border:1px solid var(--primary-border);font-size:.82rem;color:var(--primary);margin-bottom:.8rem"></div>
+</div>
+<div class="modal-footer">
+<button class="btn btn-ghost" onclick="closeUploadOldModal()">Cancel</button>
+<button class="btn btn-primary" id="uom-upload-btn" onclick="uomUpload()" disabled>
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="18" x2="12" y2="12"/><polyline points="9 15 12 12 15 15"/><path d="M20.39 18.39A5 5 0 0018 9h-1.26A8 8 0 103 16.3"/></svg>
+Upload &amp; Create Contracts
+</button>
+</div>
+</div>
+</div>
+
 <div class="modal-overlay" id="search-modal" onclick="if(event.target===this)closeSearch()">
 <div class="modal" style="max-width:600px;margin-top:8vh">
 <div class="modal-body" style="padding:0">
@@ -1921,6 +1980,8 @@ const tabs=[{l:'All',v:'',c:d.total},{l:'Draft',v:'draft'},{l:'Pending',v:'pendi
 document.getElementById('contract-tabs').innerHTML=tabs.map(t=>`<div class="status-tab${filterStatus===t.v?' active':''}" onclick="filterStatus='${t.v}';curPage=1;loadContracts()">${t.l}${t.c?` <span class="cnt">${t.c}</span>`:''}</div>`).join('');
 
 let data=d.data||[];
+// Dedup by ID (prevent duplicate rows from DB or pagination overlap)
+const _seen=new Set();data=data.filter(c=>{if(_seen.has(c.id))return false;_seen.add(c.id);return true});
 if(search){const s=search.toLowerCase();data=data.filter(c=>(c.name||'').toLowerCase().includes(s)||(c.party_name||'').toLowerCase().includes(s))}
 
 document.getElementById('contracts-tbody').innerHTML=data.length?data.map(c=>`<tr class="clickable" onclick="openContract(${c.id})">
@@ -1930,10 +1991,10 @@ document.getElementById('contracts-tbody').innerHTML=data.length?data.map(c=>`<t
 <td><span class="badge badge-${c.contract_type}"><span class="badge-dot"></span>${tc(c.contract_type)}</span></td>
 <td><span class="badge badge-${c.status||'draft'}"><span class="badge-dot"></span>${tc(c.status||'draft')}</span></td>
 <td><div class="tags-row" id="tags-${c.id}"></div></td>
-<td style="font-weight:500">${c.value||'—'}</td>
+<td style="font-weight:500;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(c.value||'')}">${c.value||'—'}</td>
 <td>${c.start_date||'—'}</td>
 <td>${c.end_date||'—'}</td>
-<td>${c.department||'—'}</td>
+<td style="max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(c.department||'')}">${c.department||'—'}</td>
 <td onclick="event.stopPropagation()"><button class="btn btn-ghost btn-sm" onclick="openContractAudit(${c.id},'${esc(c.name)}')" title="Audit Trail" style="padding:2px 6px;font-size:.68rem;display:flex;align-items:center;gap:3px"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 8v4l3 3"/><circle cx="12" cy="12" r="10"/></svg>Audit</button></td>
 </tr>`).join(''):'<tr><td colspan="11"><div class="empty-state"><div class="icon">&#x1F4C4;</div><h3>No contracts found</h3><p>Create your first contract to get started</p></div></td></tr>';
 // Load tags for visible contracts
@@ -2464,6 +2525,125 @@ document.getElementById('bulk-pdf-done-btn').style.display='inline-flex';
 toast(`Bulk upload complete: ${sum.created} contracts created`,'success');
 }catch(e){toast('Bulk upload failed: '+e.message,'error');overlay.remove()}
 input.value='';
+}
+
+// ═══ UPLOAD OLD CONTRACTS MODAL ═══
+let _uomFiles=[];
+
+function openUploadOldModal(){
+_uomFiles=[];
+document.getElementById('uom-file-list').style.display='none';
+document.getElementById('uom-file-list').innerHTML='';
+document.getElementById('uom-type').value='auto';
+document.getElementById('uom-tags').value='';
+document.getElementById('uom-link-check').checked=false;
+document.getElementById('uom-link-picker').style.display='none';
+document.getElementById('uom-status').style.display='none';
+document.getElementById('uom-upload-btn').disabled=true;
+document.getElementById('uom-file-input').value='';
+document.getElementById('upload-old-modal').classList.add('active');
+// Pre-load client contracts for link picker
+uomLoadLinkContracts();
+}
+
+function closeUploadOldModal(){document.getElementById('upload-old-modal').classList.remove('active')}
+
+function uomHandleDrop(e){
+e.preventDefault();
+document.getElementById('uom-dropzone').style.borderColor='var(--border)';
+document.getElementById('uom-dropzone').style.background='var(--surface2)';
+uomHandleFiles(e.dataTransfer.files);
+}
+
+function uomHandleFiles(fileList){
+const files=Array.from(fileList||[]).filter(f=>f.name.toLowerCase().endsWith('.pdf'));
+if(!files.length){toast('Please select PDF files only','error');return}
+if(files.length>10){toast('Max 10 PDFs at once','error');return}
+_uomFiles=files;
+const listEl=document.getElementById('uom-file-list');
+listEl.style.display='block';
+listEl.innerHTML='<div style="font-size:.72rem;font-weight:600;color:var(--text4);text-transform:uppercase;margin-bottom:.4rem">'+files.length+' file(s) selected</div>'+
+files.map(f=>`<div style="display:flex;align-items:center;gap:.6rem;padding:.4rem .6rem;background:var(--surface2);border-radius:6px;margin-bottom:.3rem;font-size:.82rem">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(f.name)}">${esc(f.name)}</span>
+<span style="color:var(--text4);font-size:.72rem">${(f.size/1024/1024).toFixed(1)}MB</span>
+</div>`).join('');
+document.getElementById('uom-upload-btn').disabled=false;
+}
+
+async function uomLoadLinkContracts(){
+try{
+const r=await api('/api/contracts?limit=200');
+const d=await r.json();
+const contracts=(d.data||[]);
+const sel=document.getElementById('uom-link-contract');
+sel.innerHTML='<option value="">— Select contract to link to —</option>'+
+contracts.map(c=>`<option value="${c.id}" data-type="${c.contract_type}">[${tc(c.contract_type)}] ${esc(c.name)} — ${esc(c.party_name)}</option>`).join('');
+}catch(e){document.getElementById('uom-link-contract').innerHTML='<option value="">Failed to load contracts</option>'}
+}
+
+function uomLinkToggle(){
+const checked=document.getElementById('uom-link-check').checked;
+document.getElementById('uom-link-picker').style.display=checked?'block':'none';
+if(checked)uomUpdateLinkHint();
+}
+
+function uomTypeChanged(){uomUpdateLinkHint()}
+
+function uomUpdateLinkHint(){
+const type=document.getElementById('uom-type').value;
+const sel=document.getElementById('uom-link-contract');
+const selected=sel.options[sel.selectedIndex];
+const hint=document.getElementById('uom-link-hint');
+if(!hint)return;
+const linkedType=selected?.dataset?.type;
+if(type==='vendor'||(type==='auto'&&linkedType==='client')){
+hint.textContent='Uploading vendor contract(s) → will be linked to the selected client contract';
+hint.style.color='var(--orange)';
+}else if(type==='client'||(type==='auto'&&linkedType==='vendor')){
+hint.textContent='Uploading client contract(s) → will be linked to the selected vendor contract';
+hint.style.color='var(--primary)';
+}else if(linkedType){
+hint.textContent='Note: can only link client ↔ vendor contracts (different types)';
+hint.style.color='var(--text4)';
+}else{hint.textContent='';}}
+
+document.addEventListener('change',function(e){if(e.target.id==='uom-link-contract')uomUpdateLinkHint()});
+
+async function uomUpload(){
+if(!_uomFiles.length){toast('Please select PDF file(s) first','error');return}
+const btn=document.getElementById('uom-upload-btn');
+const status=document.getElementById('uom-status');
+btn.disabled=true;
+btn.innerHTML='<div class="spinner" style="width:13px;height:13px;border-width:2px;display:inline-block;vertical-align:middle;margin-right:6px"></div> Uploading...';
+status.style.display='block';
+status.textContent='Uploading and processing '+_uomFiles.length+' file(s)...';
+const fd=new FormData();
+_uomFiles.forEach(f=>fd.append('files',f));
+const typeVal=document.getElementById('uom-type').value;
+fd.append('contract_type',typeVal);
+const tagsVal=document.getElementById('uom-tags').value.trim();
+if(tagsVal)fd.append('tags',tagsVal);
+const linkCheck=document.getElementById('uom-link-check').checked;
+const linkId=document.getElementById('uom-link-contract').value;
+if(linkCheck&&linkId)fd.append('link_to_contract_id',linkId);
+try{
+const r=await fetch('/api/upload-pdfs-bulk',{method:'POST',headers:{Authorization:`Bearer ${localStorage.getItem('cm_token')}`},body:fd});
+const d=await r.json();
+if(d.error){toast(eMsg(d.error),'error');status.textContent='Upload failed: '+eMsg(d.error);btn.disabled=false;btn.innerHTML='Upload & Create Contracts';return}
+const sum=d.summary;
+const linked=d.results.filter(r=>r.linked).length;
+let msg=`✓ ${sum.created} contract(s) created`;
+if(sum.failed)msg+=` · ${sum.failed} failed`;
+if(linked)msg+=` · ${linked} linked`;
+status.style.background='var(--success-bg,#d1fae5)';status.style.borderColor='var(--green)';status.style.color='var(--green,#059669)';
+status.textContent=msg;
+toast(msg,'success');
+// Show detail summary
+const failedItems=d.results.filter(r=>r.status==='error');
+if(failedItems.length){const names=failedItems.map(r=>r.file).join(', ');toast('Failed: '+names,'error')}
+setTimeout(()=>{closeUploadOldModal();loadContracts()},1800);
+}catch(e){toast('Upload failed: '+e.message,'error');status.textContent='Upload failed';btn.disabled=false;btn.innerHTML='Upload & Create Contracts'}
 }
 
 async function aiAutoFill(){const c=document.getElementById('f-content').value.trim();if(!c){toast('Add content first (paste text or upload PDF)','error');return}

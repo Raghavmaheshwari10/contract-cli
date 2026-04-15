@@ -1171,12 +1171,35 @@ def upload_pdf():
 @role_required("editor")
 @need_db
 def upload_pdfs_bulk():
-    """Process multiple PDFs at once. Each PDF becomes a separate contract via AI parse."""
+    """Process multiple PDFs at once. Each PDF becomes a separate contract via AI parse.
+    Optional form fields:
+      - contract_type: 'client' | 'vendor' | 'auto'  (overrides AI detection)
+      - link_to_contract_id: int  (link each created contract to this existing contract)
+      - tags: comma-separated tag names to apply to each created contract
+    """
     files = request.files.getlist("files")
     if not files or len(files) == 0:
         return err("No files uploaded", 400)
     if len(files) > 10:
         return err("Max 10 PDFs at a time", 400)
+
+    # Optional overrides from form data
+    type_override = request.form.get("contract_type", "auto").strip().lower()
+    if type_override not in ("client", "vendor", "auto"):
+        type_override = "auto"
+    link_to_id = request.form.get("link_to_contract_id", "").strip()
+    link_to_id = int(link_to_id) if link_to_id.isdigit() else None
+    tags_raw = request.form.get("tags", "").strip()
+    tag_names = [t.strip() for t in tags_raw.split(",") if t.strip()] if tags_raw else []
+    user_email = getattr(request, "user_email", "system")
+
+    # Validate link target if provided
+    link_target = None
+    if link_to_id:
+        lr = sb.table("contracts").select("id,name,contract_type").eq("id", link_to_id).execute()
+        link_target = lr.data[0] if lr.data else None
+        if not link_target:
+            return err(f"Link target contract #{link_to_id} not found", 404)
 
     results = []
     for f in files:
@@ -1225,11 +1248,20 @@ def upload_pdfs_bulk():
                 except (Exception) as e:
                     log.debug(f"AI metadata extraction failed: {e}")
 
+            # Determine contract type: use override if not 'auto', else use AI/default
+            if type_override in ("client", "vendor"):
+                ctype = type_override
+            else:
+                ctype = meta.get("contract_type", "client") if meta.get("contract_type") in ("client","vendor") else "client"
+                # If linking to a contract, infer opposite type automatically
+                if link_target and type_override == "auto":
+                    ctype = "vendor" if link_target["contract_type"] == "client" else "client"
+
             # Create the contract
             contract = {
                 "name": _sanitize(meta.get("name") or fname.replace(".pdf","").replace("_"," ").title()),
                 "party_name": _sanitize(meta.get("party_name", "")),
-                "contract_type": meta.get("contract_type", "client") if meta.get("contract_type") in ("client","vendor") else "client",
+                "contract_type": ctype,
                 "status": "draft",
                 "content": txt.strip(),
                 "start_date": meta.get("start_date") if meta.get("start_date") and meta.get("start_date") != "null" else None,
@@ -1237,15 +1269,53 @@ def upload_pdfs_bulk():
                 "value": _sanitize(meta.get("value", "")) if meta.get("value") and meta.get("value") != "null" else "",
                 "department": _sanitize(meta.get("department", "")),
                 "notes": _sanitize(meta.get("notes", "")),
-                "created_by": getattr(request, "user_email", "system"),
+                "created_by": user_email,
             }
             r = sb.table("contracts").insert(contract).execute()
             cid = r.data[0]["id"] if r.data else None
 
             # Log activity
             if cid:
-                log_activity(cid, "created", getattr(request, "user_email", "system"),
+                log_activity(cid, "created", user_email,
                              f"Bulk uploaded from {fname} ({pc} pages, {method})")
+
+            # Apply tags if provided
+            tag_ids_applied = []
+            if cid and tag_names:
+                try:
+                    for tname in tag_names:
+                        # Find or create tag
+                        tr = sb.table("contract_tags").select("id").eq("name", tname).execute()
+                        if tr.data:
+                            tid = tr.data[0]["id"]
+                        else:
+                            tnr = sb.table("contract_tags").insert({"name": tname, "created_by": user_email}).execute()
+                            tid = tnr.data[0]["id"] if tnr.data else None
+                        if tid:
+                            sb.table("contract_tag_map").insert({"contract_id": cid, "tag_id": tid}).execute()
+                            tag_ids_applied.append(tid)
+                except Exception as te:
+                    log.warning(f"Tag apply failed for contract {cid}: {te}")
+
+            # Link to existing contract if requested
+            link_created = False
+            if cid and link_target:
+                try:
+                    # Determine direction: client_contract_id -> vendor_contract_id
+                    if ctype == "vendor" and link_target["contract_type"] == "client":
+                        link_row = {"client_contract_id": link_to_id, "vendor_contract_id": cid, "created_by": user_email}
+                    elif ctype == "client" and link_target["contract_type"] == "vendor":
+                        link_row = {"client_contract_id": cid, "vendor_contract_id": link_to_id, "created_by": user_email}
+                    else:
+                        link_row = None
+                        log.warning(f"Cannot link contracts of same type: {ctype} <-> {link_target['contract_type']}")
+
+                    if link_row:
+                        sb.table("contract_links").insert(link_row).execute()
+                        log_activity(cid, "linked", user_email, f"Linked to '{link_target['name']}' (#{link_to_id}) during upload")
+                        link_created = True
+                except Exception as le:
+                    log.warning(f"Link creation failed for contract {cid}: {le}")
 
             results.append({
                 "file": fname,
@@ -1256,6 +1326,8 @@ def upload_pdfs_bulk():
                 "method": method,
                 "party": contract["party_name"],
                 "type": contract["contract_type"],
+                "tags_applied": len(tag_ids_applied),
+                "linked": link_created,
             })
         except Exception as e:
             results.append({"file": fname, "status": "error", "error": str(e)})
