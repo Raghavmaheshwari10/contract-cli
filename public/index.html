@@ -2740,7 +2740,12 @@ if(!editUserId&&pass){const strength=checkPwStrength(pass);if(strength==='Weak')
 const body={name,email,password:pass||undefined,role:document.getElementById('u-role').value,department:document.getElementById('u-dept').value,designation:document.getElementById('u-desg').value,phone:document.getElementById('u-phone').value};
 try{const url=editUserId?`/api/users/${editUserId}`:'/api/users';const method=editUserId?'PUT':'POST';
 const r=await api(url,{method,headers:authH(),body:J(body)});const d=await r.json();
-if(r.ok){toast(editUserId?'User updated':'User created','success');closeUserForm();loadUsers()}else toast(eMsg(d.error)||'Failed','error')}catch(e){toast('Failed','error')}}
+if(r.ok){
+  if(!editUserId&&d.email_sent===false){toast(`User created — welcome email failed: ${d.message.split('email failed:')[1]||'check Vercel logs'}`, 'error')}
+  else if(!editUserId){toast(`User created — welcome email sent ✓`,'success')}
+  else{toast('User updated','success')}
+  closeUserForm();loadUsers()
+}else toast(eMsg(d.error)||'Failed','error')}catch(e){toast('Failed','error')}}
 async function toggleUserStatus(id,active){try{await api(`/api/users/${id}`,{method:'PUT',headers:authH(),body:J({is_active:active})});loadUsers();toast(`User ${active?'activated':'deactivated'}`,'success')}catch(e){}}
 async function deleteUser(id){if(!confirm('Delete this user permanently?'))return;
 try{await api(`/api/users/${id}`,{method:'DELETE',headers:authH()});loadUsers();toast('User deleted','success')}catch(e){toast('Failed','error')}}

@@ -1907,22 +1907,29 @@ def create_user():
     email_error = None
     if RESEND_API_KEY:
         try:
-            invite_html = f"""<div style="font-family:Arial,sans-serif;max-width:520px;margin:auto;padding:2rem;border:1px solid #e2e8f0;border-radius:8px">
-<div style="background:#1e3a8a;padding:1.5rem 2rem;border-radius:6px 6px 0 0;margin:-2rem -2rem 1.5rem -2rem">
-<h2 style="color:#fff;margin:0;font-size:1.3rem">&#x1F4CB; Welcome to EMB CLM</h2></div>
-<p style="color:#334155">Hi <strong>{_sanitize(d['name'], 100)}</strong>,</p>
-<p style="color:#334155">You have been invited to <strong>EMB CLM</strong> — Contract Lifecycle Management platform by EMB (Expand My Business).</p>
-<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:1rem 1.5rem;margin:1rem 0">
-<p style="margin:0 0 .5rem;font-weight:700;color:#1e3a8a">Your Login Credentials</p>
-<table style="border-collapse:collapse;width:100%">
-<tr><td style="padding:.3rem 0;color:#64748b;width:90px">Email</td><td style="padding:.3rem 0;font-family:monospace;color:#0f172a">{email}</td></tr>
-<tr><td style="padding:.3rem 0;color:#64748b">Password</td><td style="padding:.3rem 0;font-family:monospace;color:#0f172a">{_sanitize(d['password'], 100)}</td></tr>
-<tr><td style="padding:.3rem 0;color:#64748b">Role</td><td style="padding:.3rem 0;color:#0f172a;text-transform:capitalize">{role}</td></tr>
+            invite_html = f"""<!DOCTYPE html><html><body style="font-family:'Helvetica',Arial,sans-serif;background:#f5f7fa;margin:0;padding:0">
+<div style="max-width:600px;margin:0 auto;padding:20px">
+<div style="background:#0f172a;padding:20px 30px;border-radius:12px 12px 0 0">
+<h1 style="margin:0;color:#fff;font-size:18px">EMB CLM</h1>
+<p style="margin:4px 0 0;color:#64748b;font-size:12px">Contract Lifecycle Management</p>
+</div>
+<div style="background:#fff;padding:30px;border:1px solid #e2e8f0;border-top:none">
+<div style="display:inline-block;padding:4px 12px;border-radius:20px;font-size:11px;font-weight:600;color:#fff;background:#2563eb;margin-bottom:16px">INVITE</div>
+<h2 style="margin:0 0 12px;color:#0f172a;font-size:18px;font-weight:600">Welcome to EMB CLM!</h2>
+<p style="margin:0 0 16px;color:#334155;font-size:14px;line-height:1.6">Hi <strong>{_sanitize(d['name'], 100)}</strong>, you have been invited to EMB CLM — Contract Lifecycle Management platform.</p>
+<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px 20px;margin:0 0 20px">
+<p style="margin:0 0 12px;font-weight:700;color:#0f172a;font-size:14px">Your Login Credentials</p>
+<table style="border-collapse:collapse;width:100%;font-size:13px">
+<tr><td style="padding:6px 0;color:#64748b;width:80px">Email</td><td style="padding:6px 0;font-family:monospace;color:#0f172a;font-weight:600">{email}</td></tr>
+<tr><td style="padding:6px 0;color:#64748b">Password</td><td style="padding:6px 0;font-family:monospace;color:#0f172a;font-weight:600">{_sanitize(d['password'], 100)}</td></tr>
+<tr><td style="padding:6px 0;color:#64748b">Role</td><td style="padding:6px 0;color:#0f172a;text-transform:capitalize">{role}</td></tr>
 </table></div>
-<p style="background:#fef2f2;color:#dc2626;padding:.75rem 1rem;border-radius:6px;font-weight:600;margin:1rem 0">
-&#x26A0; Please change your password after your first login for security.</p>
-<p style="color:#64748b;font-size:12px;margin-top:2rem;border-top:1px solid #e2e8f0;padding-top:1rem">— EMB CLM Team &nbsp;|&nbsp; Expand My Business</p>
-</div>"""
+<p style="background:#fef2f2;color:#dc2626;padding:10px 16px;border-radius:6px;font-size:13px;font-weight:600;margin:0 0 20px">&#x26A0; Please change your password after your first login.</p>
+<a href="https://contract-cli-six.vercel.app" style="display:inline-block;padding:10px 24px;background:#2563eb;color:#fff;border-radius:8px;text-decoration:none;font-size:13px;font-weight:600">Login to EMB CLM</a>
+</div>
+<div style="padding:16px 30px;background:#f8fafc;border:1px solid #e2e8f0;border-top:none;border-radius:0 0 12px 12px;text-align:center">
+<p style="margin:0;color:#94a3b8;font-size:11px">EMB CLM &mdash; Expand My Business | Mantarav Private Limited</p>
+</div></div></body></html>"""
             resp = http.post("https://api.resend.com/emails",
                 headers={"Authorization": f"Bearer {RESEND_API_KEY}", "Content-Type": "application/json"},
                 json={"from": EMAIL_FROM, "to": [email],
