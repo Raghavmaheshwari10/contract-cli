@@ -349,6 +349,36 @@ select.form-input{cursor:pointer}
 .empty-state h3{font-size:.92rem;font-weight:600;color:var(--text3);margin-bottom:.25rem}
 .empty-state p{font-size:.8rem;max-width:360px;margin:0 auto;line-height:1.6}
 
+/* ═══ CONTRACT UPLOAD STRIP ═══ */
+#contracts-upload-strip{display:flex;align-items:center;gap:.8rem;padding:.65rem 1.2rem;border-bottom:2px dashed var(--border);background:var(--surface2);cursor:pointer;transition:all .2s;user-select:none}
+#contracts-upload-strip:hover,#contracts-upload-strip.dragover{border-color:var(--primary);background:var(--primary-bg);color:var(--primary)}
+#contracts-upload-strip .strip-icon{width:32px;height:32px;border-radius:8px;background:var(--primary-bg);border:1px solid var(--primary-border);display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .2s}
+#contracts-upload-strip:hover .strip-icon,#contracts-upload-strip.dragover .strip-icon{background:var(--primary);border-color:var(--primary)}
+#contracts-upload-strip:hover .strip-icon svg,#contracts-upload-strip.dragover .strip-icon svg{stroke:#fff}
+#contracts-upload-strip .strip-main{font-size:.82rem;font-weight:600;color:var(--text)}
+#contracts-upload-strip .strip-hint{font-size:.73rem;color:var(--text4);margin-top:.1rem}
+#contracts-upload-strip .strip-actions{margin-left:auto;display:flex;gap:.5rem;flex-shrink:0}
+
+/* ═══ DRAG-ANYWHERE OVERLAY ═══ */
+#drag-anywhere-overlay{position:fixed;inset:0;background:rgba(10,15,26,.82);z-index:9990;display:none;align-items:center;justify-content:center;flex-direction:column;gap:1rem;backdrop-filter:blur(8px);animation:fadeOverlay .15s}
+#drag-anywhere-overlay.active{display:flex}
+#drag-anywhere-overlay .dao-box{border:3px dashed rgba(99,102,241,.6);border-radius:24px;padding:4rem 6rem;text-align:center;animation:daoPulse 1.5s ease-in-out infinite}
+#drag-anywhere-overlay .dao-icon{width:72px;height:72px;border-radius:20px;background:rgba(99,102,241,.15);border:1px solid rgba(99,102,241,.3);display:flex;align-items:center;justify-content:center;margin:0 auto 1rem}
+#drag-anywhere-overlay h2{font-size:1.5rem;font-weight:700;color:#fff;margin:0 0 .4rem;letter-spacing:-.02em}
+#drag-anywhere-overlay p{font-size:.88rem;color:rgba(255,255,255,.6);margin:0}
+#drag-anywhere-overlay .dao-chips{display:flex;gap:.5rem;justify-content:center;margin-top:1rem;flex-wrap:wrap}
+#drag-anywhere-overlay .dao-chip{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);border-radius:20px;padding:.25rem .7rem;font-size:.72rem;color:rgba(255,255,255,.7)}
+@keyframes daoPulse{0%,100%{border-color:rgba(99,102,241,.5);box-shadow:0 0 0 0 rgba(99,102,241,.2)}50%{border-color:rgba(99,102,241,.9);box-shadow:0 0 40px rgba(99,102,241,.15)}}
+
+/* ═══ BIG EMPTY STATE ═══ */
+.contracts-empty-dropzone{padding:4rem 2rem;text-align:center;cursor:pointer;transition:all .2s;border-radius:12px;margin:1rem}
+.contracts-empty-dropzone:hover,.contracts-empty-dropzone.dragover{background:var(--primary-bg)}
+.contracts-empty-dropzone .ced-ring{width:96px;height:96px;border-radius:50%;border:3px dashed var(--border);display:flex;align-items:center;justify-content:center;margin:0 auto 1.5rem;transition:all .2s}
+.contracts-empty-dropzone:hover .ced-ring,.contracts-empty-dropzone.dragover .ced-ring{border-color:var(--primary);background:var(--primary-bg)}
+.contracts-empty-dropzone h3{font-size:1rem;font-weight:700;color:var(--text);margin:0 0 .4rem}
+.contracts-empty-dropzone p{font-size:.83rem;color:var(--text3);margin:0 0 1.5rem;max-width:400px;margin-left:auto;margin-right:auto}
+.contracts-empty-dropzone .ced-options{display:flex;gap:.8rem;justify-content:center;flex-wrap:wrap}
+
 /* ═══ TOAST ═══ */
 .toast-wrap{position:fixed;top:1.5rem;right:1.5rem;z-index:200;display:flex;flex-direction:column;gap:.5rem}
 .toast{display:flex;align-items:center;gap:.7rem;padding:.75rem 1.1rem;background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:0 12px 24px -4px rgba(0,0,0,.12),0 0 0 1px rgba(0,0,0,.04);font-size:.82rem;min-width:300px;max-width:420px;animation:slideIn .4s cubic-bezier(.16,1,.3,1)}
@@ -888,6 +918,19 @@ Dark Mode
 <button class="btn btn-ghost btn-sm" onclick="clearAdvFilters()" style="margin-top:auto">Clear</button>
 </div>
 </div>
+<!-- Mini upload strip -->
+<div id="contracts-upload-strip" onclick="openUploadOldModal()" ondragover="event.preventDefault();this.classList.add('dragover')" ondragleave="this.classList.remove('dragover')" ondrop="this.classList.remove('dragover');uomHandleDropDirect(event)">
+<div class="strip-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><polyline points="9 15 12 12 15 15"/></svg></div>
+<div>
+<div class="strip-main">Drop PDF contracts here to upload instantly</div>
+<div class="strip-hint">AI auto-detects contract type, party name, dates &amp; value · or click to open upload options with tagging &amp; linking</div>
+</div>
+<div class="strip-actions">
+<span style="font-size:.7rem;background:var(--primary-bg);color:var(--primary);border:1px solid var(--primary-border);border-radius:20px;padding:.2rem .6rem;font-weight:600">PDF · up to 10 files</span>
+<span style="font-size:.7rem;background:var(--green-bg,#d1fae5);color:var(--green,#059669);border:1px solid var(--green-border,#6ee7b7);border-radius:20px;padding:.2rem .6rem;font-weight:600">🤖 AI-powered</span>
+</div>
+</div>
+
 <div class="table-wrap" style="overflow-x:auto"><table>
 <thead><tr>
 <th style="width:32px"><input type="checkbox" id="select-all-cb" onchange="toggleSelectAll(this)" style="width:16px;height:16px;cursor:pointer;accent-color:var(--primary)"></th>
@@ -1847,6 +1890,23 @@ Upload &amp; Create Contracts
 </div>
 </div>
 
+<!-- Drag-anywhere overlay (contracts page) -->
+<div id="drag-anywhere-overlay" ondragover="event.preventDefault()" ondrop="_daoHandleDrop(event)" ondragleave="_daoLeave(event)">
+<div class="dao-box">
+<div class="dao-icon">
+<svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="rgba(99,102,241,.9)" stroke-width="1.5"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><polyline points="9 15 12 12 15 15"/></svg>
+</div>
+<h2>Drop your contracts here</h2>
+<p>AI will auto-detect contract type, extract party name, dates &amp; value, and create draft contracts instantly</p>
+<div class="dao-chips">
+<span class="dao-chip">📄 PDF supported</span>
+<span class="dao-chip">🤖 AI auto-fills metadata</span>
+<span class="dao-chip">⚡ Up to 10 files at once</span>
+<span class="dao-chip">🔗 Link client &amp; vendor contracts</span>
+</div>
+</div>
+</div>
+
 <div class="toast-wrap" id="toast-wrap"></div>
 
 <script src="https://cdn.quilljs.com/1.3.7/quill.min.js"></script>
@@ -1984,6 +2044,19 @@ let data=d.data||[];
 const _seen=new Set();data=data.filter(c=>{if(_seen.has(c.id))return false;_seen.add(c.id);return true});
 if(search){const s=search.toLowerCase();data=data.filter(c=>(c.name||'').toLowerCase().includes(s)||(c.party_name||'').toLowerCase().includes(s))}
 
+const _hasFilter=search||filterStatus||document.getElementById('type-filter')?.value||document.getElementById('f-date-from')?.value||document.getElementById('f-date-to')?.value;
+const _emptyHtml=_hasFilter
+?`<tr><td colspan="11"><div class="empty-state"><div class="icon">&#x1F50D;</div><h3>No contracts match your filters</h3><p>Try clearing the search or filters above</p></div></td></tr>`
+:`<tr><td colspan="11"><div class="contracts-empty-dropzone" id="ced-zone" onclick="openUploadOldModal()" ondragover="event.preventDefault();this.classList.add('dragover')" ondragleave="this.classList.remove('dragover')" ondrop="this.classList.remove('dragover');uomHandleDropDirect(event)">
+<div class="ced-ring"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="1.5" style="opacity:.6"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><polyline points="9 15 12 12 15 15"/></svg></div>
+<h3>No contracts yet — drop PDFs here to get started</h3>
+<p>Drag &amp; drop your existing contract PDFs onto this area. AI will extract party names, dates, values and create draft contracts automatically. Or start fresh with a new contract.</p>
+<div class="ced-options">
+<button class="btn btn-primary" onclick="event.stopPropagation();openUploadOldModal()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="18" x2="12" y2="12"/><polyline points="9 15 12 12 15 15"/><path d="M20.39 18.39A5 5 0 0018 9h-1.26A8 8 0 103 16.3"/></svg> Upload Old Contracts</button>
+<button class="btn btn-outline" onclick="event.stopPropagation();goPage('create')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Create New Contract</button>
+<button class="btn btn-outline" onclick="event.stopPropagation();goPage('templates')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg> Use a Template</button>
+</div>
+</div></td></tr>`;
 document.getElementById('contracts-tbody').innerHTML=data.length?data.map(c=>`<tr class="clickable" onclick="openContract(${c.id})">
 <td onclick="event.stopPropagation()"><input type="checkbox" class="contract-cb" value="${c.id}" onchange="updateBulkSelection()" style="width:16px;height:16px;cursor:pointer;accent-color:var(--primary)"></td>
 <td><strong style="font-weight:600;color:var(--text)">${esc(c.name)}</strong></td>
@@ -1996,7 +2069,7 @@ document.getElementById('contracts-tbody').innerHTML=data.length?data.map(c=>`<t
 <td>${c.end_date||'—'}</td>
 <td style="max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(c.department||'')}">${c.department||'—'}</td>
 <td onclick="event.stopPropagation()"><button class="btn btn-ghost btn-sm" onclick="openContractAudit(${c.id},'${esc(c.name)}')" title="Audit Trail" style="padding:2px 6px;font-size:.68rem;display:flex;align-items:center;gap:3px"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 8v4l3 3"/><circle cx="12" cy="12" r="10"/></svg>Audit</button></td>
-</tr>`).join(''):'<tr><td colspan="11"><div class="empty-state"><div class="icon">&#x1F4C4;</div><h3>No contracts found</h3><p>Create your first contract to get started</p></div></td></tr>';
+</tr>`).join(''):_emptyHtml;
 // Load tags for visible contracts
 data.forEach(c=>loadListTags(c.id));
 
@@ -2645,6 +2718,63 @@ if(failedItems.length){const names=failedItems.map(r=>r.file).join(', ');toast('
 setTimeout(()=>{closeUploadOldModal();loadContracts()},1800);
 }catch(e){toast('Upload failed: '+e.message,'error');status.textContent='Upload failed';btn.disabled=false;btn.innerHTML='Upload & Create Contracts'}
 }
+
+// ═══ DIRECT DROP HELPER (strip + empty state) ═══
+// Instantly upload dropped files without opening the modal
+async function uomHandleDropDirect(e){
+e.preventDefault();
+const files=Array.from(e.dataTransfer?.files||[]).filter(f=>f.name.toLowerCase().endsWith('.pdf'));
+if(!files.length){toast('Please drop PDF files','error');return}
+if(files.length>10){toast('Max 10 PDFs at a time','error');return}
+// Open modal pre-filled with files so user can optionally set type/link before uploading
+_uomFiles=files;
+openUploadOldModal();
+// Show file list in modal
+const listEl=document.getElementById('uom-file-list');
+listEl.style.display='block';
+listEl.innerHTML='<div style="font-size:.72rem;font-weight:600;color:var(--text4);text-transform:uppercase;margin-bottom:.4rem">'+files.length+' file(s) ready to upload</div>'+
+files.map(f=>`<div style="display:flex;align-items:center;gap:.6rem;padding:.4rem .6rem;background:var(--primary-bg);border:1px solid var(--primary-border);border-radius:6px;margin-bottom:.3rem;font-size:.82rem">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(f.name)}">${esc(f.name)}</span>
+<span style="color:var(--text4);font-size:.72rem">${(f.size/1024/1024).toFixed(1)}MB</span>
+</div>`).join('');
+document.getElementById('uom-upload-btn').disabled=false;
+}
+
+// ═══ DRAG-ANYWHERE OVERLAY ═══
+let _daoActive=false,_daoTimeout=null;
+
+function _daoShow(){
+// Only show on contracts page
+if(document.getElementById('pg-contracts')?.style.display==='none')return;
+if(_daoActive)return;
+_daoActive=true;
+document.getElementById('drag-anywhere-overlay').classList.add('active');
+}
+function _daoHide(){
+_daoActive=false;
+document.getElementById('drag-anywhere-overlay').classList.remove('active');
+}
+function _daoLeave(e){
+// Only hide if leaving the overlay itself (not moving to child elements)
+if(e.relatedTarget&&document.getElementById('drag-anywhere-overlay').contains(e.relatedTarget))return;
+_daoHide();
+}
+function _daoHandleDrop(e){
+e.preventDefault();
+_daoHide();
+const files=Array.from(e.dataTransfer?.files||[]).filter(f=>f.name.toLowerCase().endsWith('.pdf'));
+if(!files.length){toast('Please drop PDF files only','error');return}
+uomHandleDropDirect(e);
+}
+
+// Listen for drag entering the page — but only when on contracts page
+document.addEventListener('dragenter',function(e){
+if(!e.dataTransfer?.types?.includes('Files'))return;
+if(document.getElementById('pg-contracts')?.classList.contains('active')){
+_daoShow();
+}
+});
 
 async function aiAutoFill(){const c=document.getElementById('f-content').value.trim();if(!c){toast('Add content first (paste text or upload PDF)','error');return}
 const btn=document.getElementById('ai-fill-btn');btn.disabled=true;btn.innerHTML='<div class="spinner" style="width:14px;height:14px;border-width:2px"></div> Analyzing...';
