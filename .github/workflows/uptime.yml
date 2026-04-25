@@ -1,0 +1,38 @@
+name: Uptime Monitor
+
+on:
+  schedule:
+    # Every 5 minutes
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check health endpoint
+        run: |
+          STATUS=$(curl -s -o /tmp/body.json -w "%{http_code}" https://contract-cli-six.vercel.app/api/health)
+          BODY=$(cat /tmp/body.json)
+          echo "HTTP Status: $STATUS"
+          echo "Response: $BODY"
+          if [ "$STATUS" != "200" ]; then
+            echo "::error::Health check FAILED — HTTP $STATUS — $BODY"
+            exit 1
+          fi
+          DB=$(echo "$BODY" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('db','?'))")
+          if [ "$DB" != "True" ]; then
+            echo "::error::Database is DOWN — response: $BODY"
+            exit 1
+          fi
+          echo "OK — DB: $DB"
+
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "App is DOWN at $(date -u)"
+          # GitHub will automatically send email to repo owner on workflow failure
+          # For Slack/PagerDuty alerts, add webhook URL as a secret and use:
+          # curl -X POST ${{ secrets.SLACK_WEBHOOK }} \
+          #   -H 'Content-type: application/json' \
+          #   -d '{"text":"🚨 EMB CLM is DOWN! Check https://contract-cli-six.vercel.app"}'
